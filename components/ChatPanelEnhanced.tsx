@@ -1,0 +1,1058 @@
+
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { 
+    XMarkIcon, PaperAirplaneIcon, UsersIcon, 
+    MicrophoneIcon, FaceSmileIcon, PaperClipIcon, 
+    PlayIcon, PauseIcon, CameraIcon, SearchIcon,
+    NextIcon, PreviousIcon, VolumeIcon, ChevronDownIcon, ChevronUpIcon,
+    HeartIcon, PhoneIcon, VideoCameraIcon, ArrowLeftIcon, UserIcon, ChatBubbleIcon,
+    BellIcon, NoSymbolIcon, LifeBuoyIcon
+} from './Icons';
+import { ChatMessage, UserProfile, Language, RadioStation, ChatSession, VisualMode } from '../types';
+import AudioVisualizer from './AudioVisualizer';
+import DancingAvatar from './DancingAvatar';
+import { socketService } from '../services/socketService';
+import { encryptionService } from '../services/encryptionService';
+import { TRANSLATIONS, COUNTRIES_DATA } from '../constants';
+
+interface ChatPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+  language: Language;
+  onLanguageChange: (lang: Language) => void;
+  currentUser: UserProfile;
+  onUpdateCurrentUser: (user: UserProfile) => void;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
+  onNextStation: () => void;
+  onPrevStation: () => void;
+  currentStation: RadioStation | null;
+  analyserNode: AnalyserNode | null;
+  volume: number;
+  onVolumeChange: (vol: number) => void;
+  visualMode: VisualMode;
+}
+
+const EMOJIS = [
+    '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💔', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '✨', '⭐', '🌟', '💫', '⚡', '🔥', '💧', '🌈', '☀️', '🌙', '⭐', '🎵', '🎶', '🎤', '🎧', '📷', '📸', '🎬', '🎨', '🎭', '🎪', '🎯', '🎲', '🎰', '🎳'
+];
+
+const AGES = Array.from({ length: 63 }, (_, i) => (i + 18).toString()); 
+
+const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1200;
+                const scaleSize = MAX_WIDTH / img.width;
+                canvas.width = scaleSize < 1 ? MAX_WIDTH : img.width;
+                canvas.height = scaleSize < 1 ? img.height * scaleSize : img.height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+};
+
+interface DrumPickerProps {
+  options: string[];
+  value: string;
+  onChange: (val: string) => void;
+  label: string;
+}
+
+const DrumPicker: React.FC<DrumPickerProps> = ({ options, value, onChange, label }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const itemHeight = 32; 
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const scrollTop = scrollRef.current.scrollTop;
+    const index = Math.round(scrollTop / itemHeight);
+    if (options[index] && options[index] !== value) {
+      onChange(options[index]);
+    }
+  };
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    const index = options.indexOf(value);
+    if (index !== -1) {
+      scrollRef.current.scrollTop = index * itemHeight;
+    }
+  }, [value, options]);
+  return (
+    <div className="flex flex-col gap-1 w-full">
+      <label className="text-[9px] font-bold text-slate-500 uppercase ml-1 tracking-widest">{label}</label>
+      <div className="relative h-24 bg-white/5 border border-white/10 rounded-xl overflow-hidden shadow-inner">
+        <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-[#1e293b] to-transparent z-10 pointer-events-none opacity-50"></div>
+        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-[#1e293b] to-transparent z-10 pointer-events-none opacity-50"></div>
+        <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-8 bg-primary/20 rounded-lg border border-primary/30 pointer-events-none shadow-[0_0_15px_rgba(188,111,241,0.1)]"></div>
+        <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-8" style={{ scrollBehavior: 'smooth' }}>
+          {options.map((opt, i) => (
+            <div key={i} className={`h-8 flex items-center justify-center snap-center transition-all duration-300 text-sm font-bold ${value === opt ? 'text-primary scale-110' : 'text-slate-500 opacity-40'}`}>
+              {opt}
+            </div>
+          ))}
+          <div className="h-32"></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Message TTL countdown component
+const MessageTTLIndicator = ({ timestamp }: { timestamp: number }) => {
+    const [remaining, setRemaining] = useState(60);
+    
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - timestamp) / 1000);
+            const left = Math.max(0, 60 - elapsed);
+            setRemaining(left);
+            if (left === 0) clearInterval(interval);
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [timestamp]);
+    
+    if (remaining > 50) return null; // Only show in last 10 seconds
+    
+    return (
+        <div className="text-[8px] text-red-400 font-bold mt-1 flex items-center gap-1">
+            <span className="animate-pulse">⏱</span>
+            {remaining}s
+        </div>
+    );
+};
+
+// Session Timer Component
+const SessionTimer = ({ expiresAt, onExpire }: { expiresAt: number; onExpire: () => void }) => {
+    const [timeLeft, setTimeLeft] = useState('');
+    const [isUrgent, setIsUrgent] = useState(false);
+
+    useEffect(() => {
+        const updateTimer = () => {
+            const now = Date.now();
+            const diff = expiresAt - now;
+            
+            if (diff <= 0) {
+                setTimeLeft('00:00:00');
+                onExpire();
+                return;
+            }
+            
+            const hours = Math.floor(diff / 3600000);
+            const minutes = Math.floor((diff % 3600000) / 60000);
+            const seconds = Math.floor((diff % 60000) / 1000);
+            
+            setIsUrgent(diff < 300000); // Red if < 5 mins
+            setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+        };
+        
+        const interval = setInterval(updateTimer, 1000);
+        updateTimer();
+        return () => clearInterval(interval);
+    }, [expiresAt]); // Intentionally omitting onExpire to prevent frequent re-binds if it changes
+    
+    return (
+        <div className={`px-3 py-1 rounded-full border ${isUrgent ? 'bg-red-500/20 border-red-500 text-red-200 animate-pulse' : 'bg-white/5 border-white/10 text-slate-300'} font-mono text-xs font-bold`}>
+            {timeLeft}
+        </div>
+    );
+};
+
+const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({ 
+    isOpen, onClose, language, onLanguageChange,
+    currentUser, onUpdateCurrentUser,
+    isPlaying, onTogglePlay, onNextStation, onPrevStation, currentStation, analyserNode,
+    volume, onVolumeChange, visualMode
+}) => {
+  const [view, setView] = useState<'auth' | 'register' | 'search' | 'inbox' | 'chat'>('auth');
+  const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
+  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [activeSessions, setActiveSessions] = useState<Map<string, any>>(new Map());
+  const [activeSession, setActiveSession] = useState<any | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [pendingKnocks, setPendingKnocks] = useState<any[]>([]);
+  
+  const [regName, setRegName] = useState('');
+  const [regAge, setRegAge] = useState('25');
+  const [regCountry, setRegCountry] = useState(COUNTRIES_DATA[0].name);
+  const [regCity, setRegCity] = useState(COUNTRIES_DATA[0].cities[0]);
+  const [regGender, setRegGender] = useState<'male' | 'female' | 'other'>('male');
+  const [regAvatar, setRegAvatar] = useState<string | null>(currentUser.avatar || null);
+  
+  const [searchAgeFrom, setSearchAgeFrom] = useState('Any');
+  const [searchAgeTo, setSearchAgeTo] = useState('Any');
+  const [searchCountry, setSearchCountry] = useState('Any');
+  const [searchCity, setSearchCity] = useState('Any');
+  const [searchGender, setSearchGender] = useState<'any' | 'male' | 'female'>('any');
+  
+  const [sentKnocks, setSentKnocks] = useState<Set<string>>(new Set());
+  const [inputText, setInputText] = useState('');
+  const [isPlayerOpen, setIsPlayerOpen] = useState(true);
+  const [isVolumeOpen, setIsVolumeOpen] = useState(false);
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [isMuted, setIsMuted] = useState(false);
+    const [mutedUntil, setMutedUntil] = useState<number | null>(null);
+    const [showFlagged, setShowFlagged] = useState<Record<string, boolean>>({});
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [profileExpiresAt, setProfileExpiresAt] = useState<number | null>(null);
+  const [expirationWarning, setExpirationWarning] = useState(false);
+  const [violationMessage, setViolationMessage] = useState<string | null>(null);
+  
+  const [regNotificationsEnabled, setRegNotificationsEnabled] = useState(currentUser.chatSettings?.notificationsEnabled ?? true);
+  const [regNotificationVolume, setRegNotificationVolume] = useState(currentUser.chatSettings?.notificationVolume ?? 0.8);
+  const [regNotificationSound, setRegNotificationSound] = useState(currentUser.chatSettings?.notificationSound ?? 'default');
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingIntervalRef = useRef<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
+  const availableCitiesReg = useMemo(() => COUNTRIES_DATA.find(c => c.name === regCountry)?.cities || [], [regCountry]);
+  const availableCitiesSearch = useMemo(() => COUNTRIES_DATA.find(c => c.name === searchCountry)?.cities || [], [searchCountry]);
+
+  useEffect(() => { setRegCity(availableCitiesReg[0]); }, [availableCitiesReg]);
+  useEffect(() => { scrollToBottom(); }, [messages, view]);
+
+  // Socket.IO connection setup
+  useEffect(() => {
+    socketService.connect();
+    
+    // Collect cleanup functions
+    const cleanups: (() => void)[] = [];
+    
+    // Listen for profile expiration warning
+    cleanups.push(socketService.onProfileExpiring((data) => {
+      setExpirationWarning(true);
+      const minutes = Math.floor(data.expiresIn / 60000);
+      alert(`⚠️ ${language === 'ru' ? `Ваш профиль истечет через ${minutes} минут!` : `Your profile expires in ${minutes} minutes!`}`);
+    }));
+    
+    // Listen for profile expiration
+    cleanups.push(socketService.onProfileExpired(() => {
+      alert(language === 'ru' ? '❌ Ваш профиль истек. Пожалуйста, создайте новый.' : '❌ Your profile has expired. Please create a new one.');
+      setView('auth');
+      onUpdateCurrentUser({ ...currentUser, isAuthenticated: false } as UserProfile);
+    }));
+    
+    // Listen for online users
+    cleanups.push(socketService.onPresenceList((users) => {
+      setOnlineUsers(users);
+    }));
+    
+    // Sound effects
+    const playNotificationSound = (type: 'knock' | 'door') => {
+        const { chatSettings } = currentUser;
+        if (!chatSettings.notificationsEnabled) return;
+
+        try {
+            let soundPath = '';
+            if (type === 'door') {
+                soundPath = '/sounds/door_open.mp3';
+            } else {
+                switch (chatSettings.notificationSound) {
+                    case 'soft': soundPath = '/sounds/knock_soft.mp3'; break;
+                    case 'alert': soundPath = '/sounds/knock_alert.mp3'; break;
+                    default: soundPath = '/sounds/knock.mp3';
+                }
+            }
+
+            const audio = new Audio(soundPath);
+            const baseVol = type === 'knock' ? 0.8 : 0.6;
+            audio.volume = baseVol * chatSettings.notificationVolume;
+            audio.play().catch(e => console.error("Audio play failed", e));
+        } catch (err) {
+            console.error("Audio init failed", err);
+        }
+    };
+
+    const playPrivateRoomSound = () => {
+        const { chatSettings } = currentUser;
+        if (!chatSettings.notificationsEnabled) return;
+
+        const audio = new Audio('/sounds/door-creak.mp3');
+        audio.volume = chatSettings.notificationVolume ?? 0.5;
+        audio.play().catch(() => {});
+    };
+    
+    // Listen for incoming knocks
+    cleanups.push(socketService.onKnockReceived((data) => {
+      if (currentUser.blockedUsers.includes(data.fromUserId)) return;
+      playNotificationSound('knock');
+      setPendingKnocks(prev => [...prev, data]);
+    }));
+
+    // RE-REGISTER ON RECONNECT (Fix for server restarts)
+    socketService.onConnect(() => {
+        if (currentUser && currentUser.id && currentUser.isAuthenticated) {
+            console.log("🔄 Re-registering user after reconnect...");
+            socketService.registerUser(currentUser, () => {
+                console.log("✅ User re-registered successfully");
+            });
+        }
+    });
+
+    // Check immediate connection status (for hydration/initial load)
+    if (socketService.isConnected && currentUser && currentUser.id && currentUser.isAuthenticated) {
+         console.log("👤 User state updated, ensuring registration (immediate)...");
+         socketService.registerUser(currentUser, () => {
+             console.log("✅ User registered/updated on server");
+         });
+    }
+    
+    // Listen for session creation
+    cleanups.push(socketService.onSessionCreated((data) => {
+      setActiveSessions(prev => new Map(prev).set(data.sessionId, data));
+      // Auto-open chat if we just accepted a knock
+      setActiveSession(data);
+      playPrivateRoomSound();
+      setView('chat');
+      // Load messages for this session
+      socketService.getMessages(data.sessionId, ({ messages: msgs }) => {
+        const decrypted = msgs.map(msg => ({
+          ...msg,
+          text: msg.messageType === 'text' && msg.encryptedPayload 
+            ? encryptionService.decrypt(msg.encryptedPayload, data.sessionId)
+            : undefined,
+          image: msg.messageType === 'image' && msg.encryptedPayload
+            ? encryptionService.decryptBinary(msg.encryptedPayload, data.sessionId)
+            : undefined,
+          audioBase64: msg.messageType === 'audio' && msg.encryptedPayload
+            ? encryptionService.decryptBinary(msg.encryptedPayload, data.sessionId)
+            : undefined,
+          flagged: msg.metadata?.flagged || false
+        }));
+        setMessages(decrypted);
+      });
+    }));
+    
+    // Listen for new messages
+    cleanups.push(socketService.onMessageReceived((message) => {
+      if (!activeSession || message.sessionId !== activeSession.sessionId) return;
+      if (currentUser.blockedUsers.includes(message.senderId)) return;
+      
+      // Decrypt message
+      const decrypted = {
+        ...message,
+        text: message.messageType === 'text' && message.encryptedPayload 
+          ? encryptionService.decrypt(message.encryptedPayload, message.sessionId)
+          : undefined,
+        image: message.messageType === 'image' && message.encryptedPayload
+          ? encryptionService.decryptBinary(message.encryptedPayload, message.sessionId)
+          : undefined,
+        audioBase64: message.messageType === 'audio' && message.encryptedPayload
+          ? encryptionService.decryptBinary(message.encryptedPayload, message.sessionId)
+          : undefined,
+        flagged: message.metadata?.flagged || false
+      };
+      
+      // Show ALL messages from server (including our own)
+      // Server is the single source of truth
+      setMessages(prev => [...prev, decrypted]);
+      
+      // If our own message was flagged, show warning
+      if (decrypted.senderId === currentUser.id && decrypted.flagged) {
+          const reasonMsg = language === 'ru' 
+            ? `Ваше сообщение было отмечено фильтром: ${decrypted.metadata?.flagReason || 'нарушение'}.`
+            : `Your message was flagged: ${decrypted.metadata?.flagReason || 'violation'}.`;
+          setViolationMessage(reasonMsg);
+          setTimeout(() => setViolationMessage(null), 5000);
+      }
+
+      // Play sound only for messages from others
+      if (message.senderId !== currentUser.id) {
+          playNotificationSound('knock');
+      }
+      
+      scrollToBottom();
+    }));
+    
+    // Listen for message expiration
+    cleanups.push(socketService.onMessagesDeleted((data) => {
+      if (activeSession && data.sessionId === activeSession.sessionId) {
+        setMessages(prev => prev.slice(-data.remainingCount));
+      }
+    }));
+    
+    // Listen for message errors (Moderation)
+    cleanups.push(socketService.addListener('message:error', (data) => {
+        if (data.mutedUntil) {
+            setIsMuted(true);
+            setMutedUntil(data.mutedUntil);
+            alert(language === 'ru' ? 'Вы временно ограничены за спам.' : 'You are temporarily restricted due to spamming.');
+        } else {
+            alert(data.message || 'Error sending message');
+        }
+    }));
+
+    // Listen for registration errors (Bans)
+    cleanups.push(socketService.addListener('user:error', (data) => {
+        alert(`${data.message}\n${data.reason || ''}`);
+        setView('auth');
+    }));
+
+    // Listen for report acknowledgment
+    cleanups.push(socketService.addListener('report:acknowledged', () => {
+        alert(language === 'ru' ? 'Ваша жалоба отправлена на рассмотрение.' : 'Your report has been sent for review.');
+    }));
+
+    return () => {
+      // Cleanup all event listeners (NOT disconnect!)
+      cleanups.forEach(cleanup => cleanup());
+    };
+  }, [currentUser.id, activeSession]);
+
+  // Entry logic: show registration if profile incomplete, otherwise search
+  useEffect(() => {
+    if (currentUser.country && currentUser.age) {
+      // Register user on server
+      socketService.registerUser(currentUser, (data) => {
+        setProfileExpiresAt(data.expiresAt);
+        console.log(`✅ Profile registered. Expires in ${Math.floor(data.ttl / 3600000)} hours`);
+      });
+      setView('search');
+    } else {
+      setView('register');
+    }
+  }, [currentUser.country, currentUser.age]);
+
+  const handleLogin = () => {
+    const mockUser = {
+      id: `user_${Date.now()}`,
+      name: 'Guest',
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`,
+      isAuthenticated: true,
+      age: 0,
+      country: '',
+      city: '',
+      gender: 'other' as const,
+      status: 'online' as const,
+      safetyLevel: 'green' as const,
+      blockedUsers: [],
+      bio: '',
+      hasAgreedToRules: false,
+      filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true }
+    };
+    onUpdateCurrentUser(mockUser as UserProfile);
+  };
+
+  const handleRegistrationComplete = () => {
+    const updatedUser: UserProfile = { 
+      ...currentUser, 
+      name: regName, 
+      avatar: regAvatar,
+      age: parseInt(regAge), 
+      country: regCountry, 
+      city: regCity, 
+      gender: regGender, 
+      hasAgreedToRules: true,
+      chatSettings: {
+        notificationsEnabled: regNotificationsEnabled,
+        notificationVolume: regNotificationVolume,
+        notificationSound: regNotificationSound as 'default' | 'soft' | 'alert'
+      }
+    };
+    onUpdateCurrentUser(updatedUser);
+    localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
+    
+    // Register on server
+    socketService.registerUser(updatedUser, (data) => {
+      setProfileExpiresAt(data.expiresAt);
+      console.log(`✅ Profile created. Expires in 24 hours.`);
+    });
+    
+    setView('search');
+  };
+
+  const handleAvatarSetup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    compressImage(file).then(setRegAvatar);
+  };
+
+  const handleSearch = () => {
+    const filters: any = {};
+    if (searchAgeFrom !== 'Any') filters.minAge = parseInt(searchAgeFrom);
+    if (searchAgeTo !== 'Any') filters.maxAge = parseInt(searchAgeTo);
+    if (searchCountry !== 'Any') filters.country = searchCountry;
+    if (searchCity !== 'Any') filters.city = searchCity;
+    if (searchGender !== 'any') filters.gender = searchGender;
+    
+    socketService.searchUsers(filters, (results) => {
+      setSearchResults(results);
+    });
+  };
+
+  const handleKnock = (targetUser: UserProfile) => {
+    setSentKnocks(prev => new Set(prev).add(targetUser.id));
+    socketService.sendKnock(targetUser.id, () => {
+      console.log(`✅ Knock sent to ${targetUser.name}`);
+    });
+  };
+
+  const handleAcceptKnock = (knock: any) => {
+    socketService.acceptKnock(knock.knockId, knock.fromUserId);
+    setPendingKnocks(prev => prev.filter(k => k.knockId !== knock.knockId));
+  };
+
+  const handleRejectKnock = (knock: any) => {
+    socketService.rejectKnock(knock.knockId, knock.fromUserId);
+    setPendingKnocks(prev => prev.filter(k => k.knockId !== knock.knockId));
+  };
+
+  const handleBlockUser = (userId: string) => {
+    if (!window.confirm(language === 'ru' ? 'Заблокировать пользователя?' : 'Block this user?')) return;
+    
+    const updatedUser = {
+      ...currentUser,
+      blockedUsers: [...currentUser.blockedUsers, userId]
+    };
+    onUpdateCurrentUser(updatedUser);
+    localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
+    
+    if (activeSession && (activeSession.partnerId === userId || activeSession.partnerProfile?.id === userId)) {
+        setView('inbox');
+        setActiveSession(null);
+    }
+  };
+
+  const handleReportUser = (userId: string, messageId?: string) => {
+    const reasons = language === 'ru' 
+        ? ['Спам', 'Угрозы', 'Непристойный контент', 'Другое']
+        : ['Spam', 'Threats', 'Inappropriate Content', 'Other'];
+    
+    const reasonIndex = window.prompt(
+        (language === 'ru' ? 'Выберите причину жалобы:\n' : 'Select a reason for the report:\n') +
+        reasons.map((r, i) => `${i+1}. ${r}`).join('\n')
+    );
+
+    if (reasonIndex && parseInt(reasonIndex) > 0 && parseInt(reasonIndex) <= reasons.length) {
+        socketService.sendReport(userId, reasons[parseInt(reasonIndex) - 1], messageId);
+    }
+  };
+
+  const handleSendMessage = () => {
+    if (!inputText.trim() || !activeSession) {
+        console.warn("Cannot send: Input empty or no active session", { text: inputText, session: activeSession });
+        return;
+    }
+    
+    const textContent = inputText.trim();
+    
+    // Encrypt and send - NO optimistic UI, wait for server confirmation
+    const encrypted = encryptionService.encrypt(textContent, activeSession.sessionId);
+    
+    console.log(`[CLIENT] Sending message to session ${activeSession.sessionId}`);
+    socketService.sendMessage(
+      activeSession.sessionId,
+      encrypted,
+      'text'
+    );
+    
+    setInputText('');
+    // Don't scroll yet - will scroll when message arrives from server
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeSession) return;
+    
+    if (file.size > 2 * 1024 * 1024) {
+      alert(language === 'ru' ? 'Фото не больше 2 МБ' : 'Photo must be under 2MB');
+      return;
+    }
+    
+    try {
+      const compressedBase64 = await compressImage(file);
+      
+      // Encrypt and send - NO optimistic UI, wait for server
+      const encrypted = encryptionService.encryptBinary(compressedBase64, activeSession.sessionId);
+      
+      console.log(`[CLIENT] Sending image to session ${activeSession.sessionId}`);
+      socketService.sendMessage(
+        activeSession.sessionId,
+        encrypted,
+        'image'
+      );
+      
+      // Clear inputs
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+    } catch (error) {
+      console.error("Image compression failed", error);
+    }
+    
+  };
+
+  const startRecording = async (e: React.PointerEvent) => {
+    e.preventDefault();
+    if (isRecording) return;
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      
+      mediaRecorder.onstop = () => {
+        if (audioChunksRef.current.length > 0 && activeSession) {
+          const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+          const reader = new FileReader();
+          reader.readAsDataURL(audioBlob);
+          reader.onloadend = () => {
+            const encrypted = encryptionService.encryptBinary(reader.result as string, activeSession.sessionId);
+            socketService.sendMessage(activeSession.sessionId, encrypted, 'audio');
+          };
+        }
+        stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
+        setRecordingTime(0);
+      };
+      
+      mediaRecorder.start(200);
+      setIsRecording(true);
+      recordingIntervalRef.current = window.setInterval(() => setRecordingTime(p => p + 1), 1000);
+    } catch (err) {
+      console.error('Recording failed', err);
+    }
+  };
+
+  const stopRecording = (e: React.PointerEvent) => {
+    e.preventDefault();
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+    }
+  };
+
+  const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
+  const getPartnerFromSession = (session: any) => onlineUsers.find(u => u.id === session.partnerId) || session.partnerProfile;
+
+  if (!isOpen) return null;
+  const partnerDetails = activeSession ? getPartnerFromSession(activeSession) : null;
+
+  return (
+    <aside className="w-full md:w-[420px] flex flex-col glass-panel border-l border-[var(--panel-border)] shadow-2xl animate-in slide-in-from-right duration-500 bg-[var(--panel-bg)] z-[60] h-full fixed right-0 top-0 bottom-0">
+        <header className="h-16 flex items-center justify-between px-4 border-b border-white/5 bg-transparent shrink-0 relative z-50">
+            {view === 'chat' && partnerDetails ? (
+                <>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <button onClick={() => { setView('inbox'); setActiveSession(null); }} className="p-1.5 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10"><ArrowLeftIcon className="w-5 h-5" /></button>
+                        <img src={partnerDetails.avatar} className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 object-cover" />
+                         <div className="min-w-0 flex-1"><h3 className="font-bold text-sm text-white truncate leading-tight">{partnerDetails.name}</h3><p className="text-[10px] text-green-500 font-bold uppercase tracking-widest leading-tight">{t.online}</p></div>
+                    </div>
+                    
+                    {profileExpiresAt && (
+                        <div className="mr-2 hidden md:block">
+                            <SessionTimer 
+                                expiresAt={profileExpiresAt} 
+                                onExpire={() => {
+                                    alert(language === 'ru' ? 'Время сессии истекло!' : 'Session time expired!');
+                                    window.location.reload();
+                                }} 
+                            />
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-1">
+                        <button onClick={() => handleReportUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-orange-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Пожаловаться' : 'Report'}><LifeBuoyIcon className="w-5 h-5" /></button>
+                        <button onClick={() => handleBlockUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-red-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Заблокировать' : 'Block'}><NoSymbolIcon className="w-5 h-5" /></button>
+                        <button className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full"><PhoneIcon className="w-5 h-5" /></button>
+                        <button className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full"><VideoCameraIcon className="w-5 h-5" /></button>
+                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors ml-1"><XMarkIcon className="w-6 h-6" /></button>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <div className="flex items-center gap-2">
+                        {view !== 'auth' && (
+                            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 backdrop-blur-md">
+                                <button 
+                                    onClick={() => setView('register')} 
+                                    className={`p-2 rounded-xl transition-all duration-300 ${view === 'register' ? 'bg-primary text-white shadow-[0_0_15px_rgba(188,111,241,0.4)]' : 'text-slate-500 hover:text-slate-200'}`}
+                                    title={language === 'ru' ? 'Профиль' : 'Profile'}
+                                >
+                                    <UserIcon className="w-5 h-5" />
+                                </button>
+                                {currentUser.blockedUsers.length > 0 && (
+                                    <button 
+                                        onClick={() => {
+                                            if (window.confirm(language === 'ru' ? 'Разблокировать всех?' : 'Unblock all users?')) {
+                                                const updatedUser = { ...currentUser, blockedUsers: [] };
+                                                onUpdateCurrentUser(updatedUser);
+                                                localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
+                                            }
+                                        }}
+                                        className="p-2 rounded-xl text-red-500 hover:bg-red-500/10 transition-all"
+                                        title={language === 'ru' ? 'Разблокировать' : 'Unblock'}
+                                    >
+                                        <NoSymbolIcon className="w-5 h-5" />
+                                    </button>
+                                )}
+                                <button 
+                                    onClick={() => setView('inbox')} 
+                                    className={`p-2 rounded-xl transition-all duration-300 ${view === 'inbox' ? 'bg-primary text-white shadow-[0_0_15px_rgba(188,111,241,0.4)]' : 'text-slate-500 hover:text-slate-200'}`}
+                                    title={language === 'ru' ? 'Диалоги' : 'Dialogs'}
+                                >
+                                    <div className="relative">
+                                        <ChatBubbleIcon className="w-5 h-5" />
+                                        {pendingKnocks.length > 0 && (
+                                            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-[#1e293b]"></span>
+                                        )}
+                                    </div>
+                                </button>
+                                <button 
+                                    onClick={() => setView('search')} 
+                                    className={`p-2 rounded-xl transition-all duration-300 ${view === 'search' ? 'bg-primary text-white shadow-[0_0_15px_rgba(188,111,241,0.4)]' : 'text-slate-500 hover:text-slate-200'}`}
+                                    title={language === 'ru' ? 'Поиск' : 'Search'}
+                                >
+                                    <UsersIcon className="w-5 h-5" />
+                                </button>
+                            </div>
+                        )}
+                        <div className="flex flex-col ml-1 hidden sm:block">
+                            <h2 className="text-xs font-black tracking-widest text-slate-400 uppercase">
+                                {view === 'search' ? (language === 'ru' ? 'Глобал' : 'Global') : (view === 'inbox' ? (language === 'ru' ? 'Диалоги' : 'Inbox') : (language === 'ru' ? 'Профиль' : 'Profile'))}
+                            </h2>
+                            {!socketService.isConnected && (
+                                <span className="text-[9px] text-red-500 font-bold uppercase animate-pulse">Offline</span>
+                            )}
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full border border-white/5"><XMarkIcon className="w-5 h-5" /></button>
+                </>
+            )}
+        </header>
+
+        <div className="flex-1 overflow-hidden relative flex flex-col bg-transparent">
+            {/* Notification Banner for Pending Knocks */}
+            {pendingKnocks.length > 0 && view !== 'inbox' && (
+                <div className="px-4 py-2 bg-gradient-to-r from-secondary/80 to-primary/80 backdrop-blur-md flex items-center justify-between animate-in slide-in-from-top duration-300 relative z-40 cursor-pointer" onClick={() => setView('inbox')}>
+                    <div className="flex items-center gap-2 text-white">
+                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                        <span className="text-xs font-bold font-mono tracking-tight">
+                            {language === 'ru' 
+                                ? `Новое приглашение от ${pendingKnocks[pendingKnocks.length - 1].fromUser?.name || 'пользователя'}` 
+                                : `New invite from ${pendingKnocks[pendingKnocks.length - 1].fromUser?.name || 'User'}`
+                            }
+                        </span>
+                    </div>
+                    <div className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-black text-white uppercase tracking-widest">
+                        {language === 'ru' ? 'ОТКРЫТЬ' : 'OPEN'}
+                    </div>
+                </div>
+            )}
+
+            {violationMessage && (
+                <div className="px-4 py-2 bg-orange-500/90 text-white text-[10px] font-bold text-center animate-in slide-in-from-top duration-300 relative z-40">
+                    ⚠️ {violationMessage}
+                </div>
+            )}
+
+            {view === 'auth' && (
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in fade-in zoom-in duration-500">
+                    <div className="w-32 h-32 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shadow-[0_0_40px_rgba(188,111,241,0.1)] mb-4"><UsersIcon className="w-16 h-16 text-primary opacity-80" /></div>
+                    <div><p className="text-sm text-slate-400 leading-relaxed max-w-[250px] mx-auto">{t.authDesc}</p></div>
+                    <button onClick={handleLogin} className="flex items-center gap-3 px-6 py-4 bg-white text-black rounded-2xl font-bold text-sm shadow-xl hover:scale-105 transition-transform active:scale-95 w-full justify-center">
+                        {t.signInGuest}
+                    </button>
+                </div>
+            )}
+            
+            {view === 'register' && (
+                <div className="flex-1 flex flex-col p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
+                    <div className="flex justify-between items-start mb-2 shrink-0">
+                        <div className="flex-1">
+                            <h3 className="text-3xl font-black text-white leading-tight">{language === 'ru' ? 'Ред. Профиля' : 'Edit Profile'}</h3>
+                            <p className="text-xs text-slate-400 font-medium">{language === 'ru' ? 'Создайте профиль для общения.' : 'Create a profile to chat.'}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex-1 flex flex-col space-y-6">
+                        {/* Top: Avatar Section */}
+                        <div className="flex justify-center py-2">
+                            <div className="relative group">
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="w-40 h-40 rounded-[2.5rem] bg-slate-800/40 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden transition-all group-hover:border-primary/50 relative cursor-pointer shadow-2xl"
+                                >
+                                    {regAvatar ? (
+                                        <img src={regAvatar} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div style={{ transform: 'scale(1.8)' }} className="w-full h-full flex items-center justify-center opacity-40">
+                                            <DancingAvatar variant="complex" isPlaying={true} />
+                                        </div>
+                                    )}
+                                </div>
+                                <button 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="absolute bottom-2 right-2 w-10 h-10 bg-primary shadow-xl rounded-full flex items-center justify-center border-2 border-[#1e293b] text-white hover:scale-110 transition-transform"
+                                >
+                                    <CameraIcon className="w-5 h-5" />
+                                </button>
+                                <input type="file" ref={fileInputRef} onChange={handleAvatarSetup} className="hidden" accept="image/*" />
+                            </div>
+                        </div>
+
+                        {/* Middle: Name & Gender */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1 mb-1 block tracking-widest">{language === 'ru' ? 'ВАШЕ ИМЯ' : 'NAME'}</label>
+                                <input 
+                                    value={regName} 
+                                    onChange={(e) => setRegName(e.target.value)} 
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all font-bold text-sm"
+                                    placeholder="GuestUser"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1 mb-1 block tracking-widest">{language === 'ru' ? 'ПОЛ' : 'GENDER'}</label>
+                                <div className="flex bg-white/5 rounded-xl p-1 border border-white/5 h-[46px]">
+                                    {(['male', 'female'] as const).map(g => (
+                                        <button 
+                                            key={g} 
+                                            onClick={() => setRegGender(g)} 
+                                            className={`flex-1 rounded-lg text-[10px] font-black transition-all uppercase tracking-tighter ${regGender === g ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white'}`}
+                                        >
+                                            {language === 'ru' ? (g === 'male' ? 'Мужской' : 'Женский') : g}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Bottom: Pickers */}
+                        <div className="grid grid-cols-3 gap-3 pt-2">
+                            <DrumPicker label={language === 'ru' ? 'ВОЗРАСТ' : 'AGE'} options={AGES} value={regAge} onChange={setRegAge} />
+                            <DrumPicker label={language === 'ru' ? 'СТРАНА' : 'COUNTRY'} options={COUNTRIES_DATA.map(c => c.name)} value={regCountry} onChange={setRegCountry} />
+                            <DrumPicker label={language === 'ru' ? 'ГОРОД' : 'CITY'} options={availableCitiesReg} value={regCity} onChange={setRegCity} />
+                        </div>
+
+                        {/* Chat Settings Section */}
+                        <div className="pt-4 border-t border-white/5 space-y-4">
+                            <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{language === 'ru' ? 'Настройки чата' : 'Chat Settings'}</h4>
+                            
+                            <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
+                                <div className="flex items-center gap-3">
+                                    <BellIcon className={`w-5 h-5 ${regNotificationsEnabled ? 'text-primary' : 'text-slate-500'}`} />
+                                    <span className="text-xs font-bold text-white">{language === 'ru' ? 'Уведомления' : 'Notifications'}</span>
+                                </div>
+                                <button 
+                                    onClick={() => setRegNotificationsEnabled(!regNotificationsEnabled)}
+                                    className={`w-10 h-5 rounded-full transition-all relative ${regNotificationsEnabled ? 'bg-primary' : 'bg-slate-700'}`}
+                                >
+                                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${regNotificationsEnabled ? 'right-1' : 'left-1'}`} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center px-1">
+                                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{language === 'ru' ? 'Громкость уведомлений' : 'Notification Volume'}</label>
+                                    <span className="text-[10px] font-mono text-primary">{Math.round(regNotificationVolume * 100)}%</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="0" max="1" step="0.05" 
+                                    value={regNotificationVolume} 
+                                    onChange={(e) => setRegNotificationVolume(parseFloat(e.target.value))}
+                                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest px-1">{language === 'ru' ? 'Звук уведомления' : 'Notification Sound'}</label>
+                                <div className="flex bg-white/5 rounded-xl p-1 border border-white/5">
+                                    {(['default', 'soft', 'alert'] as const).map(s => (
+                                        <button 
+                                            key={s} 
+                                            onClick={() => setRegNotificationSound(s)} 
+                                            className={`flex-1 py-2 rounded-lg text-[10px] font-black transition-all uppercase ${regNotificationSound === s ? 'bg-white/10 text-primary' : 'text-slate-500 hover:text-white'}`}
+                                        >
+                                            {s}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button 
+                        onClick={handleRegistrationComplete} 
+                        className="mt-auto w-full py-5 bg-gradient-to-r from-primary to-secondary text-white rounded-[1.8rem] font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(188,111,241,0.25)] hover:shadow-primary/40 hover:scale-[1.01] active:scale-95 transition-all text-sm mb-4 shrink-0"
+                    >
+                        {language === 'ru' ? 'СОХРАНИТЬ' : 'SAVE'}
+                    </button>
+
+                </div>
+            )}
+
+            {view === 'search' && (
+                <div className="flex-1 flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
+                    <div className="p-6 overflow-y-auto no-scrollbar pb-20">
+                        <div className="space-y-4 mb-8">
+                            <h3 className="text-xl font-black text-white text-center mb-4">{t.findFriends}</h3>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{language === 'ru' ? 'Возраст от' : 'Age from'}</label>
+                                    <select value={searchAgeFrom} onChange={(e) => setSearchAgeFrom(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-white text-xs outline-none appearance-none font-bold">
+                                        <option value="Any" className="bg-slate-900">{t.any}</option>
+                                        {AGES.map(a => <option key={a} value={a} className="bg-slate-900">{a}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{language === 'ru' ? 'до' : 'to'}</label>
+                                    <select value={searchAgeTo} onChange={(e) => setSearchAgeTo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-white text-xs outline-none appearance-none font-bold">
+                                        <option value="Any" className="bg-slate-900">{t.any}</option>
+                                        {AGES.map(a => <option key={a} value={a} className="bg-slate-900">{a}</option>)}
+                                    </select>
+                                </div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{t.country}</label><select value={searchCountry} onChange={(e) => setSearchCountry(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-white text-xs outline-none appearance-none font-bold"><option value="Any" className="bg-slate-900">{t.any}</option>{COUNTRIES_DATA.map(c => <option key={c.name} value={c.name} className="bg-slate-900">{c.name}</option>)}</select></div>
+                                <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{t.city}</label><select value={searchCity} onChange={(e) => setSearchCity(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-white text-xs outline-none appearance-none font-bold"><option value="Any" className="bg-slate-900">{t.any}</option>{availableCitiesSearch.map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}</select></div>
+                                <div className="col-span-2">
+                                    <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{t.gender}</label>
+                                    <div className="flex bg-white/5 rounded-xl p-1">
+                                        {(['any', 'male', 'female'] as const).map(g => (
+                                            <button key={g} onClick={() => setSearchGender(g)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all uppercase ${searchGender === g ? 'bg-primary text-white' : 'text-slate-400'}`}>{g === 'any' ? t.any : t[g]}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <button onClick={handleSearch} className="w-full py-3.5 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-lg hover:scale-105 active:scale-95 transition-all text-xs flex items-center justify-center gap-2"><SearchIcon className="w-4 h-4" /> {t.search}</button>
+                        </div>
+                        <div className="space-y-3">
+                            {(searchResults.length > 0 ? searchResults : onlineUsers).map(user => (
+                                <div key={user.id} className="p-3 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-white/10 transition-colors animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="relative"><img src={user.avatar || ''} className="w-12 h-12 rounded-xl object-cover bg-slate-800" /><div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-[#1e293b] ${user.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`}></div></div>
+                                    <div className="flex-1 min-w-0"><h5 className="font-bold text-sm text-white truncate">{user.name}</h5><p className="text-[10px] text-slate-400 font-medium">{user.age} • {user.city}</p></div>
+                                    {user.id === currentUser.id ? (
+                                        <div className="px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-lg text-green-500 text-[10px] font-black uppercase tracking-widest shadow-inner">
+                                            {t.online}
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => handleKnock(user)} disabled={sentKnocks.has(user.id)} className={`px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all ${sentKnocks.has(user.id) ? 'bg-green-500/20 text-green-500' : 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg'}`}>{sentKnocks.has(user.id) ? t.knockSent : t.knock}</button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {view === 'inbox' && (
+                <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 animate-in slide-in-from-right duration-300">
+                    {pendingKnocks.length > 0 && (
+                        <div className="space-y-3 mb-4">
+                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-secondary pl-2 mb-2">{t.knocking} ({pendingKnocks.length})</h4>
+                            {pendingKnocks.map(knock => {
+                                const details = knock.fromUser;
+                                return (
+                                    <div key={knock.knockId} className="p-3 bg-white/5 border border-secondary/30 rounded-2xl flex items-center gap-3">
+                                        <img src={details?.avatar} className="w-10 h-10 rounded-full border border-white/10" />
+                                        <div className="flex-1 min-w-0"><h5 className="font-bold text-sm text-white truncate">{details?.name}</h5><p className="text-[10px] text-slate-400">{t.wantsToConnect}</p></div>
+                                        <div className="flex gap-2"><button onClick={() => handleRejectKnock(knock)} className="p-2 bg-white/5 rounded-full text-slate-400 hover:text-red-400 transition-colors"><XMarkIcon className="w-4 h-4" /></button><button onClick={() => handleAcceptKnock(knock)} className="p-2 bg-secondary text-white rounded-full hover:scale-110 transition-transform shadow-lg"><HeartIcon className="w-4 h-4" filled /></button></div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <div className="space-y-2">
+                        <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 pl-2 mb-2">{t.myDialogs}</h4>
+                        {Array.from(activeSessions.values()).map(session => {
+                            const partner = getPartnerFromSession(session);
+                            return (
+                                <div key={session.sessionId} onClick={() => { setActiveSession(session); setView('chat'); }} className="p-4 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-[1.5rem] flex items-center gap-4 cursor-pointer transition-all active:scale-98 bg-white/[0.02]">
+                                    <div className="relative"><img src={partner?.avatar} className="w-14 h-14 rounded-2xl object-cover bg-slate-800" /><div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 border-2 border-[#1e293b] rounded-full"></div></div>
+                                    <div className="flex-1 min-w-0"><h5 className="font-bold text-sm text-white truncate">{partner?.name}</h5><p className="text-xs text-slate-400 truncate opacity-70 font-medium">Online</p></div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {view === 'chat' && activeSession && (
+                <div className="flex-1 flex flex-col h-full relative">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar pb-32">
+                        <div className="text-center py-6"><span className="text-[10px] bg-white/5 px-3 py-1 rounded-full text-slate-500 uppercase font-bold tracking-widest">{t.today}</span></div>
+                        {messages.map(msg => {
+                            const isMsgFlagged = msg.flagged && !showFlagged[msg.id];
+                            return (
+                             <div key={msg.id} className={`flex ${msg.senderId === currentUser.id ? 'justify-end' : 'justify-start'} group animate-in slide-in-from-bottom-2 duration-300`}>
+                                <div className={`max-w-[85%] p-3 rounded-2xl text-sm shadow-sm backdrop-blur-md transition-all ${msg.senderId === currentUser.id ? 'bg-primary/20 border border-white/10 text-white rounded-tr-sm' : 'bg-white/5 border border-white/5 text-white rounded-tl-sm'} ${isMsgFlagged ? 'opacity-40 grayscale blur-[1px]' : ''}`}>
+                                    {isMsgFlagged ? (
+                                        <div className="flex flex-col items-center gap-2 py-1">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-orange-400">{language === 'ru' ? 'СОДЕРЖАНИЕ ФИЛЬТРУЕТСЯ' : 'CONTENT FILTERED'}</p>
+                                            <button 
+                                                onClick={() => setShowFlagged(prev => ({ ...prev, [msg.id]: true }))}
+                                                className="text-[9px] font-bold underline text-white/60 hover:text-white"
+                                            >
+                                                {language === 'ru' ? 'Показать' : 'Show Anyway'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+                                            {msg.image && <div className="relative"><img src={msg.image} className="rounded-xl max-w-full mt-1 object-cover" /></div>}
+                                            {msg.audioBase64 && (
+                                                <div className="flex items-center gap-3 py-1 min-w-[160px] pr-2">
+                                                    <button onClick={() => new Audio(msg.audioBase64).play()} className="p-2.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors shrink-0"><PlayIcon className="w-4 h-4" /></button>
+                                                    <div className="flex-1 flex flex-col justify-center gap-1"><div className="h-1 bg-white/30 w-full rounded-full overflow-hidden relative"><div className="absolute inset-0 bg-white/60 w-1/3"></div></div><span className="text-[9px] uppercase font-bold opacity-70">0:05</span></div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                    <div className={`text-[9px] mt-1 font-bold flex justify-end items-center gap-1 ${msg.senderId === currentUser.id ? 'text-white/60' : 'text-slate-500'}`}>
+                                        {new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                        {msg.senderId === currentUser.id && <span className="text-[10px]">✓</span>}
+                                        {msg.senderId !== currentUser.id && (
+                                            <button onClick={() => handleReportUser(msg.senderId, msg.id)} className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-orange-400">!</button>
+                                        )}
+                                    </div>
+                                    <MessageTTLIndicator timestamp={msg.timestamp} />
+                                </div>
+                             </div>
+                            );
+                        })}
+                        <div ref={messagesEndRef} className="h-2" />
+                    </div>
+                </div>
+            )}
+        </div>
+
+        {view === 'chat' && activeSession && (
+            <div className="p-3 bg-transparent border-t border-white/5 shrink-0 relative z-40 pb-6 backdrop-blur-md">
+                {isRecording && (<div className="absolute inset-x-2 -top-16 h-14 bg-red-600/90 backdrop-blur-md rounded-2xl flex items-center justify-between px-6 text-white animate-in slide-in-from-bottom border border-red-400/30 shadow-2xl z-50"><div className="flex items-center gap-3"><div className="w-3 h-3 bg-white rounded-full animate-ping"></div><span className="font-bold text-xs uppercase tracking-widest">{recordingTime}s {t.recording}</span></div><button onPointerUp={stopRecording} className="text-[10px] font-black bg-white text-red-600 px-4 py-2 rounded-xl hover:scale-105 transition-transform shadow-lg">{t.send}</button></div>)}
+                {showEmojiPicker && (<div className="absolute bottom-24 left-2 right-2 bg-[#1e293b] p-3 rounded-[2rem] h-64 overflow-y-auto no-scrollbar grid grid-cols-8 gap-1 border border-white/10 shadow-2xl z-50 animate-in slide-in-from-bottom-5">{EMOJIS.map(e => <button key={e} onClick={() => { setInputText(p => p + e); setShowEmojiPicker(false); }} className="text-2xl hover:bg-white/10 rounded-lg p-1 transition-colors">{e}</button>)}</div>)}
+                <div className="flex items-end gap-2"><button onClick={() => fileInputRef.current?.click()} className="p-3 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors active:scale-90"><PaperClipIcon className="w-6 h-6" /></button><div className="flex-1 bg-white/5 border border-white/5 rounded-[1.5rem] flex items-center px-2 min-h-[50px] hover:bg-white/10 transition-all"><input value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSendMessage()} placeholder={language === 'ru' ? 'Сообщение...' : 'Message...'} className="flex-1 bg-transparent border-none outline-none py-3 px-3 text-sm text-white placeholder:text-slate-500 font-medium" /><button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-slate-400 hover:text-yellow-400 transition-colors active:scale-90"><FaceSmileIcon className="w-6 h-6" /></button><button onClick={() => cameraInputRef.current?.click()} className="p-2 text-slate-400 hover:text-white transition-colors active:scale-90 mr-1"><CameraIcon className="w-6 h-6" /></button></div>{inputText.trim() ? (<button onClick={handleSendMessage} className="p-3 bg-primary/40 border border-white/10 text-white rounded-full shadow-lg hover:bg-primary/60 active:scale-95 transition-all"><PaperAirplaneIcon className="w-6 h-6" /></button>) : (<button onPointerDown={startRecording} onPointerUp={stopRecording} onPointerLeave={isRecording ? stopRecording : undefined} className={`p-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse scale-110' : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'}`}><MicrophoneIcon className="w-6 h-6" /></button>)}</div>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} /><input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
+            </div>
+        )}
+
+        <div className="px-4 py-3 bg-[var(--player-bar-bg)] border-t border-[var(--panel-border)] relative shrink-0 z-30">
+            <div className="flex items-center justify-between mb-1"><div className="flex items-center gap-3 w-full"><button onClick={() => setIsVolumeOpen(!isVolumeOpen)} className={`p-2 rounded-xl transition-all ${isVolumeOpen ? 'text-primary bg-primary/10' : 'text-slate-400 hover:text-white'}`}><VolumeIcon className="w-5 h-5" /></button><div className="h-8 flex-1 bg-black/30 rounded-lg overflow-hidden relative border border-white/5 flex items-center justify-center"><AudioVisualizer analyserNode={analyserNode} isPlaying={isPlaying} variant="segmented" settings={{ scaleX: 1, scaleY: 1, brightness: 100, contrast: 100, saturation: 100, hue: 0, opacity: 0.4, speed: 1, autoIdle: false, performanceMode: true, energySaver: false }} /><div className="absolute inset-0 flex items-center justify-between px-3"><span className="text-[9px] font-black text-white truncate max-w-[100px]">{currentStation?.name || 'Radio'}</span>{isPlaying && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>}</div></div><button onClick={() => setIsPlayerOpen(!isPlayerOpen)} className="p-2 text-slate-400 hover:text-white">{isPlayerOpen ? <ChevronDownIcon className="w-5 h-5" /> : <ChevronUpIcon className="w-5 h-5" />}</button></div></div>
+            {isVolumeOpen && (<div className="absolute left-4 bottom-16 z-50 bg-[#0f172a] p-3 rounded-xl border border-white/10 shadow-2xl animate-in slide-in-from-bottom-2"><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => onVolumeChange(parseFloat(e.target.value))} className="w-32 h-1 accent-primary cursor-pointer" /></div>)}
+            {isPlayerOpen && (<div className="flex items-center justify-center gap-6 py-2 animate-in slide-in-from-top-2"><button onClick={onPrevStation} className="text-slate-400 hover:text-white transition-colors"><PreviousIcon className="w-5 h-5" /></button><button onClick={onTogglePlay} className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-all">{isPlaying ? <PauseIcon className="w-5 h-5" /> : <PlayIcon className="w-5 h-5 ml-0.5" />}</button><button onClick={onNextStation} className="text-slate-400 hover:text-white transition-colors"><NextIcon className="w-5 h-5" /></button></div>)}
+        </div>
+    </aside>
+  );
+};
+
+export default ChatPanelEnhanced;

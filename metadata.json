@@ -1,0 +1,8 @@
+{
+  "name": "StreamFlowPro",
+  "description": "Global Stateless Real-Time Communication Hub.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

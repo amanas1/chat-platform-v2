@@ -1,0 +1,36 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependencies - Ignore EVERYWHERE
+node_modules/
+**/node_modules/
+package-lock.json
+**/package-lock.json
+
+# Build outputs
+dist/
+build/
+.cache/
+
+# Environment variables
+.env
+*.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Project specific
+server/data/*.json
+!server/data/.gitkeep
+server/server.log
+
+# Re-include server folder but keep node_modules excluded
+!server/
+# (Note: **/node_modules/ above handles the exclusion inside server/ now)
