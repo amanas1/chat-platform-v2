@@ -284,6 +284,18 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
      };
   }, [callStatus]);
 
+  // Audio Stream Effect
+  useEffect(() => {
+    if (remoteStream) {
+        console.log("[UI] Setting remote stream to audio element", remoteStream.getTracks());
+        const audioEl = document.getElementById('remote-audio') as HTMLAudioElement;
+        if (audioEl) {
+            audioEl.srcObject = remoteStream;
+            audioEl.play().catch(e => console.error("Auto-play failed", e));
+        }
+    }
+  }, [remoteStream]);
+
   // Socket.IO connection setup
   useEffect(() => {
     socketService.connect();
@@ -601,7 +613,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     socketService.rejectKnock(knock.knockId, knock.fromUserId);
     setPendingKnocks(prev => prev.filter(k => k.knockId !== knock.knockId));
   };
-
+  
   const handleBlockUser = (userId: string) => {
     if (!window.confirm(language === 'ru' ? 'Заблокировать пользователя?' : 'Block this user?')) return;
     
@@ -824,7 +836,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           const pc = createPeerConnection(partner.id);
           peerConnectionRef.current = pc;
           
-          stream.getTracks().forEach(track => pc.addTrack(track, stream));
+          
+          stream.getTracks().forEach(track => {
+              console.log("[WEBRTC] Adding track:", track.kind);
+              pc.addTrack(track, stream);
+          });
           
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
@@ -846,7 +862,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           localStreamRef.current = stream;
           
           const pc = peerConnectionRef.current;
-          stream.getTracks().forEach(track => pc.addTrack(track, stream));
+          stream.getTracks().forEach(track => {
+              console.log("[WEBRTC] Adding track (answer):", track.kind);
+              pc.addTrack(track, stream);
+          });
           
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
@@ -1393,17 +1412,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 {/* Invisible audio element for remote stream */}
                 <audio 
                     id="remote-audio"
-                    ref={el => { 
-                        if(el && remoteStream) {
-                            console.log("[UI] Attaching remote stream to audio element", remoteStream.active);
-                            el.srcObject = remoteStream; 
-                            el.play().catch(e => console.error("Audio Play Error:", e));
-                        }
-                    }} 
                     autoPlay 
                     playsInline 
                     controls={true}
-                    style={{ opacity: 0, position: 'absolute', pointerEvents: 'none', height: 0, width: 0 }}
+                    style={{ opacity: 0.1, position: 'absolute', pointerEvents: 'none', height: '1px', width: '1px', bottom: 0, right: 0, zIndex: -1 }}
                 />
             </div>
         )}
