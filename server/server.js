@@ -404,6 +404,18 @@ io.on('connection', (socket) => {
     socket.emit('report:acknowledged', { success: true });
   });
 
+  // WEBRTC SIGNALING RELAY
+  socket.on('webrtc:signal', ({ targetUserId, signal }) => {
+    if (!boundUserId) return;
+    const targetUser = activeUsers.get(targetUserId);
+    if (targetUser && targetUser.socketId) {
+      io.to(targetUser.socketId).emit('webrtc:signal', {
+        fromUserId: boundUserId,
+        signal
+      });
+    }
+  });
+
   // GET MESSAGES for a session
   socket.on('messages:get', ({ sessionId }) => {
     if (!boundUserId) return;

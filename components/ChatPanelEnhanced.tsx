@@ -214,6 +214,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [regNotificationVolume, setRegNotificationVolume] = useState(currentUser.chatSettings?.notificationVolume ?? 0.8);
   const [regNotificationSound, setRegNotificationSound] = useState(currentUser.chatSettings?.notificationSound ?? 'default');
   
+  // Call State
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'connected'>('idle');
+  const [callPartner, setCallPartner] = useState<UserProfile | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<number | null>(null);
@@ -397,6 +405,43 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     cleanups.push(socketService.onMessagesDeleted((data) => {
       if (activeSession && data.sessionId === activeSession.sessionId) {
         setMessages(prev => prev.slice(-data.remainingCount));
+      }
+    }));
+    
+    // Listen for WebRTC signals
+    cleanups.push(socketService.onSignalReceived(async ({ fromUserId, signal }) => {
+      if (currentUser.blockedUsers.includes(fromUserId)) return;
+      
+      if (signal.type === 'offer') {
+         // Incoming call
+         if (callStatus !== 'idle') {
+             // Busy? For now just ignore or auto-reject
+             return;
+         }
+         
+         const partner = onlineUsers.find(u => u.id === fromUserId);
+         if (partner) {
+             setCallPartner(partner);
+             setCallStatus('ringing');
+             // Play ringtone?
+             playNotificationSound('knock'); // Reuse knock for now or add ringtone
+             
+             // Setup peer connection for answer
+             const pc = createPeerConnection(fromUserId);
+             peerConnectionRef.current = pc;
+             await pc.setRemoteDescription(new RTCSessionDescription(signal));
+         }
+      } else if (signal.type === 'answer') {
+          if (callStatus === 'calling' && peerConnectionRef.current) {
+              await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signal));
+              setCallStatus('connected');
+          }
+      } else if (signal.candidate) {
+          if (peerConnectionRef.current) {
+              await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
+          }
+      } else if (signal.type === 'bye') {
+          endCall(false);
       }
     }));
     
@@ -666,6 +711,100 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }
   };
 
+  // --- WebRTC Logic ---
+  const createPeerConnection = (targetUserId: string) => {
+      const pc = new RTCPeerConnection({
+          iceServers: [
+              { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:global.stun.twilio.com:3478' }
+          ]
+      });
+      
+      pc.onicecandidate = (event) => {
+          if (event.candidate) {
+              socketService.sendSignal(targetUserId, { candidate: event.candidate });
+          }
+      };
+      
+      pc.ontrack = (event) => {
+          setRemoteStream(event.streams[0]);
+      };
+      
+      return pc;
+  };
+
+  const initiateCall = async () => {
+      if (!activeSession) return;
+      const partner = getPartnerFromSession(activeSession);
+      if (!partner) return;
+      
+      try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          setLocalStream(stream);
+          localStreamRef.current = stream;
+          setCallPartner(partner);
+          setCallStatus('calling');
+          
+          const pc = createPeerConnection(partner.id);
+          peerConnectionRef.current = pc;
+          
+          stream.getTracks().forEach(track => pc.addTrack(track, stream));
+          
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          
+          socketService.sendSignal(partner.id, { type: 'offer', sdp: offer.sdp });
+      } catch (err) {
+          console.error("Call init failed", err);
+          alert("Could not access microphone");
+      }
+  };
+
+  const acceptCall = async () => {
+      if (!callPartner || !peerConnectionRef.current) return;
+      
+      try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          setLocalStream(stream);
+          localStreamRef.current = stream;
+          
+          const pc = peerConnectionRef.current;
+          stream.getTracks().forEach(track => pc.addTrack(track, stream));
+          
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          
+          socketService.sendSignal(callPartner.id, { type: 'answer', sdp: answer.sdp });
+          setCallStatus('connected');
+      } catch (err) {
+          console.error("Answer failed", err);
+          endCall();
+      }
+  };
+  
+  const endCall = (notify = true) => {
+      if (notify && callPartner) {
+          socketService.sendSignal(callPartner.id, { type: 'bye' });
+      }
+      
+      if (peerConnectionRef.current) {
+          peerConnectionRef.current.close();
+          peerConnectionRef.current = null;
+      }
+      
+      if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach(t => t.stop());
+          localStreamRef.current = null;
+      }
+      
+      setLocalStream(null);
+      setRemoteStream(null);
+      setCallStatus('idle');
+      setCallPartner(null);
+  };
+
+  // --- End WebRTC ---
+
   const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
   const getPartnerFromSession = (session: any) => onlineUsers.find(u => u.id === session.partnerId) || session.partnerProfile;
 
@@ -698,7 +837,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     <div className="flex items-center gap-1">
                         <button onClick={() => handleReportUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-orange-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Пожаловаться' : 'Report'}><LifeBuoyIcon className="w-5 h-5" /></button>
                         <button onClick={() => handleBlockUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-red-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Заблокировать' : 'Block'}><NoSymbolIcon className="w-5 h-5" /></button>
-                        <button className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full"><PhoneIcon className="w-5 h-5" /></button>
+                        <button onClick={initiateCall} className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full"><PhoneIcon className="w-5 h-5" /></button>
                         <button className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full"><VideoCameraIcon className="w-5 h-5" /></button>
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors ml-1"><XMarkIcon className="w-6 h-6" /></button>
                     </div>
@@ -1122,6 +1261,44 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             {isVolumeOpen && (<div className="absolute left-4 bottom-16 z-50 bg-[#0f172a] p-3 rounded-xl border border-white/10 shadow-2xl animate-in slide-in-from-bottom-2"><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => onVolumeChange(parseFloat(e.target.value))} className="w-32 h-1 accent-primary cursor-pointer" /></div>)}
             {isPlayerOpen && (<div className="flex items-center justify-center gap-6 py-2 animate-in slide-in-from-top-2"><button onClick={onPrevStation} className="text-slate-400 hover:text-white transition-colors"><PreviousIcon className="w-5 h-5" /></button><button onClick={onTogglePlay} className="w-10 h-10 bg-white text-black rounded-full flex items-center justify-center shadow-lg hover:scale-105 transition-all">{isPlaying ? <PauseIcon className="w-5 h-5" /> : <PlayIcon className="w-5 h-5 ml-0.5" />}</button><button onClick={onNextStation} className="text-slate-400 hover:text-white transition-colors"><NextIcon className="w-5 h-5" /></button></div>)}
         </div>
+
+        {/* CALL OVERLAY */}
+         {callStatus !== 'idle' && callPartner && (
+            <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
+                <div className="relative mb-8">
+                    <img src={callPartner.avatar} className="w-32 h-32 rounded-full object-cover border-4 border-white/10 shadow-2xl animate-pulse" />
+                     {callStatus === 'connected' && <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 rounded-full border-2 border-black animate-ping"></div>}
+                </div>
+                
+                <h2 className="text-2xl font-bold text-white mb-2">{callPartner.name}</h2>
+                <p className="text-sm text-slate-400 uppercase tracking-widest mb-12 animate-pulse">
+                    {callStatus === 'calling' ? 'Calling...' : 
+                     callStatus === 'ringing' ? 'Incoming Call...' : 
+                     'Connected'}
+                </p>
+                
+                <div className="flex items-center gap-8">
+                    {callStatus === 'ringing' ? (
+                        <>
+                            <button onClick={() => endCall(true)} className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-red-500/30">
+                                <PhoneIcon className="w-8 h-8 rotate-[135deg]" />
+                            </button>
+                            <button onClick={acceptCall} className="w-16 h-16 rounded-full bg-green-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-green-500/30 animate-bounce">
+                                <PhoneIcon className="w-8 h-8" />
+                            </button>
+                        </>
+                    ) : (
+                        <button onClick={() => endCall(true)} className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-red-500/30">
+                             <PhoneIcon className="w-8 h-8 rotate-[135deg]" />
+                        </button>
+                    )}
+                </div>
+                
+                {/* Invisible audio element for remote stream */}
+                <audio ref={el => { if(el && remoteStream) el.srcObject = remoteStream; }} autoPlay />
+            </div>
+        )}
+
     </aside>
   );
 };

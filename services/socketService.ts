@@ -239,6 +239,18 @@ class SocketService {
       this.socket.removeAllListeners();
     }
   }
+
+  // WebRTC Signaling
+  sendSignal(targetUserId: string, signal: any) {
+    if (!this.socket) return;
+    this.socket.emit('webrtc:signal', { targetUserId, signal });
+  }
+
+  onSignalReceived(callback: (data: { fromUserId: string; signal: any }) => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('webrtc:signal', callback);
+    return () => this.socket?.off('webrtc:signal', callback);
+  }
 }
 
 export const socketService = new SocketService();
