@@ -876,9 +876,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       console.log(`[CALL] Calling partner: ${partner.name} (${partner.id})`);
       
       try {
-          console.log("[CALL] Requesting microphone access...");
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-          console.log("[CALL] Microphone access granted");
+          console.log("[CALL] Requesting camera & microphone access...");
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          console.log("[CALL] Access granted");
           
           setLocalStream(stream);
           localStreamRef.current = stream;
@@ -888,21 +888,19 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           const pc = createPeerConnection(partner.id);
           peerConnectionRef.current = pc;
           
-          
           stream.getTracks().forEach(track => {
               console.log("[WEBRTC] Adding track:", track.kind);
               pc.addTrack(track, stream);
           });
 
-          
-          const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
+          const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
           await pc.setLocalDescription(offer);
           
           console.log("[CALL] Sending offer signal");
           socketService.sendSignal(partner.id, { type: 'offer', sdp: offer.sdp });
       } catch (err) {
           console.error("[CALL] Call init failed", err);
-          alert("Could not access microphone: " + err);
+          alert("Could not access camera/microphone: " + err);
       }
   };
 
@@ -910,7 +908,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       if (!callPartner || !peerConnectionRef.current) return;
       
       try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
           setLocalStream(stream);
           localStreamRef.current = stream;
           
@@ -1413,51 +1411,75 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
         {/* CALL OVERLAY */}
          {callStatus !== 'idle' && callPartner && (
-            <div className="absolute inset-0 z-[100] bg-black/80 backdrop-blur-xl flex flex-col items-center justify-center animate-in fade-in duration-300">
-                <div className="relative mb-8">
-                    <img src={callPartner.avatar} className="w-32 h-32 rounded-full object-cover border-4 border-white/10 shadow-2xl animate-pulse" />
-                     {callStatus === 'connected' && <div className="absolute bottom-0 right-0 w-6 h-6 bg-green-500 rounded-full border-2 border-black animate-ping"></div>}
-                </div>
+            <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center animate-in fade-in duration-300">
                 
-                <h2 className="text-2xl font-bold text-white mb-2">{callPartner.name}</h2>
-                <div id="call-debug" className="text-[10px] items-center text-slate-500 font-mono mb-2 bg-black/40 px-2 py-1 rounded hidden md:block">
-                    Init...
-                </div>
-                <p className="text-sm text-slate-400 uppercase tracking-widest mb-8 animate-pulse">
-                    {callStatus === 'calling' ? 'Calling...' : 
-                     callStatus === 'ringing' ? 'Incoming Call...' : 
-                     'Connected'}
-                </p>
+                {/* Remote Video (Full Screen) */}
+                <video 
+                    id="remote-video"
+                    autoPlay 
+                    playsInline 
+                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${callStatus === 'connected' ? 'opacity-100' : 'opacity-0'}`}
+                />
+                
+                {/* Local Video (PIP) */}
+                {localStream && (
+                    <div className="absolute top-4 right-4 w-32 h-48 bg-black rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl z-20">
+                        <video 
+                            ref={v => { if(v) v.srcObject = localStream }}
+                            autoPlay 
+                            playsInline 
+                            muted // Always mute local video to prevent echo
+                            className="w-full h-full object-cover mirror-mode" 
+                            style={{ transform: 'scaleX(-1)' }}
+                        />
+                    </div>
+                )}
+
+                <div className="relative z-10 flex flex-col items-center">
+                    {callStatus !== 'connected' && (
+                        <div className="mb-8 relative">
+                            <img src={callPartner.avatar} className="w-32 h-32 rounded-full object-cover border-4 border-white/10 shadow-2xl animate-pulse" />
+                            <div className="absolute -bottom-2 -right-2 bg-black/50 px-3 py-1 rounded-full text-[10px] font-mono text-white/70 backdrop-blur-md">
+                                {callStatus === 'calling' ? 'Calling...' : 'Ringing...'}
+                            </div>
+                        </div>
+                    )}
+                    
+                    <h2 className={`text-2xl font-bold text-white mb-2 text-shadow ${callStatus === 'connected' ? 'opacity-0 hover:opacity-100 transition-opacity' : ''}`}>{callPartner.name}</h2>
+                    
+                    <div id="call-debug" className="text-[10px] items-center text-white/50 font-mono mb-4 bg-black/40 px-2 py-1 rounded hidden md:block backdrop-blur-md">
+                        Init...
+                    </div>
                 
                 {callStatus === 'connected' && (
                     <button 
                         onClick={() => {
-                            const audioEl = document.getElementById('remote-audio') as HTMLAudioElement;
-                            if (audioEl && remoteStream) {
+                            const videoEl = document.getElementById('remote-video') as HTMLVideoElement;
+                            if (videoEl && remoteStream) {
                                 console.log("[UI] Manually re-attaching stream and playing");
-                                audioEl.srcObject = null;
+                                videoEl.srcObject = null;
                                 setTimeout(() => {
-                                    audioEl.srcObject = remoteStream;
-                                    audioEl.play().then(() => alert(`Audio playing! Tracks: ${remoteStream.getAudioTracks().length}`)).catch(e => alert("Play error: " + e));
+                                    videoEl.srcObject = remoteStream;
+                                    videoEl.play().then(() => alert(`Video playing! Tracks: ${remoteStream.getVideoTracks().length}`)).catch(e => alert("Play error: " + e));
                                 }, 100);
                             } else {
                                 alert("No stream found! (Wait for connection)");
                             }
                         }}
-                        className="mb-8 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 rounded-full text-xs font-bold text-black uppercase transition-colors animate-bounce shadow-lg shadow-cyan-500/20"
+                        className="mb-8 px-6 py-3 bg-cyan-500 hover:bg-cyan-400 rounded-full text-xs font-black text-black uppercase transition-all shadow-[0_0_20px_rgba(6,182,212,0.5)] hover:scale-105 z-50 animate-bounce"
                     >
-                        🔊 Force Audio (V3)
+                        📸 ENABLE VIDEO / AUDIO
                     </button>
                 )}
                 
-                <div className="flex items-center gap-8">
+                <div className="flex items-center gap-8 relative z-20">
                     {callStatus === 'ringing' ? (
                         <>
                             <button onClick={() => endCall(true)} className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-red-500/30">
                                 <PhoneIcon className="w-8 h-8 rotate-[135deg]" />
                             </button>
                             <button onClick={acceptCall} className="w-16 h-16 rounded-full bg-green-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-green-500/30 animate-bounce">
-                                <PhoneIcon className="w-8 h-8" />
+                                <VideoCameraIcon className="w-8 h-8" />
                             </button>
                         </>
                     ) : (
@@ -1467,15 +1489,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     )}
                 </div>
                 
-                
-                {/* Invisible audio element for remote stream */}
-                <audio 
-                    id="remote-audio"
-                    autoPlay 
-                    playsInline 
-                    controls={true}
-                    style={{ opacity: 0.1, position: 'absolute', pointerEvents: 'none', height: '1px', width: '1px', bottom: 0, right: 0, zIndex: -1 }}
-                />
+                {/* Fallback Audio Element (just in case) */}
+                <audio id="remote-audio" autoPlay className="hidden" />
             </div>
         )}
 
