@@ -455,11 +455,37 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
          // Incoming call
          if (callStatus !== 'idle') return;
          
-         // Try to find partner in online users OR active sessions
+         // Try to find partner in online users OR active sessions OR pending knocks
          let partner = onlineUsers.find(u => u.id === fromUserId);
          if (!partner) {
              const session = Array.from(activeSessions.values()).find(s => s.partnerId === fromUserId);
-             if (session) partner =  session.partnerProfile || getPartnerFromSession(session);
+             if (session) partner = session.partnerProfile || getPartnerFromSession(session);
+         }
+         
+         // Fallback: Look in pending knocks or create temporary profile
+         if (!partner) {
+             const knock = pendingKnocks.find(k => k.fromUserId === fromUserId);
+             if (knock && knock.fromUser) {
+                 partner = knock.fromUser;
+             } else {
+                 // Final fallback so call works even if user info missing
+                 partner = {
+                     id: fromUserId,
+                     name: 'Incoming Call...',
+                     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=unknown',
+                     age: 0,
+                     country: 'Unknown',
+                     city: '',
+                     gender: 'other',
+                     status: 'online',
+                     safetyLevel: 'green',
+                     blockedUsers: [],
+                     bio: '',
+                     hasAgreedToRules: true,
+                     isAuthenticated: true,
+                     filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true }
+                 };
+             }
          }
 
          if (partner) {
@@ -1424,7 +1450,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         }}
                         className="mb-8 px-4 py-2 bg-white/10 rounded-full text-xs font-bold text-white uppercase hover:bg-white/20 transition-colors animate-bounce"
                     >
-                        🔊 Tap if no sound
+                        🔊 Fix Audio (v2)
                     </button>
                 )}
                 
