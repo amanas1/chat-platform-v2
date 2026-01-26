@@ -1065,7 +1065,54 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             <div className="p-3 bg-transparent border-t border-white/5 shrink-0 relative z-40 pb-6 backdrop-blur-md">
                 {isRecording && (<div className="absolute inset-x-2 -top-16 h-14 bg-red-600/90 backdrop-blur-md rounded-2xl flex items-center justify-between px-6 text-white animate-in slide-in-from-bottom border border-red-400/30 shadow-2xl z-50"><div className="flex items-center gap-3"><div className="w-3 h-3 bg-white rounded-full animate-ping"></div><span className="font-bold text-xs uppercase tracking-widest">{recordingTime}s {t.recording}</span></div><button onPointerUp={stopRecording} className="text-[10px] font-black bg-white text-red-600 px-4 py-2 rounded-xl hover:scale-105 transition-transform shadow-lg">{t.send}</button></div>)}
                 {showEmojiPicker && (<div className="absolute bottom-24 left-2 right-2 bg-[#1e293b] p-3 rounded-[2rem] h-64 overflow-y-auto no-scrollbar grid grid-cols-8 gap-1 border border-white/10 shadow-2xl z-50 animate-in slide-in-from-bottom-5">{EMOJIS.map(e => <button key={e} onClick={() => { setInputText(p => p + e); setShowEmojiPicker(false); }} className="text-2xl hover:bg-white/10 rounded-lg p-1 transition-colors">{e}</button>)}</div>)}
-                <div className="flex items-end gap-2"><button onClick={() => fileInputRef.current?.click()} className="p-3 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors active:scale-90"><PaperClipIcon className="w-6 h-6" /></button><div className="flex-1 bg-white/5 border border-white/5 rounded-[1.5rem] flex items-center px-2 min-h-[50px] hover:bg-white/10 transition-all"><input value={inputText} onChange={e => setInputText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSendMessage()} placeholder={language === 'ru' ? 'Сообщение...' : 'Message...'} className="flex-1 bg-transparent border-none outline-none py-3 px-3 text-sm text-white placeholder:text-slate-500 font-medium" /><button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className="p-2 text-slate-400 hover:text-yellow-400 transition-colors active:scale-90"><FaceSmileIcon className="w-6 h-6" /></button><button onClick={() => cameraInputRef.current?.click()} className="p-2 text-slate-400 hover:text-white transition-colors active:scale-90 mr-1"><CameraIcon className="w-6 h-6" /></button></div>{inputText.trim() ? (<button onClick={handleSendMessage} className="p-3 bg-primary/40 border border-white/10 text-white rounded-full shadow-lg hover:bg-primary/60 active:scale-95 transition-all"><PaperAirplaneIcon className="w-6 h-6" /></button>) : (<button onPointerDown={startRecording} onPointerUp={stopRecording} onPointerLeave={isRecording ? stopRecording : undefined} className={`p-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse scale-110' : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'}`}><MicrophoneIcon className="w-6 h-6" /></button>)}</div>
+                <div className="flex items-center gap-1.5 md:gap-2">
+                    <button 
+                        onClick={() => fileInputRef.current?.click()} 
+                        className="p-2 md:p-3 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors active:scale-90 shrink-0"
+                    >
+                        <PaperClipIcon className="w-5 h-5 md:w-6 h-6" />
+                    </button>
+                    
+                    <div className="flex-1 min-w-0 bg-white/5 border border-white/5 rounded-[1.5rem] flex items-center px-1.5 md:px-2 min-h-[46px] md:min-h-[50px] hover:bg-white/10 transition-all">
+                        <input 
+                            value={inputText} 
+                            onChange={e => setInputText(e.target.value)} 
+                            onKeyDown={e => e.key === 'Enter' && handleSendMessage()} 
+                            placeholder={language === 'ru' ? 'Сообщение...' : 'Message...'} 
+                            className="flex-1 min-w-0 bg-transparent border-none outline-none py-2 md:py-3 px-2 md:px-3 text-sm text-white placeholder:text-slate-500 font-medium" 
+                        />
+                        <button 
+                            onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
+                            className="p-1.5 md:p-2 text-slate-400 hover:text-yellow-400 transition-colors active:scale-90 shrink-0"
+                        >
+                            <FaceSmileIcon className="w-5 h-5 md:w-6 h-6" />
+                        </button>
+                        <button 
+                            onClick={() => cameraInputRef.current?.click()} 
+                            className="p-1.5 md:p-2 text-slate-400 hover:text-white transition-colors active:scale-90 shrink-0"
+                        >
+                            <CameraIcon className="w-5 h-5 md:w-6 h-6" />
+                        </button>
+                    </div>
+                    
+                    {inputText.trim() ? (
+                        <button 
+                            onClick={handleSendMessage} 
+                            className="p-2.5 md:p-3 bg-primary/40 border border-white/10 text-white rounded-full shadow-lg hover:bg-primary/60 active:scale-95 transition-all shrink-0"
+                        >
+                            <PaperAirplaneIcon className="w-5 h-5 md:w-6 h-6" />
+                        </button>
+                    ) : (
+                        <button 
+                            onPointerDown={startRecording} 
+                            onPointerUp={stopRecording} 
+                            onPointerLeave={isRecording ? stopRecording : undefined} 
+                            className={`p-2.5 md:p-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all shrink-0 ${isRecording ? 'bg-red-500 text-white animate-pulse scale-110' : 'bg-white/5 border border-white/10 text-slate-300 hover:bg-white/10'}`}
+                        >
+                            <MicrophoneIcon className="w-5 h-5 md:w-6 h-6" />
+                        </button>
+                    )}
+                </div>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} /><input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
             </div>
         )}
