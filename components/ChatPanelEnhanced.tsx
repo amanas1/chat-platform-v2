@@ -438,7 +438,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           }
       } else if (signal.candidate) {
           if (peerConnectionRef.current) {
-              await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
+              try {
+                  await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
+              } catch (e) {
+                  console.warn("ICE Candidate error (ignoring):", e);
+              }
           }
       } else if (signal.type === 'bye') {
           endCall(false);
@@ -716,18 +720,26 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       const pc = new RTCPeerConnection({
           iceServers: [
               { urls: 'stun:stun.l.google.com:19302' },
+              { urls: 'stun:stun1.l.google.com:19302' },
+              { urls: 'stun:stun2.l.google.com:19302' },
               { urls: 'stun:global.stun.twilio.com:3478' }
           ]
       });
       
       pc.onicecandidate = (event) => {
           if (event.candidate) {
+              console.log("[WEBRTC] Sending ICE Candidate");
               socketService.sendSignal(targetUserId, { candidate: event.candidate });
           }
       };
       
       pc.ontrack = (event) => {
+          console.log("[WEBRTC] Received Remote Track via ontrack");
           setRemoteStream(event.streams[0]);
+      };
+      
+      pc.onconnectionstatechange = () => {
+          console.log("[WEBRTC] Connection State:", pc.connectionState);
       };
       
       return pc;
@@ -1307,8 +1319,21 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     )}
                 </div>
                 
+                
                 {/* Invisible audio element for remote stream */}
-                <audio ref={el => { if(el && remoteStream) el.srcObject = remoteStream; }} autoPlay />
+                <audio 
+                    ref={el => { 
+                        if(el && remoteStream) {
+                            console.log("[UI] Attaching remote stream to audio element", remoteStream.active);
+                            el.srcObject = remoteStream; 
+                            el.play().catch(e => console.error("Audio Play Error:", e));
+                        }
+                    }} 
+                    autoPlay 
+                    playsInline 
+                    controls={true}
+                    style={{ opacity: 0, position: 'absolute', pointerEvents: 'none' }}
+                />
             </div>
         )}
 
