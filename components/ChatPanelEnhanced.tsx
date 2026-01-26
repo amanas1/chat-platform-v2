@@ -299,15 +299,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             console.error("Audio init failed", err);
         }
     };
-
-    const playPrivateRoomSound = () => {
-        const { chatSettings } = currentUser;
-        if (!chatSettings.notificationsEnabled) return;
-
-        const audio = new Audio('/sounds/door-creak.mp3');
-        audio.volume = chatSettings.notificationVolume ?? 0.5;
-        audio.play().catch(() => {});
-    };
     
     // Listen for incoming knocks
     cleanups.push(socketService.onKnockReceived((data) => {
@@ -339,7 +330,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       setActiveSessions(prev => new Map(prev).set(data.sessionId, data));
       // Auto-open chat if we just accepted a knock
       setActiveSession(data);
-      playPrivateRoomSound();
+      playNotificationSound('door');
       setView('chat');
       // Load messages for this session
       socketService.getMessages(data.sessionId, ({ messages: msgs }) => {
