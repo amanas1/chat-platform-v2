@@ -282,7 +282,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         try {
             let soundPath = '';
             if (type === 'door') {
-                soundPath = '/sounds/door_open.mp3';
+                soundPath = '/sounds/door-creak.mp3';
             } else {
                 switch (chatSettings.notificationSound) {
                     case 'soft': soundPath = '/sounds/knock_soft.mp3'; break;
