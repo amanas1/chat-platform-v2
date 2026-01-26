@@ -868,8 +868,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
               console.log("[WEBRTC] Adding track:", track.kind);
               pc.addTrack(track, stream);
           });
-              pc.addTrack(track, stream);
-          });
+
           
           const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
           await pc.setLocalDescription(offer);
