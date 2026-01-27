@@ -374,10 +374,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       if (currentUser.blockedUsers.includes(data.fromUserId)) return;
       playNotificationSound('knock');
       setPendingKnocks(prev => [...prev, data]);
-      // DEBUG: Force alert on mobile to prove receipt
-      if (window.innerWidth < 768) {
-          alert(`🔔 KNOCK RECEIVED from ${data.fromUser?.name || 'User'}!`);
-      }
     }));
 
     // RE-REGISTER ON RECONNECT (Fix for server restarts)
