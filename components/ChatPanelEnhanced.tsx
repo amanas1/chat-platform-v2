@@ -1290,7 +1290,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </button>
                             </div>
                         )}
-                        <div className="flex flex-col ml-1 hidden sm:block">
+                        <div className="flex flex-col ml-1 block">
                             <h2 className="text-xs font-black tracking-widest text-slate-400 uppercase flex items-center gap-2">
                                 {view === 'search' ? (
                                     <>
