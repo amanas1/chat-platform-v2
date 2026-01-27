@@ -6,7 +6,7 @@ import {
     PlayIcon, PauseIcon, CameraIcon, SearchIcon,
     NextIcon, PreviousIcon, VolumeIcon, ChevronDownIcon, ChevronUpIcon,
     HeartIcon, PhoneIcon, VideoCameraIcon, ArrowLeftIcon, UserIcon, ChatBubbleIcon,
-    BellIcon, NoSymbolIcon, LifeBuoyIcon
+    BellIcon, NoSymbolIcon, LifeBuoyIcon, SpeakIcon
 } from './Icons';
 import { ChatMessage, UserProfile, Language, RadioStation, ChatSession, VisualMode } from '../types';
 import AudioVisualizer from './AudioVisualizer';
@@ -211,6 +211,12 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [violationMessage, setViolationMessage] = useState<string | null>(null);
   
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
+  const voiceModeRef = useRef(false);
+  
+  useEffect(() => {
+    voiceModeRef.current = voiceModeEnabled;
+  }, [voiceModeEnabled]);
+
   const [regNotificationsEnabled, setRegNotificationsEnabled] = useState(currentUser.chatSettings?.notificationsEnabled ?? true);
   const [regNotificationVolume, setRegNotificationVolume] = useState(currentUser.chatSettings?.notificationVolume ?? 0.8);
   const [regNotificationSound, setRegNotificationSound] = useState(currentUser.chatSettings?.notificationSound ?? 'default');
@@ -456,7 +462,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           playNotificationSound('knock');
           
           // Voice Mode: Read incoming message
-          if (decrypted.text && voiceModeEnabled) {
+          if (decrypted.text && voiceModeRef.current) {
               // Get partner gender
               let partnerGender = 'other';
               if (activeSession) {
@@ -467,7 +473,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           }
       } else {
           // Voice Mode: Read outgoing message
-          if (decrypted.text && voiceModeEnabled) {
+          if (decrypted.text && voiceModeRef.current) {
               speakMessage(decrypted.text, currentUser.gender);
           }
       }
@@ -596,41 +602,51 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
     // AI Voice Mode Helper
     const speakMessage = (text: string, gender: string) => {
-        if (!voiceModeEnabled || !('speechSynthesis' in window)) return;
+        if (!voiceModeRef.current || !('speechSynthesis' in window)) return;
+        
+        console.log(`[VOICE] Prepared to speak: "${text.substring(0, 20)}..." for gender: ${gender}`);
         
         // Cancel any ongoing speech
         window.speechSynthesis.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
         
-        // Find best voice (prioritizing RHVoice if available)
+        // Find best voice
         const voices = window.speechSynthesis.getVoices();
-        let selectedVoice = null;
+        if (voices.length === 0) {
+            console.warn("[VOICE] No voices found yet, waiting for system...");
+            return;
+        }
 
-        // Scoring system for voices: 우선순위: Russian/English high quality voices
+        // Scoring system for voices: приоритет русский, затем подходящий пол
         const sortedVoices = [...voices].sort((a, b) => {
             const aLang = a.lang.toLowerCase();
             const bLang = b.lang.toLowerCase();
-            if (aLang.includes('ru') && !bLang.includes('ru')) return -1;
-            if (!aLang.includes('ru') && bLang.includes('ru')) return 1;
+            const aIsRu = aLang.includes('ru');
+            const bIsRu = bLang.includes('ru');
+            
+            if (aIsRu && !bIsRu) return -1;
+            if (!aIsRu && bIsRu) return 1;
             return 0;
         });
 
-        // Filter by gender keywords if possible
+        // Filter by gender keywords
         const genderVoice = sortedVoices.find(v => {
             const name = v.name.toLowerCase();
             if (gender === 'female') {
-                return name.includes('elena') || name.includes('irina') || name.includes('anna') || name.includes('female');
+                return name.includes('elena') || name.includes('irina') || name.includes('anna') || name.includes('female') || name.includes('milena') || name.includes('katya');
             } else if (gender === 'male') {
-                return name.includes('aleksandr') || name.includes('pavel') || name.includes('male');
+                return name.includes('aleksandr') || name.includes('pavel') || name.includes('male') || name.includes('yuri') || name.includes('maxim');
             }
             return false;
         });
 
         utterance.voice = genderVoice || sortedVoices.find(v => v.lang.includes('ru')) || sortedVoices[0];
-        utterance.rate = 1.1;
+        utterance.rate = 1.0;
         utterance.pitch = gender === 'female' ? 1.1 : 0.9;
+        utterance.volume = 1.0;
         
+        console.log(`[VOICE] Speaking with voice: ${utterance.voice?.name}`);
         window.speechSynthesis.speak(utterance);
     };
 
@@ -1155,11 +1171,19 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         <button onClick={() => handleReportUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-orange-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Пожаловаться' : 'Report'}><LifeBuoyIcon className="w-5 h-5" /></button>
                         <button onClick={() => handleBlockUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-red-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Заблокировать' : 'Block'}><NoSymbolIcon className="w-5 h-5" /></button>
                         <button 
-                            onClick={() => setVoiceModeEnabled(!voiceModeEnabled)} 
-                            className={`p-2.5 transition-all rounded-full ${voiceModeEnabled ? 'text-primary bg-primary/10 shadow-[0_0_15px_rgba(188,111,241,0.2)]' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                            onClick={() => {
+                                const newState = !voiceModeEnabled;
+                                setVoiceModeEnabled(newState);
+                                // Mobile Unlock: speak brief empty string on gesture
+                                if (newState && 'speechSynthesis' in window) {
+                                    const u = new SpeechSynthesisUtterance("");
+                                    window.speechSynthesis.speak(u);
+                                }
+                            }} 
+                            className={`p-2.5 transition-all rounded-full ${voiceModeEnabled ? 'text-primary bg-primary/10 shadow-[0_0_20px_rgba(188,111,241,0.3)]' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
                             title={language === 'ru' ? (voiceModeEnabled ? 'Выключить живую озвучку' : 'Включить живую озвучку') : (voiceModeEnabled ? 'Disable Live Voice' : 'Enable Live Voice')}
                         >
-                            <MicrophoneIcon className={`w-5 h-5 ${voiceModeEnabled ? 'animate-pulse' : ''}`} />
+                            <SpeakIcon className={`w-5 h-5 ${voiceModeEnabled ? 'animate-pulse' : ''}`} />
                         </button>
                         <button onClick={() => {
                           if (partnerDetails) {

@@ -284,3 +284,9 @@ export const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
   </svg>
 );
+
+export const SpeakIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zm-2.625 6c.517 0 .938.42.938.937s-.42.938-.938.938-.937-.42-.937-.938.42-.937.937-.937zm5.25 0c.517 0 .938.42.938.937s-.42.938-.938.938-.937-.42-.937-.938.42-.937.937-.937zM12 18c-3.105 0-5.625-2.52-5.625-5.625h11.25C17.625 15.48 15.105 18 12 18z" />
+  </svg>
+);
