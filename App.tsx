@@ -276,7 +276,11 @@ export default function App(): React.JSX.Element {
   const initAudioContext = useCallback(() => {
     if (audioContextRef.current) return;
     try {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
+        // Optimization for Bluetooth: 'playback' latency hint reduces stuttering on wireless devices
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ 
+            sampleRate: 44100,
+            latencyHint: 'playback'
+        });
         audioContextRef.current = ctx;
         if (!audioRef.current) return;
         const source = ctx.createMediaElementSource(audioRef.current);
@@ -620,6 +624,10 @@ export default function App(): React.JSX.Element {
         });
       }
 
+      // Explicitly tell the system if we are playing or paused
+      // This is crucial for Bluetooth speakers to correctly show the button state (Play vs Pause)
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
       navigator.mediaSession.setActionHandler('play', togglePlay);
       navigator.mediaSession.setActionHandler('pause', togglePlay);
       navigator.mediaSession.setActionHandler('previoustrack', handlePreviousStation);
@@ -633,7 +641,7 @@ export default function App(): React.JSX.Element {
         navigator.mediaSession.setActionHandler('nexttrack', null);
       };
     }
-  }, [currentStation, togglePlay, handleNextStation, handlePreviousStation]);
+  }, [currentStation, isPlaying, togglePlay, handleNextStation, handlePreviousStation]);
 
   const loadCategory = useCallback(async (category: CategoryInfo | null, mode: ViewMode, autoPlay: boolean = false) => { 
     const requestId = Date.now();
