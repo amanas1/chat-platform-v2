@@ -2,7 +2,61 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
 const moderation = require('./moderation');
+
+// ... (other constants)
+
+// Email Transporter (Configure with Env Vars)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER || 'streamflow.notifications@gmail.com', // Fallback or Env
+        pass: process.env.EMAIL_PASS || 'your-app-password'
+    }
+});
+
+// ... (server setup)
+
+  // FEEDBACK
+  socket.on('feedback:send', async ({ rating, message }) => {
+    console.log(`[FEEDBACK] Rating: ${rating}, Msg: ${message}`);
+    
+    // 1. Respond to user immediately (don't wait for email)
+    socket.emit('feedback:received', { success: true });
+    
+    // 2. Send Email in background
+    try {
+        const mailOptions = {
+            from: '"StreamFlow Bot" <streamflow.notifications@gmail.com>',
+            to: 'amanas5535332@gmail.com',
+            subject: `⭐️ New Feedback: ${rating} Stars`,
+            html: `
+                <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #6366f1;">New Feedback Received</h2>
+                    <p><strong>Rating:</strong> ${'⭐️'.repeat(rating)} (${rating}/5)</p>
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <p style="margin: 0; color: #374151;">${message || 'No written message.'}</p>
+                    </div>
+                    <p style="font-size: 12px; color: #9ca3af;">Sent via StreamFlow App • User ID: ${boundUserId || 'Anonymous'}</p>
+                </div>
+            `
+        };
+
+        if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+             const info = await transporter.sendMail(mailOptions);
+             console.log('[EMAIL] Feedback sent:', info.messageId);
+        } else {
+             console.log('[EMAIL] Skipped sending (No credentials in .env)');
+             console.log('--- EMAIL CONTENT PREVIEW ---');
+             console.log(mailOptions.html);
+             console.log('-----------------------------');
+        }
+
+    } catch (error) {
+        console.error('[EMAIL] Failed to send feedback:', error);
+    }
+  });
 
 const app = express();
 app.use(cors());
