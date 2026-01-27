@@ -1470,8 +1470,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 <div className="col-span-2">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{t.gender}</label>
                                     <div className="flex bg-white/5 rounded-xl p-1">
-                                        {(['any', 'male', 'female'] as const).map(g => (
-                                            <button key={g} onClick={() => setSearchGender(g)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all uppercase ${searchGender === g ? 'bg-primary text-white' : 'text-slate-400'}`}>{g === 'any' ? t.any : t[g]}</button>
+                                        {(['male', 'female'] as const).map(g => (
+                                            <button key={g} onClick={() => setSearchGender(searchGender === g ? 'any' : g)} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all uppercase ${searchGender === g ? 'bg-primary text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>{t[g]}</button>
                                         ))}
                                     </div>
                                 </div>
