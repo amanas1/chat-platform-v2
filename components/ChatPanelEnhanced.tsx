@@ -1258,7 +1258,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         )}
                         <div className="flex flex-col ml-1 hidden sm:block">
                             <h2 className="text-xs font-black tracking-widest text-slate-400 uppercase">
-                                {view === 'search' ? (language === 'ru' ? 'Глобал' : 'Global') : (view === 'inbox' ? (language === 'ru' ? 'Диалоги' : 'Inbox') : (language === 'ru' ? 'Профиль' : 'Profile'))}
+                                {view === 'search' ? (language === 'ru' ? 'Глобал' : 'Global') : (view === 'inbox' ? (language === 'ru' ? 'Диалоги' : 'Inbox') : '')}
                             </h2>
                             {!socketService.isConnected && (
                                 <span className="text-[9px] text-red-500 font-bold uppercase animate-pulse">Offline</span>
@@ -1307,10 +1307,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             
             {view === 'register' && (
                 <div className="flex-1 flex flex-col p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
-                    <div className="flex justify-between items-start mb-2 shrink-0">
-                        <div className="flex-1">
-                            <h3 className="text-3xl font-black text-white leading-tight">{language === 'ru' ? 'Ред. Профиля' : 'Edit Profile'}</h3>
-                            <p className="text-xs text-slate-400 font-medium">{language === 'ru' ? 'Создайте профиль для общения.' : 'Create a profile to chat.'}</p>
+                    <div className="flex justify-center mb-6 shrink-0">
+                        <div className="text-center">
+                            <h3 className="text-2xl font-black text-white leading-tight uppercase tracking-widest">{language === 'ru' ? 'Ваш профиль' : 'Your Profile'}</h3>
                         </div>
                     </div>
                     
@@ -1374,8 +1373,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             <DrumPicker label={language === 'ru' ? 'ГОРОД' : 'CITY'} options={availableCitiesReg} value={regCity} onChange={setRegCity} />
                         </div>
 
+                        <button 
+                            onClick={handleRegistrationComplete} 
+                            className="w-full py-4 bg-gradient-to-r from-primary to-secondary text-white rounded-[1.5rem] font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(188,111,241,0.25)] hover:shadow-primary/40 hover:scale-[1.01] active:scale-95 transition-all text-xs"
+                        >
+                            {language === 'ru' ? 'СОХРАНИТЬ' : 'SAVE'}
+                        </button>
+
                         {/* Chat Settings Section */}
-                        <div className="pt-4 border-t border-white/5 space-y-4">
+                        <div className="pt-6 border-t border-white/5 space-y-4">
                             <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">{language === 'ru' ? 'Настройки чата' : 'Chat Settings'}</h4>
                             
                             <div className="flex items-center justify-between bg-white/5 p-3 rounded-xl border border-white/5">
@@ -1421,14 +1427,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             </div>
                         </div>
                     </div>
-                    
-                    <button 
-                        onClick={handleRegistrationComplete} 
-                        className="mt-auto w-full py-5 bg-gradient-to-r from-primary to-secondary text-white rounded-[1.8rem] font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(188,111,241,0.25)] hover:shadow-primary/40 hover:scale-[1.01] active:scale-95 transition-all text-sm mb-4 shrink-0"
-                    >
-                        {language === 'ru' ? 'СОХРАНИТЬ' : 'SAVE'}
-                    </button>
-
                 </div>
             )}
 
