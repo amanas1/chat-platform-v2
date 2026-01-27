@@ -389,25 +389,32 @@ export default function App(): React.JSX.Element {
         audioRef.current.play().catch(() => {});
 
         // Set 3-second timeout to check if station is "alive"
+        // If it fails to play in 3s, remove it and skip to next
         loadTimeoutRef.current = window.setTimeout(() => {
-            const isRu = language === 'ru';
-            setAiNotification(isRu ? `Удаляю медленную станцию: ${station.name}` : `Removing slow station: ${station.name}`);
+            console.warn(`[RADIO] Station ${station.name} is too slow. Filtering and skipping.`);
             
-            // Remove the slow station from the current list
-            setStations(prev => prev.filter(s => s.stationuuid !== station.stationuuid));
+            setStations(prev => {
+                const currentIndex = prev.findIndex(s => s.stationuuid === station.stationuuid);
+                const newList = prev.filter(s => s.stationuuid !== station.stationuuid);
+                
+                if (newList.length > 0) {
+                    // Try to play next station in the list
+                    const nextIndex = currentIndex % newList.length;
+                    setTimeout(() => handlePlayStation(newList[nextIndex]), 10);
+                }
+                return newList;
+            });
             
-            // Stop current playback attempt
             if (audioRef.current) {
                 audioRef.current.pause();
                 audioRef.current.src = "";
             }
             setIsPlaying(false);
             setIsBuffering(false);
-
-            setTimeout(() => setAiNotification(null), 3000);
         }, 3000);
     }
-  }, [initAudioContext, fxSettings.speed, language]);
+  }, [initAudioContext, fxSettings.speed]);
+  // Removed language from dependency because we no longer use it for notifications here
 
   useEffect(() => {
     const checkAlarm = setInterval(() => {
