@@ -11,24 +11,7 @@ interface CacheEntry {
 }
 
 // HQ Hardcoded Fallback (128k+)
-const HARDCODED_STATIONS: RadioStation[] = [
-    {
-        changeuuid: 'nature-radio-rain-hq',
-        stationuuid: 'nature-radio-rain-hq',
-        name: 'Nature Radio Rain (HQ)',
-        url: 'https://cdn.pixabay.com/download/audio/2022/07/04/audio_3d69af9730.mp3',
-        url_resolved: 'https://cdn.pixabay.com/download/audio/2022/07/04/audio_3d69af9730.mp3',
-        homepage: 'https://zeno.fm/radio/nature-radio-rain/',
-        favicon: 'https://d3403e54c2.clvaw-cdnwnd.com/5e297b47565c697c4596102607590202/200000033-2592525926/nature-radio-logo-2.png',
-        tags: 'nature,rain,ambient,sleep,relaxation',
-        country: 'Global',
-        state: '',
-        language: 'English',
-        votes: 1000000, 
-        codec: 'MP3',
-        bitrate: 192 // Marked as HQ
-    }
-];
+const HARDCODED_STATIONS: RadioStation[] = [];
 
 // Islamic Stations (Checked for 128k quality)
 const HARDCODED_ISLAMIC: RadioStation[] = [
@@ -226,12 +209,35 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
       // 3. Permanent Blocklist
       if (BLOCKED_NAMES.some(n => station.name.includes(n))) continue;
 
-      // 4. Filter moved stations if NOT in Islamic category
+      // 4. Strict Religious Filtering (Global for all categories except 'islamic'/'muslim')
       if (currentTag !== 'islamic' && currentTag !== 'muslim') {
-          if (MOVED_TO_ISLAMIC_NAMES.some(n => station.name === n || station.name.includes(n))) continue;
+          const t = (station.tags || '').toLowerCase();
+          const n = station.name.toLowerCase();
+
+          // Move MOVED_TO_ISLAMIC_NAMES check here
+          if (MOVED_TO_ISLAMIC_NAMES.some(name => n === name.toLowerCase() || n.includes(name.toLowerCase()))) continue;
+
+          // Extended Religious Keyword List
+          const RELIGIOUS_KEYWORDS = [
+              'islam', 'quran', 'koran', 'muslim', 'sheikh', 'imam', 'allah', 'prophet', // Islamic
+              'religio', 'catholic', 'christian', 'church', 'bible', 'vatican', 'gospel', // Other religious (general cleanup)
+              'worship', 'prayer', 'spirit', 'orthodox', 'chant', 'sermon', 'messianic', 'torah',
+              'radio maria', 'esperance', 'vatican'
+          ];
+
+          if (RELIGIOUS_KEYWORDS.some(kw => t.includes(kw) || n.includes(kw))) {
+              console.log(`[FILTER] Skipping religious station in '${currentTag}': ${station.name}`);
+              continue;
+          }
+
+          // Strict Arabic Character Check for non-Oriental categories
+          if (currentTag !== 'oriental' && ARABIC_CHAR_REGEX.test(station.name)) {
+              console.log(`[FILTER] Skipping Arabic name in musical category '${currentTag}': ${station.name}`);
+              continue;
+          }
       }
 
-      // WORLD MUSIC CLEANUP (No Talk/News/Religion)
+      // WORLD MUSIC CLEANUP (No Talk/News)
       if (isWorldMusic) {
           const t = (station.tags || '').toLowerCase();
           const n = station.name.toLowerCase();
@@ -239,7 +245,6 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
           // Vietnamese Exception
           if (isVietnamese) {
               if (t.includes('tin tức') || n.includes('tin tức') || t.includes('news')) continue;
-              if (n.includes('abdulbasit') || t.includes('quran') || t.includes('islamic')) continue;
           } 
           // Kyrgyz Exception
           else if (isKyrgyz) {
@@ -249,52 +254,12 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
               // General cleanup for other world music
               if (t.includes('news') || t.includes('talk') || t.includes('politics') || t.includes('sport')) continue;
           }
-
-          // Strict cleanup for Oriental/Eastern
-          if (currentTag === 'oriental') {
-              if (
-                  t.includes('islam') || 
-                  t.includes('quran') || 
-                  t.includes('religion') || 
-                  t.includes('recitation') ||
-                  t.includes('bible')
-              ) continue;
-          }
       }
 
-      // STRICT CLEANUP FOR CLASSICAL CATEGORY
+      // STRICT CLEANUP FOR CLASSICAL CATEGORY (Specific non-religious talk)
       if (currentTag === 'classical') {
           const t = (station.tags || '').toLowerCase();
-          const n = station.name.toLowerCase();
-          
           if (t.includes('news') || t.includes('talk') || t.includes('speech') || t.includes('conversation') || t.includes('politics')) continue;
-
-          if (
-              t.includes('religio') || 
-              t.includes('catholic') || 
-              t.includes('christian') || 
-              t.includes('church') || 
-              t.includes('bible') || 
-              t.includes('vatican') || 
-              t.includes('islam') || 
-              t.includes('quran') || 
-              t.includes('muslim') ||
-              t.includes('sheikh') ||
-              t.includes('gospel') ||
-              t.includes('worship') ||
-              t.includes('prayer') ||
-              t.includes('spirit') ||
-              t.includes('orthodox') ||
-              t.includes('chant') ||
-              t.includes('sermon') ||
-              t.includes('messianic') ||
-              t.includes('torah') ||
-              n.includes('radio maria') ||
-              n.includes('esperance') ||
-              n.includes('vatican')
-          ) continue;
-
-          if (ARABIC_CHAR_REGEX.test(station.name)) continue;
       }
       
       const url = station.url_resolved;

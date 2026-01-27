@@ -47,7 +47,7 @@ const PAGE_SIZE = 10;
 const AMBIENCE_URLS = {
     rain_soft: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3',
     rain_roof: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3', // Fallback to same reliable source
-    fire: '/11.mp3',
+    fire: '/kamin.mp3',
     city: 'https://soundbible.com/mp3/City_Traffic-Sound_Explorer-1662968325.mp3',
     vinyl: 'https://cdn.pixabay.com/audio/2022/02/07/audio_6527581fb9.mp3' 
 };
@@ -415,7 +415,7 @@ export default function App(): React.JSX.Element {
             if (toolsOpen || chatOpen || manualOpen || tutorialOpen || downloadModalOpen || feedbackOpen) return;
             setIsIdleView(true);
         };
-        const resetTimer = () => { clearTimeout(idleTimer); idleTimer = window.setTimeout(goIdle, 30000); };
+        const resetTimer = () => { clearTimeout(idleTimer); idleTimer = window.setTimeout(goIdle, 60000); };
         const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
         events.forEach(e => window.addEventListener(e, resetTimer));
         resetTimer(); 
@@ -492,9 +492,11 @@ export default function App(): React.JSX.Element {
       ['rain', 'fire', 'city', 'vinyl'].forEach(key => {
           let url = '';
           if (key === 'rain') {
-              url = ambience.rainVariant === 'roof' ? AMBIENCE_URLS.rain_roof : AMBIENCE_URLS.rain_soft;
+              const rawUrl = ambience.rainVariant === 'roof' ? AMBIENCE_URLS.rain_roof : AMBIENCE_URLS.rain_soft;
+              url = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, window.location.origin).href;
           } else {
-              url = (AMBIENCE_URLS as any)[key];
+              const rawUrl = (AMBIENCE_URLS as any)[key];
+              url = rawUrl.startsWith('http') ? rawUrl : new URL(rawUrl, window.location.origin).href;
           }
           let el = ambienceRefs.current[key];
           if (!el) { 
@@ -503,14 +505,20 @@ export default function App(): React.JSX.Element {
               el.preload = "auto";
               if (url.includes('stream')) { el.crossOrigin = "anonymous"; }
               ambienceRefs.current[key] = el; 
-          } else if (el.src !== url) {
-              const wasPlaying = !el.paused;
-              el.src = url;
-              if (wasPlaying) el.play().catch(e => console.error("Resume failed", e));
+          } else {
+              const currentSrc = new URL(el.src, window.location.origin).pathname;
+              const targetSrc = url.startsWith('http') ? url : (url.startsWith('/') ? url : '/' + url);
+              
+              if (currentSrc !== targetSrc && el.src !== url) {
+                  const wasPlaying = !el.paused;
+                  el.src = url;
+                  if (wasPlaying) el.play().catch(e => console.error(`[AMBIENCE] Resume failed for ${key}`, e));
+              }
           }
           const vol = (ambience as any)[`${key}Volume`]; 
           el.volume = vol;
           if (vol > 0 && el.paused) {
+              console.log(`[AMBIENCE] Playing ${key} from ${el.src}`);
               el.play().catch(e => console.error(`Ambience ${key} failed to play:`, e));
           } else if (vol === 0 && !el.paused) {
               el.pause();

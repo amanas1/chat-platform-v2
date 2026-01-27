@@ -217,6 +217,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   // Call State
   const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'connected'>('idle');
   const [callPartner, setCallPartner] = useState<UserProfile | null>(null);
+  const [isMicPreparing, setIsMicPreparing] = useState(false);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -262,12 +263,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
   // Ringtone Management
   useEffect(() => {
-     if (callStatus === 'ringing') {
-         console.log("🔔 Ringtone started");
+     if (callStatus === 'ringing' || callStatus === 'calling') {
+         console.log(`🔔 Ringtone started (${callStatus})`);
          if (!ringtoneRef.current) {
              ringtoneRef.current = new Audio('/sounds/call.mp3');
              ringtoneRef.current.loop = true;
          }
+         // For 'calling' we might want a slightly different volume or start delay
+         ringtoneRef.current.volume = 0.5;
          ringtoneRef.current.play().catch(err => console.error("Ringtone play error", err));
      } else {
          if (ringtoneRef.current) {
@@ -466,6 +469,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     cleanups.push(socketService.onSignalReceived(async ({ fromUserId, signal }) => {
       if (currentUser.blockedUsers.includes(fromUserId)) return;
       
+      if (signal.type === 'offer') {
          // Incoming call
          if (callStatus !== 'idle') return;
          
@@ -497,7 +501,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                      bio: '',
                      hasAgreedToRules: true,
                      isAuthenticated: true,
-                     filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true }
+                     filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true },
+                     chatSettings: { notificationsEnabled: true, notificationVolume: 0.8, notificationSound: 'default' }
                  };
              }
          }
@@ -746,17 +751,18 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     try {
       const compressedBase64 = await compressImage(file);
       
-      // Optimistic UI update for image
+      /* Optimistic UI removed to prevent duplication
       const tempId = `temp_img_${Date.now()}`;
       const optimisticMessage: any = {
           id: tempId,
           sessionId: activeSession.sessionId,
           senderId: currentUser.id,
           messageType: 'image',
-          image: compressedBase64, // Display raw base64 immediately
+          image: compressedBase64, 
           timestamp: Date.now()
       };
-      setMessages(prev => [...prev, optimisticMessage]);
+      setMessages(prev => [...prev, optimisticMessage]); 
+      */
 
       const encrypted = encryptionService.encryptBinary(compressedBase64, activeSession.sessionId);
       
@@ -822,128 +828,221 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   };
 
   // --- WebRTC Logic ---
-  const createPeerConnection = (targetUserId: string) => {
+  // --- WebRTC Logic (Minimal Skeleton) ---
+  const createPeerConnection = (partnerId: string) => {
+      console.log("🔗 Creating PeerConnection...");
       const pc = new RTCPeerConnection({
           iceServers: [
               { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' },
-              { urls: 'stun:stun2.l.google.com:19302' },
-              { urls: 'stun:stun3.l.google.com:19302' },
-              { urls: 'stun:stun4.l.google.com:19302' },
-              { urls: 'stun:global.stun.twilio.com:3478' }
+              { urls: 'stun:stun1.l.google.com:19302' }
           ]
       });
       
       pc.onicecandidate = (event) => {
           if (event.candidate) {
-              console.log("[WEBRTC] Sending ICE Candidate");
-              socketService.sendSignal(targetUserId, { candidate: event.candidate });
+              console.log("❄️ ICE candidate generated");
+              socketService.sendSignal(partnerId, { candidate: event.candidate });
           }
       };
       
       pc.ontrack = (event) => {
-          console.log("[WEBRTC] Received Remote Track via ontrack");
-          setRemoteStream(event.streams[0]);
-      };
-      
-      const handleConnectionChange = () => {
-          const debugEl = document.getElementById('call-debug');
-          if (debugEl && pc) {
-              const tracks = pc.getReceivers().map(r => r.track?.kind + ':' + r.track?.readyState).join(',');
-              debugEl.innerText = `Conn: ${pc.connectionState}\nICE: ${pc.iceConnectionState}\nTracks: ${tracks}`;
+          console.log(`📥 Remote track received: ${event.track.kind}`);
+          
+          let stream = event.streams[0];
+          if (!stream) {
+              console.log("⚠️ No stream in ontrack, creating one from tracks");
+              stream = new MediaStream([event.track]);
           }
           
-          // Permissive check: If ICE is connected, media path is open. Don't wait for 'connectionState'.
-          if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-              setCallStatus('connected');
-              // Ensure remote audio plays
-              const audioEl = document.getElementById('remote-audio') as HTMLAudioElement;
-              if (audioEl && remoteStream) {
-                  audioEl.srcObject = remoteStream;
-                  audioEl.play().catch(e => {
-                      console.error("Force play error", e);
-                  });
+          setRemoteStream(stream);
+          
+          const audioEl = document.getElementById('remote-audio') as HTMLAudioElement;
+          if (audioEl) {
+              console.log("[WEBRTC] Attaching stream to remote-audio element");
+              audioEl.srcObject = stream;
+              audioEl.muted = false;
+              audioEl.volume = 1.0;
+              
+              const playPromise = audioEl.play();
+              if (playPromise !== undefined) {
+                  playPromise
+                      .then(() => console.log("🔊 Remote audio playback started successfully"))
+                      .catch(e => {
+                          console.error("❌ Remote audio playback failed (interaction required?):", e);
+                          // We usually show the overlay button in this case
+                      });
               }
-          } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-              endCall(false);
+          } else {
+              console.error("❌ Could not find remote-audio element in DOM");
           }
       };
-
-      pc.onconnectionstatechange = handleConnectionChange;
-      pc.oniceconnectionstatechange = handleConnectionChange;
+      
+      pc.onconnectionstatechange = () => {
+          console.log(`🔄 Connection state: ${pc.connectionState}`);
+          if (pc.connectionState === 'connected') {
+              setCallStatus('connected');
+          } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+              console.error("[WEBRTC] Connection failed or closed");
+          }
+      };
+      
+      pc.oniceconnectionstatechange = () => console.log(`❄️ ICE Connection state: ${pc.iceConnectionState}`);
       
       return pc;
   };
 
   const initiateCall = async () => {
-      console.log("[CALL] Initiate call clicked");
-      if (!activeSession) {
-          console.error("[CALL] No active session");
-          return;
-      }
-      const partner = getPartnerFromSession(activeSession);
-      if (!partner) {
-          console.error("[CALL] No partner found");
+      if (!callPartner) {
+          console.error("[CALL] Cannot initiate call - no call partner set");
           return;
       }
       
-      console.log(`[CALL] Calling partner: ${partner.name} (${partner.id})`);
+      console.log(`[CALL] 🔵 Initiating call to ${callPartner.name} (${callPartner.id})`);
+      console.log(`[CALL] Browser: ${navigator.userAgent}`);
+      console.log(`[CALL] MediaDevices available: ${!!navigator.mediaDevices}`);
       
       try {
-          console.log("[CALL] Requesting camera & microphone access...");
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-          console.log("[CALL] Access granted");
+          // Request microphone access with timeout
+          setIsMicPreparing(true);
+          console.log("[CALL] 🎤 Requesting microphone access...");
+          
+          const getUserMediaWithTimeout = (constraints: MediaStreamConstraints, timeout = 10000) => {
+              return Promise.race([
+                  navigator.mediaDevices.getUserMedia(constraints),
+                  new Promise<MediaStream>((_, reject) => 
+                      setTimeout(() => reject(new Error('getUserMedia timeout - user may have denied permission or device is unavailable')), timeout)
+                  )
+              ]);
+          };
+          
+          const stream = await getUserMediaWithTimeout({ audio: true });
+          setIsMicPreparing(false);
+          console.log("[CALL] ✅ getUserMedia success - Audio tracks:", stream.getAudioTracks().length);
+          stream.getAudioTracks().forEach((track, idx) => {
+              console.log(`[CALL]   Track ${idx}: ${track.label} (enabled: ${track.enabled}, muted: ${track.muted})`);
+          });
           
           setLocalStream(stream);
           localStreamRef.current = stream;
-          setCallPartner(partner);
           setCallStatus('calling');
           
-          const pc = createPeerConnection(partner.id);
+          console.log("[CALL] 🔗 Creating peer connection...");
+          const pc = createPeerConnection(callPartner.id);
           peerConnectionRef.current = pc;
           
-          stream.getTracks().forEach(track => {
-              console.log("[WEBRTC] Adding track:", track.kind);
+          stream.getTracks().forEach((track, idx) => {
+              console.log(`[CALL] 📡 Adding local track ${idx} to peer connection`);
               pc.addTrack(track, stream);
           });
 
-          const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+          console.log("[CALL] 📝 Creating offer...");
+          const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
+          console.log("[CALL] ✅ Local description set");
+          console.log("[CALL] 📤 Sending offer to", callPartner.id);
           
-          console.log("[CALL] Sending offer signal");
-          socketService.sendSignal(partner.id, { type: 'offer', sdp: offer.sdp });
-      } catch (err) {
-          console.error("[CALL] Call init failed", err);
-          alert("Could not access camera/microphone: " + err);
+          socketService.sendSignal(callPartner.id, { type: 'offer', sdp: offer.sdp });
+          console.log("[CALL] ✅ Offer sent successfully");
+      } catch (err: any) {
+          console.error("[CALL] ❌ Call initiation failed:", err);
+          console.error("[CALL] Error name:", err.name);
+          console.error("[CALL] Error message:", err.message);
+          console.error("[CALL] Error stack:", err.stack);
+          
+          let userMessage = "Failed to start call. ";
+          if (err.name === 'NotAllowedError' || err.message?.includes('denied')) {
+              userMessage += "Microphone permission was denied. Please allow microphone access and try again.";
+          } else if (err.name === 'NotFoundError') {
+              userMessage += "No microphone found. Please connect a microphone and try again.";
+          } else if (err.message?.includes('timeout')) {
+              userMessage += "Request timed out. Please check your microphone permissions and try again.";
+          } else {
+              userMessage += err.message || "Unknown error occurred.";
+          }
+          
+          alert(userMessage);
+          setIsMicPreparing(false);
+          setCallStatus('idle');
+          setCallPartner(null);
       }
   };
 
   const acceptCall = async () => {
-      if (!callPartner || !peerConnectionRef.current) return;
+      if (!callPartner) {
+          console.error("[CALL] Cannot accept call - no call partner set");
+          return;
+      }
+      if (!peerConnectionRef.current) {
+          console.error("[CALL] Cannot accept call - no peer connection exists");
+          return;
+      }
+      
+      console.log(`[CALL] 🟢 Accepting call from ${callPartner.name} (${callPartner.id})`);
+      console.log(`[CALL] Browser: ${navigator.userAgent}`);
       
       try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+          setIsMicPreparing(true);
+          console.log("[CALL] 🎤 Requesting microphone access for answer...");
+          
+          const getUserMediaWithTimeout = (constraints: MediaStreamConstraints, timeout = 10000) => {
+              return Promise.race([
+                  navigator.mediaDevices.getUserMedia(constraints),
+                  new Promise<MediaStream>((_, reject) => 
+                      setTimeout(() => reject(new Error('getUserMedia timeout - user may have denied permission or device is unavailable')), timeout)
+                  )
+              ]);
+          };
+          
+          const stream = await getUserMediaWithTimeout({ audio: true });
+          setIsMicPreparing(false);
+          console.log("[CALL] ✅ getUserMedia success (answer) - Audio tracks:", stream.getAudioTracks().length);
+          stream.getAudioTracks().forEach((track, idx) => {
+              console.log(`[CALL]   Track ${idx}: ${track.label} (enabled: ${track.enabled}, muted: ${track.muted})`);
+          });
+          
           setLocalStream(stream);
           localStreamRef.current = stream;
           
           const pc = peerConnectionRef.current;
-          stream.getTracks().forEach(track => {
-              console.log("[WEBRTC] Adding track (answer):", track.kind);
+          stream.getTracks().forEach((track, idx) => {
+              console.log(`[CALL] 📡 Adding local track ${idx} to peer connection (answer)`);
               pc.addTrack(track, stream);
           });
           
+          console.log("[CALL] 📝 Creating answer...");
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
+          console.log("[CALL] ✅ Local description set (answer)");
+          console.log("[CALL] 📤 Sending answer to", callPartner.id);
           
           socketService.sendSignal(callPartner.id, { type: 'answer', sdp: answer.sdp });
+          console.log("[CALL] ✅ Answer sent successfully");
           setCallStatus('connected');
-      } catch (err) {
-          console.error("Answer failed", err);
-          endCall();
+      } catch (err: any) {
+          console.error("[CALL] ❌ Call acceptance failed:", err);
+          console.error("[CALL] Error name:", err.name);
+          console.error("[CALL] Error message:", err.message);
+          console.error("[CALL] Error stack:", err.stack);
+          
+          let userMessage = "Failed to accept call. ";
+          if (err.name === 'NotAllowedError' || err.message?.includes('denied')) {
+              userMessage += "Microphone permission was denied. Please allow microphone access and try again.";
+          } else if (err.name === 'NotFoundError') {
+              userMessage += "No microphone found. Please connect a microphone and try again.";
+          } else if (err.message?.includes('timeout')) {
+              userMessage += "Request timed out. Please check your microphone permissions and try again.";
+          } else {
+              userMessage += err.message || "Unknown error occurred.";
+          }
+          
+          alert(userMessage);
+          setIsMicPreparing(false);
+          endCall(true);
       }
   };
   
   const endCall = (notify = true) => {
+      console.log("[CALL] Ending call");
       if (notify && callPartner) {
           socketService.sendSignal(callPartner.id, { type: 'bye' });
       }
@@ -998,8 +1097,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     <div className="flex items-center gap-1">
                         <button onClick={() => handleReportUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-orange-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Пожаловаться' : 'Report'}><LifeBuoyIcon className="w-5 h-5" /></button>
                         <button onClick={() => handleBlockUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-red-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Заблокировать' : 'Block'}><NoSymbolIcon className="w-5 h-5" /></button>
-                        <button onClick={initiateCall} className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full"><PhoneIcon className="w-5 h-5" /></button>
-                        <button className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full"><VideoCameraIcon className="w-5 h-5" /></button>
+                        <button onClick={() => {
+                          if (partnerDetails) {
+                            setCallPartner(partnerDetails);
+                            setTimeout(() => initiateCall(), 0);
+                          }
+                        }} className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Голосовой звонок' : 'Voice Call'}><PhoneIcon className="w-5 h-5" /></button>
+                        <button disabled className="p-2.5 text-slate-500 cursor-not-allowed opacity-50 rounded-full" title={language === 'ru' ? 'Видео скоро' : 'Video coming soon'}><VideoCameraIcon className="w-5 h-5" /></button>
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors ml-1"><XMarkIcon className="w-6 h-6" /></button>
                     </div>
                 </>
@@ -1424,7 +1528,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         </div>
 
         {/* CALL OVERLAY */}
-         {callStatus !== 'idle' && callPartner && (
+         {(callStatus !== 'idle' || isMicPreparing) && callPartner && (
             <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center animate-in fade-in duration-300">
                 
                 {/* Remote Video (Full Screen) */}
@@ -1450,11 +1554,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 )}
 
                 <div className="relative z-10 flex flex-col items-center">
-                    {callStatus !== 'connected' && (
+                    {(callStatus !== 'connected' || isMicPreparing) && (
                         <div className="mb-8 relative">
                             <img src={callPartner.avatar} className="w-32 h-32 rounded-full object-cover border-4 border-white/10 shadow-2xl animate-pulse" />
                             <div className="absolute -bottom-2 -right-2 bg-black/50 px-3 py-1 rounded-full text-[10px] font-mono text-white/70 backdrop-blur-md">
-                                {callStatus === 'calling' ? 'Calling...' : 'Ringing...'}
+                                {isMicPreparing ? (language === 'ru' ? 'Запрос микрофона...' : 'Requesting Mic...') : 
+                                 (callStatus === 'calling' ? (language === 'ru' ? 'Вызов...' : 'Calling...') : 
+                                  (callStatus === 'ringing' ? (language === 'ru' ? 'Входящий звонок...' : 'Ringing...') : ''))}
                             </div>
                         </div>
                     )}
@@ -1462,22 +1568,38 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     <h2 className={`text-2xl font-bold text-white mb-2 text-shadow ${callStatus === 'connected' ? 'opacity-0 hover:opacity-100 transition-opacity' : ''}`}>{callPartner.name}</h2>
                     
                     <div id="call-debug" className="text-[10px] items-center text-white/50 font-mono mb-4 bg-black/40 px-2 py-1 rounded hidden md:block backdrop-blur-md">
-                        Init...
+                        {isMicPreparing ? 'Media access...' : (callStatus === 'connected' ? 'Connected' : 'Handshaking...')}
                     </div>
+
+                    {callStatus === 'connected' && (
+                        <p className="text-[10px] text-white/30 italic mb-4 max-w-[200px] text-center">
+                            {language === 'ru' ? 'Если нет звука, убедитесь, что микрофон разрешен в браузере.' : 'If no audio, ensure microphone is allowed in browser.'}
+                        </p>
+                    )}
                 
                 {callStatus === 'connected' && (
                     <button 
                         onClick={() => {
                             const videoEl = document.getElementById('remote-video') as HTMLVideoElement;
-                            if (videoEl && remoteStream) {
-                                console.log("[UI] Manually re-attaching stream and playing");
-                                videoEl.srcObject = null;
-                                setTimeout(() => {
-                                    videoEl.srcObject = remoteStream;
-                                    videoEl.play().then(() => alert(`Video playing! Tracks: ${remoteStream.getVideoTracks().length}`)).catch(e => alert("Play error: " + e));
-                                }, 100);
+                            const audioEl = document.getElementById('remote-audio') as HTMLAudioElement;
+                            if (remoteStream) {
+                                console.log("[UI] Manually re-attaching stream and playing audio/video");
+                                if (videoEl) {
+                                    videoEl.srcObject = null;
+                                    setTimeout(() => { videoEl.srcObject = remoteStream; videoEl.play().catch(e => console.error("Video play error", e)); }, 100);
+                                }
+                                if (audioEl) {
+                                    audioEl.srcObject = null;
+                                    setTimeout(() => { 
+                                        audioEl.srcObject = remoteStream; 
+                                        audioEl.muted = false;
+                                        audioEl.volume = 1.0;
+                                        audioEl.play().catch(e => console.error("Audio play error", e)); 
+                                    }, 100);
+                                }
+                                alert(language === 'ru' ? 'Стрим подключен!' : 'Stream attached!');
                             } else {
-                                alert("No stream found! (Wait for connection)");
+                                alert(language === 'ru' ? 'Стрим еще не получен. Подождите...' : 'No stream found! (Wait for connection)');
                             }
                         }}
                         className="mb-8 px-6 py-3 bg-cyan-500 hover:bg-cyan-400 rounded-full text-xs font-black text-black uppercase transition-all shadow-[0_0_20px_rgba(6,182,212,0.5)] hover:scale-105 z-50 animate-bounce"
@@ -1502,9 +1624,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         </button>
                     )}
                 </div>
+                </div>
                 
                 {/* Fallback Audio Element (just in case) */}
-                <audio id="remote-audio" autoPlay className="hidden" />
+                <audio id="remote-audio" autoPlay playsInline className="hidden" />
             </div>
         )}
 

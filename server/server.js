@@ -411,6 +411,7 @@ io.on('connection', (socket) => {
         console.log('[SIGNAL] Rejected: User not bound');
         return;
     }
+
     
     console.log(`[SIGNAL] Relay from ${boundUserId} to ${targetUserId} (${signal.type || 'candidate'})`);
     
