@@ -597,6 +597,37 @@ export default function App(): React.JSX.Element {
     localStorage.setItem('streamflow_language', language);
   }, [language]);
 
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      if (currentStation) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentStation.name,
+          artist: currentStation.tags || 'StreamFlow Radio',
+          album: 'StreamFlow Live',
+          artwork: [
+            { src: currentStation.favicon || '/logo192.png', sizes: '96x96', type: 'image/png' },
+            { src: currentStation.favicon || '/logo192.png', sizes: '128x128', type: 'image/png' },
+            { src: currentStation.favicon || '/logo192.png', sizes: '192x192', type: 'image/png' },
+            { src: currentStation.favicon || '/logo512.png', sizes: '512x512', type: 'image/png' },
+          ]
+        });
+      }
+
+      navigator.mediaSession.setActionHandler('play', togglePlay);
+      navigator.mediaSession.setActionHandler('pause', togglePlay);
+      navigator.mediaSession.setActionHandler('previoustrack', handlePreviousStation);
+      navigator.mediaSession.setActionHandler('nexttrack', handleNextStation);
+
+      // Clean up handlers on unmount
+      return () => {
+        navigator.mediaSession.setActionHandler('play', null);
+        navigator.mediaSession.setActionHandler('pause', null);
+        navigator.mediaSession.setActionHandler('previoustrack', null);
+        navigator.mediaSession.setActionHandler('nexttrack', null);
+      };
+    }
+  }, [currentStation, togglePlay, handleNextStation, handlePreviousStation]);
+
   const loadCategory = useCallback(async (category: CategoryInfo | null, mode: ViewMode, autoPlay: boolean = false) => { 
     const requestId = Date.now();
     loadRequestIdRef.current = requestId;
