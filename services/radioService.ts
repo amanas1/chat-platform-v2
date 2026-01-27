@@ -2,7 +2,7 @@
 import { RadioStation } from '../types';
 import { RADIO_BROWSER_MIRRORS } from '../constants';
 
-const CACHE_KEY_PREFIX = 'streamflow_station_cache_v13_strict_'; // Bump for hard cleanup
+const CACHE_KEY_PREFIX = 'streamflow_station_cache_v14_dedupe_'; // Bump for advanced deduplication
 const CACHE_TTL_MINUTES = 30;
 
 interface CacheEntry {
@@ -178,6 +178,9 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
         "Спокойное радио",
         "PerfectMoods",
         "Easy FM",
+        "106.5 Kiss FM",
+        "Pure Ibiza Radio",
+        "HappyHardcore.com",
         "Test",
         "Stream",
         "My Radio",
@@ -274,15 +277,21 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
 
       if (isBrowserCompatible) {
         // 5. LOW QUALITY NOISE CHECK: No favicon + low votes (in popular categories)
-        // This helps in "Hard Cleanup" to avoid abandoned test streams
-        if (!station.favicon && station.votes < 50 && currentTag && ['pop', 'jazz', 'rock', 'dance', 'classical', 'relax'].includes(currentTag)) {
-            console.log(`[FILTER] Skipping low-quality noise: ${station.name}`);
+        if (!station.favicon && station.votes < 50 && currentTag && ['pop', 'jazz', 'rock', 'dance', 'classical', 'relax', 'electronic'].includes(currentTag)) {
             continue;
         }
 
-        const existing = uniqueStations.get(station.name);
-        if (!existing || station.votes > existing.votes) {
-            uniqueStations.set(station.name, station);
+        // Advanced Deduplication: 
+        // 1. Normalize name (lowercase, no spaces) to catch "Radio 1" vs "radio 1"
+        const normalizedName = station.name.toLowerCase().replace(/\s+/g, '');
+        // 2. Base URL matching (ignore mirror variations)
+        const baseUrl = url.split('?')[0].split('#')[0];
+        
+        const dedupeKey = `${normalizedName}_${baseUrl}`;
+
+        const existingDedupe = uniqueStations.get(dedupeKey);
+        if (!existingDedupe || station.votes > existingDedupe.votes) {
+            uniqueStations.set(dedupeKey, station);
         }
       }
     }
