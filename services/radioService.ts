@@ -2,7 +2,7 @@
 import { RadioStation } from '../types';
 import { RADIO_BROWSER_MIRRORS } from '../constants';
 
-const CACHE_KEY_PREFIX = 'streamflow_station_cache_v12_hq_'; // Version bump for HQ cache
+const CACHE_KEY_PREFIX = 'streamflow_station_cache_v13_strict_'; // Bump for hard cleanup
 const CACHE_TTL_MINUTES = 30;
 
 interface CacheEntry {
@@ -172,20 +172,19 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
     // Blocklist based on user request to remove specific stations
     const BLOCKED_NAMES = [
         "تفسير بن عثيمين رحمه الله",
-        "صور من حياة الصحابة",
-        "تراتيل",
-        "إذاعة طريق السلف",
-        "Radio Marca",
-        "Erzincan Cem Radyo",
-        "Fm.94.4",
+        "صور из жизни сподвижников",
         "Classic Vinyl HD",
         "Adroit Jazz Underground",
         "Спокойное радио",
+        "PerfectMoods",
+        "Easy FM",
         "Test",
         "Stream",
         "My Radio",
+        "Radio Marca",
         "Abdulbasit",
-        "Abdulsamad" 
+        "Test Stream",
+        "Generic Radio"
     ];
 
     const ARABIC_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
@@ -274,6 +273,13 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
         codec === '';
 
       if (isBrowserCompatible) {
+        // 5. LOW QUALITY NOISE CHECK: No favicon + low votes (in popular categories)
+        // This helps in "Hard Cleanup" to avoid abandoned test streams
+        if (!station.favicon && station.votes < 50 && currentTag && ['pop', 'jazz', 'rock', 'dance', 'classical', 'relax'].includes(currentTag)) {
+            console.log(`[FILTER] Skipping low-quality noise: ${station.name}`);
+            continue;
+        }
+
         const existing = uniqueStations.get(station.name);
         if (!existing || station.votes > existing.votes) {
             uniqueStations.set(station.name, station);
@@ -311,8 +317,8 @@ export const fetchStationsByTag = async (tag: string, limit: number = 30): Promi
     let data: RadioStation[] = [];
     const fetchLimit = Math.max(20, Math.ceil(limit * 4));
     
-    // REQUEST HQ: Add bitrateMin=128 to API query to save bandwidth and filter at source
-    const urlParams = `limit=${fetchLimit}&order=votes&reverse=true&hidebroken=true&bitrateMin=128`;
+    // REQUEST HQ: Add lastcheckok=1 and bitrateMin=128 for HARD cleanup
+    const urlParams = `limit=${fetchLimit}&order=votes&reverse=true&hidebroken=true&bitrateMin=128&lastcheckok=1`;
 
     if (lowerTag === 'vietnam') {
         const [countryData, musicData, radioData] = await Promise.all([
