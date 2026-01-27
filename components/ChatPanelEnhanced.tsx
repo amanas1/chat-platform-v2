@@ -604,50 +604,53 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     const speakMessage = (text: string, gender: string) => {
         if (!voiceModeRef.current || !('speechSynthesis' in window)) return;
         
-        console.log(`[VOICE] Prepared to speak: "${text.substring(0, 20)}..." for gender: ${gender}`);
+        // Automatic Language Detection
+        const isRussian = /[а-яёА-ЯЁ]/.test(text);
+        const langCode = isRussian ? 'ru-RU' : 'en-US';
+        
+        console.log(`[VOICE] Prepared to speak: "${text.substring(0, 20)}..." | Lang: ${langCode} | Gender: ${gender}`);
         
         // Cancel any ongoing speech
         window.speechSynthesis.cancel();
         
         const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = langCode;
         
         // Find best voice
         const voices = window.speechSynthesis.getVoices();
         if (voices.length === 0) {
-            console.warn("[VOICE] No voices found yet, waiting for system...");
+            console.warn("[VOICE] No voices found yet");
             return;
         }
 
-        // Scoring system for voices: приоритет русский, затем подходящий пол
-        const sortedVoices = [...voices].sort((a, b) => {
-            const aLang = a.lang.toLowerCase();
-            const bLang = b.lang.toLowerCase();
-            const aIsRu = aLang.includes('ru');
-            const bIsRu = bLang.includes('ru');
-            
-            if (aIsRu && !bIsRu) return -1;
-            if (!aIsRu && bIsRu) return 1;
-            return 0;
-        });
+        // Scoring system for voices: приоритет detected language, затем пол
+        const filteredVoices = voices.filter(v => v.lang.startsWith(isRussian ? 'ru' : 'en'));
+        
+        // Fallback to any voice if selected language not found
+        const voicePool = filteredVoices.length > 0 ? filteredVoices : voices;
 
         // Filter by gender keywords
-        const genderVoice = sortedVoices.find(v => {
+        const genderVoice = voicePool.find(v => {
             const name = v.name.toLowerCase();
             if (gender === 'female') {
-                return name.includes('elena') || name.includes('irina') || name.includes('anna') || name.includes('female') || name.includes('milena') || name.includes('katya');
+                return name.includes('elena') || name.includes('irina') || name.includes('anna') || name.includes('female') || name.includes('milena') || name.includes('samantha') || name.includes('moira');
             } else if (gender === 'male') {
-                return name.includes('aleksandr') || name.includes('pavel') || name.includes('male') || name.includes('yuri') || name.includes('maxim');
+                return name.includes('aleksandr') || name.includes('pavel') || name.includes('male') || name.includes('yuri') || name.includes('maxim') || name.includes('daniel') || name.includes('alex');
             }
             return false;
         });
 
-        utterance.voice = genderVoice || sortedVoices.find(v => v.lang.includes('ru')) || sortedVoices[0];
+        utterance.voice = genderVoice || voicePool[0];
         utterance.rate = 1.0;
-        utterance.pitch = gender === 'female' ? 1.1 : 0.9;
+        utterance.pitch = gender === 'female' ? 1.05 : 0.95;
         utterance.volume = 1.0;
         
-        console.log(`[VOICE] Speaking with voice: ${utterance.voice?.name}`);
-        window.speechSynthesis.speak(utterance);
+        console.log(`[VOICE] Speaking with voice: ${utterance.voice?.name} (${utterance.voice?.lang})`);
+        
+        // Critical: Small timeout helps voices load on mobile
+        setTimeout(() => {
+            window.speechSynthesis.speak(utterance);
+        }, 50);
     };
 
     // Listen for report acknowledgment
