@@ -16,7 +16,27 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, language
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const t = TRANSLATIONS[language] || TRANSLATIONS.en;
+  
+  // Safe translation access with fallbacks
+  const getTranslation = (key: string, fallback: string) => {
+    try {
+        if (TRANSLATIONS[language] && TRANSLATIONS[language][key]) return TRANSLATIONS[language][key];
+        if (TRANSLATIONS.en && TRANSLATIONS.en[key]) return TRANSLATIONS.en[key];
+        return fallback;
+    } catch (e) {
+        return fallback;
+    }
+  };
+
+  const t = {
+      feedbackTitle: getTranslation('feedbackTitle', 'Feedback'),
+      helpImprove: getTranslation('helpImprove', 'Help us improve StreamFlow.'),
+      sendSuccess: getTranslation('sendSuccess', 'Message sent!'),
+      rating: getTranslation('rating', 'Rate App'),
+      tellUs: getTranslation('tellUs', 'Tell us what to improve...'),
+      writeDev: getTranslation('writeDev', 'Write to Developer')
+  };
+
   if (!isOpen) return null;
 
   // React to feedback confirmation
@@ -54,14 +74,14 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, language
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={onClose}></div>
-      <div className="relative w-full max-w-lg glass-panel rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300 border border-white/10">
+      <div className="relative w-full max-w-lg bg-slate-900/90 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl animate-in zoom-in duration-300 border border-white/10">
         
         <button onClick={onClose} className="absolute top-6 right-6 p-2 bg-white/5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-all">
             <XMarkIcon className="w-6 h-6" />
         </button>
 
         <h2 className="text-3xl font-black text-white mb-2">{t.feedbackTitle}</h2>
-        <p className="text-slate-400 text-sm mb-8">{t.helpImprove || "Help us improve StreamFlow."}</p>
+        <p className="text-slate-400 text-sm mb-8">{t.helpImprove}</p>
 
         {sent ? (
             <div className="py-10 text-center animate-in fade-in zoom-in">
