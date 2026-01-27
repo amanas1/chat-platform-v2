@@ -1269,8 +1269,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             <h2 className="text-xs font-black tracking-widest text-slate-400 uppercase flex items-center gap-2">
                                 {view === 'search' ? (
                                     <>
-                                        <GlobeIcon className="w-3.5 h-3.5 text-primary/80 animate-[spin_10s_linear_infinite]" />
                                         {language === 'ru' ? 'Вокруг Света' : 'Around World'}
+                                        <GlobeIcon className="w-5 h-5 text-primary/80 animate-[spin_10s_linear_infinite]" />
                                     </>
                                 ) : (view === 'inbox' ? (language === 'ru' ? 'Диалоги' : 'Inbox') : '')}
                             </h2>
