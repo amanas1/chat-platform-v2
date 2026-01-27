@@ -209,6 +209,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [profileExpiresAt, setProfileExpiresAt] = useState<number | null>(null);
   const [expirationWarning, setExpirationWarning] = useState(false);
   const [violationMessage, setViolationMessage] = useState<string | null>(null);
+  const [onlineStats, setOnlineStats] = useState({ totalOnline: 0, chatOnline: 0 });
   
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
   const voiceModeRef = useRef(false);
@@ -244,7 +245,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const availableCitiesSearch = useMemo(() => COUNTRIES_DATA.find(c => c.name === searchCountry)?.cities || [], [searchCountry]);
 
   useEffect(() => { setRegCity(availableCitiesReg[0]); }, [availableCitiesReg]);
+  useEffect(() => { setRegCity(availableCitiesReg[0]); }, [availableCitiesReg]);
   useEffect(() => { scrollToBottom(); }, [messages, view]);
+
+  useEffect(() => {
+    const cleanup = socketService.onPresenceCount((stats) => {
+        setOnlineStats(stats);
+    });
+    return cleanup;
+  }, []);
   
   // Message pruning for ephemeral chat (30s media, 60s text, 50 cap)
   useEffect(() => {
@@ -1260,8 +1269,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             <h2 className="text-xs font-black tracking-widest text-slate-400 uppercase">
                                 {view === 'search' ? (language === 'ru' ? 'Глобал' : 'Global') : (view === 'inbox' ? (language === 'ru' ? 'Диалоги' : 'Inbox') : '')}
                             </h2>
-                            {!socketService.isConnected && (
+                            {!socketService.isConnected ? (
                                 <span className="text-[9px] text-red-500 font-bold uppercase animate-pulse">Offline</span>
+                            ) : (
+                                <span className="text-[9px] text-green-500 font-bold uppercase tracking-wider flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                                    {onlineStats.chatOnline} {language === 'ru' ? 'онлайн' : 'online'}
+                                </span>
                             )}
                         </div>
                     </div>

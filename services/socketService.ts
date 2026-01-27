@@ -127,6 +127,12 @@ class SocketService {
     this.socket.on('presence:list', callback);
     return () => this.socket?.off('presence:list', callback);
   }
+
+  onPresenceCount(callback: (data: { totalOnline: number; chatOnline: number }) => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('presence:count', callback);
+    return () => this.socket?.off('presence:count', callback);
+  }
   
   // Knock system
   sendKnock(targetUserId: string, callback?: (data: { knockId: string; targetUserId: string }) => void) {

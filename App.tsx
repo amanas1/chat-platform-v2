@@ -3,6 +3,7 @@ import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, U
 import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, NEWS_MESSAGES } from './constants';
 import { fetchStationsByTag, fetchStationsByUuids } from './services/radioService';
 import { curateStationList, isAiAvailable } from './services/geminiService';
+import { socketService } from './services/socketService';
 import AudioVisualizer from './components/AudioVisualizer';
 import DancingAvatar from './components/DancingAvatar';
 import CosmicBackground from './components/CosmicBackground';
@@ -148,6 +149,7 @@ export default function App(): React.JSX.Element {
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [fxSettings, setFxSettings] = useState<FxSettings>({ reverb: 0, speed: 1.0 });
+  const [onlineStats, setOnlineStats] = useState({ totalOnline: 0, chatOnline: 0 });
   
   const [audioEnhancements, setAudioEnhancements] = useState<AudioProcessSettings>({
       compressorEnabled: false,
@@ -633,7 +635,6 @@ export default function App(): React.JSX.Element {
       navigator.mediaSession.setActionHandler('previoustrack', handlePreviousStation);
       navigator.mediaSession.setActionHandler('nexttrack', handleNextStation);
 
-      // Clean up handlers on unmount
       return () => {
         navigator.mediaSession.setActionHandler('play', null);
         navigator.mediaSession.setActionHandler('pause', null);
@@ -642,6 +643,13 @@ export default function App(): React.JSX.Element {
       };
     }
   }, [currentStation, isPlaying, togglePlay, handleNextStation, handlePreviousStation]);
+
+  useEffect(() => {
+    const cleanup = socketService.onPresenceCount((stats) => {
+        setOnlineStats(stats);
+    });
+    return cleanup;
+  }, []);
 
   const loadCategory = useCallback(async (category: CategoryInfo | null, mode: ViewMode, autoPlay: boolean = false) => { 
     const requestId = Date.now();
@@ -822,7 +830,17 @@ export default function App(): React.JSX.Element {
             </div>
           </div>
           
-          <div className="flex items-center shrink-0">
+          <div className="flex items-center shrink-0 gap-4">
+            {onlineStats.totalOnline > 0 && (
+                <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/5 rounded-full backdrop-blur-md">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        {language === 'ru' ? 'Слушают:' : 'Now listening:'} 
+                        <span className="text-white ml-1.5 font-mono">{onlineStats.totalOnline}</span>
+                    </span>
+                </div>
+            )}
+
             {/* Super-chat label with arrow */}
             {!chatOpen && (
                 <div className="flex items-center gap-1 animate-pulse mr-1 md:mr-2">
@@ -830,7 +848,14 @@ export default function App(): React.JSX.Element {
                     <div className="text-primary text-xs">→</div> 
                 </div>
             )}
-            <button onClick={() => setChatOpen(!chatOpen)} className="p-2 rounded-full relative text-primary hover:scale-110 transition-transform"><ChatBubbleIcon className="w-6 h-6" /></button>
+            <button onClick={() => setChatOpen(!chatOpen)} className="p-2 rounded-full relative text-primary hover:scale-110 transition-transform">
+                <ChatBubbleIcon className="w-6 h-6" />
+                {onlineStats.chatOnline > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-[#1e293b]">
+                        {onlineStats.chatOnline}
+                    </span>
+                )}
+            </button>
           </div>
         </header>
 

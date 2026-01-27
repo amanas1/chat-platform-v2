@@ -143,11 +143,22 @@ function saveSessions() {
 }
 
 // ============================================
+// PRESENCE TRACKING
+// ============================================
+
+const broadcastPresenceCount = () => {
+    const totalOnline = io.engine.clientsCount;
+    const chatOnline = activeUsers.size;
+    io.emit('presence:count', { totalOnline, chatOnline });
+};
+
+// ============================================
 // SOCKET.IO EVENTS
 // ============================================
 
 io.on('connection', (socket) => {
   console.log(`[SOCKET] New connection: ${socket.id}`);
+  broadcastPresenceCount();
   
   let boundUserId = null;
 
@@ -198,6 +209,7 @@ io.on('connection', (socket) => {
     });
     
     syncGlobalPresence();
+    broadcastPresenceCount();
   });
 
   // SEARCH USERS
@@ -486,6 +498,9 @@ io.on('connection', (socket) => {
           activeUsers.set(boundUserId, userData);
       }
       syncGlobalPresence();
+      broadcastPresenceCount();
+    } else {
+      broadcastPresenceCount();
     }
   });
 
