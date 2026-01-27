@@ -223,6 +223,7 @@ export default function App(): React.JSX.Element {
   const sleepIntervalRef = useRef<number | null>(null);
   const trickleTimerRef = useRef<number | null>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
+  const loadTimeoutRef = useRef<number | null>(null);
 
   const t = TRANSLATIONS[language];
 
@@ -374,6 +375,9 @@ export default function App(): React.JSX.Element {
     initAudioContext();
     if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
     
+    // Clear any pending load timeout
+    if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+
     setCurrentStation(station);
     setIsPlaying(true);
     setIsBuffering(true);
@@ -383,8 +387,27 @@ export default function App(): React.JSX.Element {
         audioRef.current.crossOrigin = "anonymous";
         audioRef.current.playbackRate = fxSettings.speed; 
         audioRef.current.play().catch(() => {});
+
+        // Set 3-second timeout to check if station is "alive"
+        loadTimeoutRef.current = window.setTimeout(() => {
+            const isRu = language === 'ru';
+            setAiNotification(isRu ? `Удаляю медленную станцию: ${station.name}` : `Removing slow station: ${station.name}`);
+            
+            // Remove the slow station from the current list
+            setStations(prev => prev.filter(s => s.stationuuid !== station.stationuuid));
+            
+            // Stop current playback attempt
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.src = "";
+            }
+            setIsPlaying(false);
+            setIsBuffering(false);
+
+            setTimeout(() => setAiNotification(null), 3000);
+        }, 3000);
     }
-  }, [initAudioContext, fxSettings.speed]);
+  }, [initAudioContext, fxSettings.speed, language]);
 
   useEffect(() => {
     const checkAlarm = setInterval(() => {
@@ -642,7 +665,27 @@ export default function App(): React.JSX.Element {
     <div className={`relative flex h-screen font-sans overflow-hidden bg-[var(--base-bg)] text-[var(--text-base)] transition-all duration-700`}>
       <RainEffect intensity={ambience.rainVolume} />
       <FireEffect intensity={ambience.fireVolume} />
-      <audio ref={audioRef} onPlaying={() => { setIsBuffering(false); setIsPlaying(true); }} onPause={() => setIsPlaying(false)} onWaiting={() => setIsBuffering(true)} onEnded={() => { if (audioRef.current) { audioRef.current.load(); audioRef.current.play().catch(() => {}); } }} crossOrigin="anonymous" />
+      <audio 
+        ref={audioRef} 
+        onPlaying={() => { 
+            if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+            setIsBuffering(false); 
+            setIsPlaying(true); 
+        }} 
+        onPause={() => {
+            if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+            setIsPlaying(false);
+        }} 
+        onWaiting={() => setIsBuffering(true)} 
+        onEnded={() => { 
+            if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+            if (audioRef.current) { audioRef.current.load(); audioRef.current.play().catch(() => {}); } 
+        }} 
+        onError={() => {
+            if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+        }}
+        crossOrigin="anonymous" 
+      />
       
       {aiNotification && (
           <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-5 fade-in duration-300">
