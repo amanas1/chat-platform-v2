@@ -19,30 +19,34 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, language
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() && rating === 0) return;
 
     setIsSending(true);
     
-    // Simulate sending email
-    setTimeout(() => {
-        setIsSending(false);
-        setSent(true);
-        console.log(`Sending feedback to amanas5535332@gmail.com:\nRating: ${rating}\nMessage: ${message}`);
-        
-        // Actually trigger mailto as a fallback/real action for client-side
-        const subject = encodeURIComponent(`StreamFlow Feedback - Rating: ${rating}/5`);
-        const body = encodeURIComponent(message);
-        window.location.href = `mailto:amanas5535332@gmail.com?subject=${subject}&body=${body}`;
+    try {
+        const response = await fetch(`${window.location.protocol}//${window.location.hostname}:3001/api/feedback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating, message, userId: 'current_user' })
+        });
 
-        setTimeout(() => {
-            setSent(false);
-            setMessage('');
-            setRating(0);
-            onClose();
-        }, 2000);
-    }, 1000);
+        if (response.ok) {
+            setSent(true);
+            setTimeout(() => {
+                setSent(false);
+                setMessage('');
+                setRating(0);
+                onClose();
+            }, 2500);
+        }
+    } catch (err) {
+        console.error('Failed to send feedback:', err);
+        // Fallback or error state could be here
+    } finally {
+        setIsSending(false);
+    }
   };
 
   return (

@@ -23,99 +23,99 @@ const ManualModal: React.FC<ManualModalProps> = ({ isOpen, onClose, language, on
     { 
         id: 'radio',
         icon: <MusicNoteIcon className="w-6 h-6 text-pink-500" />, 
-        title: "Глобальное Радио",
-        content: "Это сердце приложения. В вашем распоряжении тысячи станций со всей планеты. Используйте меню слева, чтобы выбрать то, что нужно именно сейчас: 'Жанры' для стиля, 'Эпохи' для ностальгии или 'Настроение' для фона. Нашли что-то стоящее? Жмите сердечко, чтобы сохранить в Избранное." 
+        title: "Глобальное Радио и AI",
+        content: "Это сердце приложения. Вам доступны тысячи станций. Используйте 'AI Optimize' (звездочка ✨), чтобы мгновенно отсеять неработающие или низкокачественные потоки. Станции, которые не загружаются за 3 секунды, удаляются автоматически — мы ценим ваше время." 
     },
     { 
-        id: 'timer',
-        icon: <MoonIcon className="w-6 h-6 text-indigo-400" />, 
-        title: "Таймер Сна", 
-        content: "Любите засыпать под музыку? Зайдите в панель инструментов (иконка настроек внизу), выберите вкладку с часами и установите таймер. Музыка плавно выключится сама, когда вы уже будете видеть сны." 
-    },
-    { 
-        id: 'alarm',
-        icon: <BellIcon className="w-6 h-6 text-red-400" />, 
-        title: "Умный Будильник", 
-        content: "Просыпайтесь правильно. Там же, где и таймер, можно настроить будильник. Выберите время и дни недели, и приложение включит вашу любимую станцию в назначенный час. Главное — оставьте вкладку открытой (даже в фоновом режиме)." 
-    },
-    { 
-        id: 'ambience',
-        icon: <CloudIcon className="w-6 h-6 text-blue-400" />, 
-        title: "Атмосфера и Фокус", 
-        content: "Хотите больше уюта? Иконка облака открывает микшер фоновых звуков. Добавьте шум дождя к джазу или треск костра к эмбиенту. А функция '8D Audio' заставит звук вращаться вокруг вас (обязательно наденьте наушники!)." 
+        id: 'voice',
+        icon: <span className="text-2xl">👄</span>, 
+        title: "Живая Озвучка (Live Voice)",
+        content: "Эксклюзивная фича для чата! Включите иконку рта в чате, и сообщения собеседника будут зачитываться в реальном времени. Система сама понимает русский или английский язык и выбирает подходящий голос. Идеально для использования за рулем или во время работы." 
     },
     { 
         id: 'chat',
         icon: <UsersIcon className="w-6 h-6 text-purple-500" />, 
-        title: "Приватный Чат", 
-        content: "Музыка объединяет. Нажмите на иконку сообщения вверху. Заполните профиль и ищите людей по интересам или странам. 'Барабан открытий' поможет найти случайного собеседника. Всё общение происходит только по взаимному согласию." 
+        title: "Приватный Чат (E2EE)",
+        content: "Безопасное общение. Все сообщения шифруются (E2EE) и удаляются через 60 секунд (текст) или 30 секунд (фото/аудио). Используйте 'Барабан открытий', чтобы найти случайного друга по интересам. Помните: вежливость — залог долгого общения." 
+    },
+    { 
+        id: 'audio',
+        icon: <AdjustmentsIcon className="w-6 h-6 text-emerald-500" />, 
+        title: "Управление и Bluetooth", 
+        content: "StreamFlow оптимизирован для наушников и колонок. Вы можете переключать станции кнопками 'Вперед/Назад' прямо на гарнитуре. На экране блокировки телефона всегда отображается текущая станция и управление плеером." 
+    },
+    { 
+        id: 'ambience',
+        icon: <CloudIcon className="w-6 h-6 text-blue-400" />, 
+        title: "Микшер Атмосферы", 
+        content: "Хотите больше уюта? Смешивайте радио с шумом дождя, треском костра или звуками города. Функция '8D Audio' (нужны наушники) создает эффект вращения звука, помогая глубже погрузиться в атмосферу." 
+    },
+    { 
+        id: 'timer',
+        icon: <MoonIcon className="w-6 h-6 text-indigo-400" />, 
+        title: "Таймер и Будильник", 
+        content: "Установите таймер сна в панели инструментов, и музыка плавно затихнет сама. Или настройте утренний будильник, чтобы просыпаться под любимую волну. StreamFlow — ваш идеальный спутник на весь день." 
     },
     { 
         id: 'visualizer',
         icon: <PlayIcon className="w-6 h-6 text-yellow-500" />, 
-        title: "Визуализация", 
-        content: "Музыку можно увидеть. Во вкладке 'Визуал' выберите один из режимов: от неоновых линий до танцующих фигур. Настройте яркость и реакцию на бит, чтобы создать свое световое шоу." 
+        title: "Визуализация и Темы", 
+        content: "Настройте визуал под свой вкус: от неоновых линий до 'Галактики'. Переключайтесь между темами (мы рекомендуем Orange) и режимами (День/Ночь). Интерфейс полностью адаптивен." 
     },
     { 
-        id: 'eq',
-        icon: <AdjustmentsIcon className="w-6 h-6 text-emerald-500" />, 
-        title: "Настройка Звука", 
-        content: "Вам доступен 10-полосный эквалайзер. Усильте басы для электроники или сделайте звук чище для классики. Вы — звукорежиссер своего эфира." 
-    },
-    { 
-        id: 'appearance',
-        icon: <PaletteIcon className="w-6 h-6 text-amber-500" />, 
-        title: "Внешний Вид", 
-        content: "Сделайте приложение своим. Меняйте цветовые темы, переключайтесь между светлым и темным режимом, регулируйте прозрачность блоков. Интерфейс подстраивается под вас." 
+        id: 'safety',
+        icon: <LifeBuoyIcon className="w-6 h-6 text-red-500" />, 
+        title: "Советы и Правила", 
+        content: "1. Не спамьте в чате — система модерации работает автоматически. 2. Если станция заикается, проверьте интернет — мы уже отфильтровали плохие ссылки. 3. Добавляйте лучшее в Избранное (сердечко), чтобы не потерять." 
     },
   ] : [
     { 
         id: 'radio',
         icon: <MusicNoteIcon className="w-6 h-6 text-pink-500" />, 
-        title: "Radio Stream",
-        content: "The core of the app. Browse thousands of stations via the left sidebar. Choose 'Genres' for style, 'Eras' for nostalgia, or 'Moods' for vibe. Found something great? Hit the heart icon to save it to Favorites." 
+        title: "Global Radio & AI",
+        content: "Thousands of worldwide stations at your fingertips. Use 'AI Optimize' (✨) to filter out low-quality streams. Stations that don't load within 3 seconds are removed automatically for a smooth experience." 
     },
     { 
-        id: 'timer',
-        icon: <MoonIcon className="w-6 h-6 text-indigo-400" />, 
-        title: "Sleep Timer", 
-        content: "Drift off peacefully. Open the Tools Panel (settings icon at bottom right), go to the Clock tab, and set a timer. The music will stop automatically allowing you to sleep without worry." 
+        id: 'voice',
+        icon: <span className="text-2xl">👄</span>, 
+        title: "Live Voice Mode",
+        content: "A game-changer for chat! Enable the mouth icon to have incoming messages read aloud in real-time. The system auto-detects English or Russian and picks the best voice. Perfect for hands-free listening." 
     },
     { 
-        id: 'alarm',
-        icon: <BellIcon className="w-6 h-6 text-red-400" />, 
-        title: "Alarm Clock", 
-        content: "Wake up to your favorite rhythm. Located in the same Clock tab. Set the time and days, and the app will play the last active station. Note: The app needs to be open (background is fine) to work." 
+        id: 'chat',
+        icon: <UsersIcon className="w-6 h-6 text-purple-500" />, 
+        title: "Private Chat (E2EE)",
+        content: "Secure and ephemeral. All messages are encrypted (E2EE) and auto-deleted: text in 60s, media in 30s. Use the 'Discovery Drum' to find random peers. Mutual consent is required for all interactions." 
+    },
+    { 
+        id: 'audio',
+        icon: <AdjustmentsIcon className="w-6 h-6 text-emerald-500" />, 
+        title: "Bluetooth Controls", 
+        content: "Optimized for headphones and car systems. Use track skip buttons on your hardware to change stations. Your lock screen will show the active station meta and controls." 
     },
     { 
         id: 'ambience',
         icon: <CloudIcon className="w-6 h-6 text-blue-400" />, 
         title: "Ambience Mixer", 
-        content: "Create your perfect atmosphere. The Cloud tab lets you layer sounds like Rain, Fire, or City noise over your music. Try '8D Audio' with headphones for a surround sound experience." 
+        content: "Layer your music with Rain, Fire, or City sounds. Try '8D Audio' with headphones for a surround experience. It's designed for deep focus or ultimate relaxation." 
     },
     { 
-        id: 'chat',
-        icon: <UsersIcon className="w-6 h-6 text-purple-500" />, 
-        title: "Chat & Connect", 
-        content: "Music connects us. Tap the Chat icon (top right). Create a profile to find listeners by country or age. Use the 'Discovery Drum' to find random peers. All chats require mutual consent." 
+        id: 'timer',
+        icon: <MoonIcon className="w-6 h-6 text-indigo-400" />, 
+        title: "Sleep Timer & Alarm", 
+        content: "Drift off with a sleep timer or wake up to your favorite station. Find these in the Tools Panel (clock icon). StreamFlow is your 24/7 audio companion." 
     },
     { 
         id: 'visualizer',
         icon: <PlayIcon className="w-6 h-6 text-yellow-500" />, 
-        title: "Visualizer", 
-        content: "See the music. In the Paintbrush tab, choose from various visual effects like Galaxy or Neon Lines. Adjust speed and brightness to create your personal light show." 
+        title: "Visualizer & Themes", 
+        content: "Choose from Neon Lines to Galaxy visuals. Switch themes (try our default Orange!) and light/dark modes. The interface is built to be yours." 
     },
     { 
-        id: 'eq',
-        icon: <AdjustmentsIcon className="w-6 h-6 text-emerald-500" />, 
-        title: "Equalizer", 
-        content: "Fine-tune the audio. Use the 10-band equalizer to boost bass or clarify vocals. You are the sound engineer of your stream." 
-    },
-    { 
-        id: 'appearance',
-        icon: <PaletteIcon className="w-6 h-6 text-amber-500" />, 
-        title: "Appearance", 
-        content: "Make it yours. Change color themes, toggle Dark/Light mode, or adjust card transparency. The interface adapts to your style." 
+        id: 'safety',
+        icon: <LifeBuoyIcon className="w-6 h-6 text-red-500" />, 
+        title: "Tips & Rules", 
+        content: "1. No spamming — auto-moderation is active. 2. If a stream stutters, it might be your connection; we've already cleaned the bad links. 3. Heart your favorites to save them forever." 
     },
   ];
 
