@@ -210,6 +210,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [expirationWarning, setExpirationWarning] = useState(false);
   const [violationMessage, setViolationMessage] = useState<string | null>(null);
   
+  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
   const [regNotificationsEnabled, setRegNotificationsEnabled] = useState(currentUser.chatSettings?.notificationsEnabled ?? true);
   const [regNotificationVolume, setRegNotificationVolume] = useState(currentUser.chatSettings?.notificationVolume ?? 0.8);
   const [regNotificationSound, setRegNotificationSound] = useState(currentUser.chatSettings?.notificationSound ?? 'default');
@@ -453,6 +454,22 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       // Play sound only for messages from others
       if (message.senderId !== currentUser.id) {
           playNotificationSound('knock');
+          
+          // Voice Mode: Read incoming message
+          if (decrypted.text && voiceModeEnabled) {
+              // Get partner gender
+              let partnerGender = 'other';
+              if (activeSession) {
+                  const partner = activeSession.partnerProfile || onlineUsers.find(u => u.id === message.senderId);
+                  partnerGender = partner?.gender || 'other';
+              }
+              speakMessage(decrypted.text, partnerGender);
+          }
+      } else {
+          // Voice Mode: Read outgoing message
+          if (decrypted.text && voiceModeEnabled) {
+              speakMessage(decrypted.text, currentUser.gender);
+          }
       }
       
       scrollToBottom();
@@ -576,6 +593,46 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         alert(`${data.message}\n${data.reason || ''}`);
         setView('auth');
     }));
+
+    // AI Voice Mode Helper
+    const speakMessage = (text: string, gender: string) => {
+        if (!voiceModeEnabled || !('speechSynthesis' in window)) return;
+        
+        // Cancel any ongoing speech
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        
+        // Find best voice (prioritizing RHVoice if available)
+        const voices = window.speechSynthesis.getVoices();
+        let selectedVoice = null;
+
+        // Scoring system for voices: 우선순위: Russian/English high quality voices
+        const sortedVoices = [...voices].sort((a, b) => {
+            const aLang = a.lang.toLowerCase();
+            const bLang = b.lang.toLowerCase();
+            if (aLang.includes('ru') && !bLang.includes('ru')) return -1;
+            if (!aLang.includes('ru') && bLang.includes('ru')) return 1;
+            return 0;
+        });
+
+        // Filter by gender keywords if possible
+        const genderVoice = sortedVoices.find(v => {
+            const name = v.name.toLowerCase();
+            if (gender === 'female') {
+                return name.includes('elena') || name.includes('irina') || name.includes('anna') || name.includes('female');
+            } else if (gender === 'male') {
+                return name.includes('aleksandr') || name.includes('pavel') || name.includes('male');
+            }
+            return false;
+        });
+
+        utterance.voice = genderVoice || sortedVoices.find(v => v.lang.includes('ru')) || sortedVoices[0];
+        utterance.rate = 1.1;
+        utterance.pitch = gender === 'female' ? 1.1 : 0.9;
+        
+        window.speechSynthesis.speak(utterance);
+    };
 
     // Listen for report acknowledgment
     cleanups.push(socketService.addListener('report:acknowledged', () => {
@@ -1097,6 +1154,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     <div className="flex items-center gap-1">
                         <button onClick={() => handleReportUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-orange-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Пожаловаться' : 'Report'}><LifeBuoyIcon className="w-5 h-5" /></button>
                         <button onClick={() => handleBlockUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-red-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Заблокировать' : 'Block'}><NoSymbolIcon className="w-5 h-5" /></button>
+                        <button 
+                            onClick={() => setVoiceModeEnabled(!voiceModeEnabled)} 
+                            className={`p-2.5 transition-all rounded-full ${voiceModeEnabled ? 'text-primary bg-primary/10 shadow-[0_0_15px_rgba(188,111,241,0.2)]' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
+                            title={language === 'ru' ? (voiceModeEnabled ? 'Выключить живую озвучку' : 'Включить живую озвучку') : (voiceModeEnabled ? 'Disable Live Voice' : 'Enable Live Voice')}
+                        >
+                            <MicrophoneIcon className={`w-5 h-5 ${voiceModeEnabled ? 'animate-pulse' : ''}`} />
+                        </button>
                         <button onClick={() => {
                           if (partnerDetails) {
                             setCallPartner(partnerDetails);
