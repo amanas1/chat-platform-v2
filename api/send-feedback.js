@@ -4,21 +4,27 @@ export default async function handler(req, res) {
   }
 
   const { rating, message, userId } = req.body;
+  const accessKey = process.env.WEB3FORMS_ACCESS_KEY;
 
-  // Email send via Web3Forms (free service)
+  if (!accessKey || accessKey === 'YOUR_KEY_HERE') {
+    console.error('Missing WEB3FORMS_ACCESS_KEY');
+    return res.status(500).json({ success: false, error: 'Server configuration error' });
+  }
+
+  // Simplified format for Web3Forms
   const formData = {
-    access_key: process.env.WEB3FORMS_ACCESS_KEY || 'YOUR_KEY_HERE',
-    subject: `⭐ StreamFlow Feedback: ${rating}/5`,
-    from_name: 'StreamFlow App',
-    email: 'amanas5535332@gmail.com',
+    access_key: accessKey,
+    subject: `⭐ StreamFlow: ${rating}/5 Stars`,
+    from_name: 'StreamFlow Feedback System',
     message: `
 Rating: ${'⭐'.repeat(rating)} (${rating}/5)
 
 Message:
-${message || 'No message provided'}
+${message || '(No text message)'}
 
-User ID: ${userId || 'Anonymous'}
-Timestamp: ${new Date().toISOString()}
+User Details:
+- ID: ${userId || 'Anonymous'}
+- Sent at: ${new Date().toLocaleString('ru-RU')}
     `.trim()
   };
 
@@ -27,19 +33,32 @@ Timestamp: ${new Date().toISOString()}
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(formData)
     });
 
-    const data = await response.json();
+    const responseText = await response.text();
+    let data;
+
+    try {
+      data = JSON.parse(responseText);
+    } catch (e) {
+      console.error('Web3Forms returned non-JSON response:', responseText);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Service returned unexpected response format' 
+      });
+    }
     
-    if (data.success) {
+    if (data.success || response.ok) {
       return res.status(200).json({ success: true });
     } else {
-      return res.status(500).json({ success: false, error: data.message });
+      console.error('Web3Forms Error:', data);
+      return res.status(500).json({ success: false, error: data.message || 'API Error' });
     }
   } catch (error) {
-    console.error('Email send error:', error);
+    console.error('Fetch error:', error);
     return res.status(500).json({ success: false, error: error.message });
   }
 }
