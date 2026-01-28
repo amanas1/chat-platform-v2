@@ -2,19 +2,27 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
 const moderation = require('./moderation');
 
 // ... (other constants)
 
-// Email Transporter (Configure with Env Vars)
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER || 'streamflow.notifications@gmail.com', // Fallback or Env
-        pass: process.env.EMAIL_PASS || 'your-app-password'
-    }
-});
+// No email transport - relying on console logs
+// const transporter = nodemailer.createTransport(...) 
+
+// ... (server setup)
+
+  // FEEDBACK
+  socket.on('feedback:send', async ({ rating, message }) => {
+    // 1. Respond to user immediately
+    socket.emit('feedback:received', { success: true });
+    
+    // 2. Log Locally (Reverted email sending due to deployment issues)
+    console.log('--- NEW FEEDBACK RECEIVED ---');
+    console.log(`Rating: ${rating}/5 stars`);
+    console.log(`Message: ${message || '(No message)'}`);
+    console.log(`User ID: ${boundUserId || 'Anonymous'}`);
+    console.log('-----------------------------');
+  });
 
 // ... (server setup)
 
