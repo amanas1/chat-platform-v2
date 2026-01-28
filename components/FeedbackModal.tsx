@@ -16,6 +16,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, language
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Safe translation access with fallbacks
   const getTranslation = (key: string, fallback: string) => {
@@ -38,8 +39,6 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, language
   };
 
   if (!isOpen) return null;
-
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
