@@ -216,8 +216,93 @@ const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ onBack, language })
                           </p>
                           <div className="flex gap-2">
                               <span className="px-2 py-1 bg-black/40 rounded text-[10px] text-slate-500">🚫 Мгновенное исчезновение</span>
-                              <span className="px-2 py-1 bg-black/40 rounded text-[10px] text-slate-500">🔒 Блок по IP (при жалобах)</span>
+                              <span className="px-2 py-1 bg-black/40 rounded text-[10px] text-slate-500">🔒 Блок по IP</span>
                           </div>
+                      </div>
+                  </div>
+
+                  {/* SECTION: TECHNOLOGY & FUTURE (User Request) */}
+                  <div className="border-t border-white/5 pt-12 space-y-12">
+                      <div className="space-y-6">
+                          <div className="inline-block px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-[10px] font-black text-blue-400 uppercase tracking-widest">
+                              INSIDER INFO
+                          </div>
+                          <h3 className="text-3xl font-black text-white">Почему это сложнее, чем WhatsApp?</h3>
+                          <p className="text-slate-400 leading-relaxed">
+                              В отличие от коммерческих гигантов (Telegram, WhatsApp), где ваши данные хранятся на серверах годами, архитектура StreamFlow построена на принципе <strong>Zero-Persistence</strong>. Мы потратили сотни часов на создание системы, которая уничтожает данные быстрее, чем вы успеваете их забыть. 
+                              <br/><br/>
+                              Это сложнейшая инженерная задача — заставить сервер пересылать сообщения, "не читая" их. Мы добились совершенства в синхронизации: пока вы слушаете музыку, за кулисами работают алгоритмы, которые не снились стандартным мессенджерам.
+                          </p>
+                      </div>
+
+                      {/* FEATURE: VOICE MODE - FUN & ENGAGING */}
+                      <div className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 border border-white/10 rounded-3xl p-8 relative overflow-hidden group">
+                           <div className="absolute top-0 right-0 p-32 bg-purple-500/20 blur-3xl rounded-full translate-x-12 -translate-y-12 group-hover:bg-purple-500/30 transition-colors" />
+                           <div className="relative z-10 flex flex-col md:flex-row gap-8 items-center">
+                               <div className="flex-1 space-y-4">
+                                   <div className="flex items-center gap-3">
+                                       <div className="p-2 bg-white/10 rounded-lg">
+                                           <span className="text-2xl">🗣️</span>
+                                       </div>
+                                       <h4 className="text-2xl font-bold text-white">Голосовой Синтез</h4>
+                                   </div>
+                                   <p className="text-slate-300 leading-relaxed">
+                                       Хотите повеселиться? Включите этот режим, и чат "оживет". 
+                                       Система будет зачитывать входящие сообщения разными голосами (роботизированными или человеческими). 
+                                       Это создает забавный эффект "присутствия", будто вы сидите с собеседником в одной комнате.
+                                   </p>
+                                   <div className="flex items-center gap-2 text-xs font-mono text-purple-300 bg-purple-900/30 px-3 py-2 rounded-lg border border-purple-500/30 w-fit">
+                                       <span>ТРИГГЕР:</span>
+                                       <span className="text-white">Нажмите иконку "Губы" 👄 в шапке чата</span>
+                                   </div>
+                               </div>
+                               {/* GUI Mockup of toggle */}
+                               <div className="bg-black/40 p-6 rounded-2xl border border-white/5 backdrop-blur-sm shadow-xl transform rotate-2 transition-transform hover:rotate-0">
+                                   <div className="flex items-center justify-between gap-6 border-b border-white/10 pb-4 mb-4">
+                                       <span className="text-xs font-bold text-slate-400 uppercase">Voice Mode</span>
+                                       <div className="w-12 h-6 bg-green-500 rounded-full relative cursor-pointer shadow-[0_0_10px_rgba(34,197,94,0.5)]">
+                                            <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
+                                       </div>
+                                   </div>
+                                   <div className="space-y-2">
+                                       <div className="h-2 w-32 bg-white/10 rounded animate-pulse" />
+                                       <div className="h-2 w-24 bg-white/10 rounded animate-pulse delay-75" />
+                                   </div>
+                               </div>
+                           </div>
+                      </div>
+
+                      {/* ROADMAP: WebRTC & AI */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                           <div className="p-6 border border-white/5 bg-white/[0.02] rounded-2xl space-y-4 hover:bg-white/[0.04] transition-colors">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-bold text-white flex items-center gap-2">
+                                        <CloudIcon className="w-5 h-5 text-emerald-400" />
+                                        WebRTC: Видеозвонки
+                                    </h4>
+                                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 px-2 py-1 rounded border border-emerald-500/20 tracking-wider">IN DEV</span>
+                                </div>
+                                <p className="text-slate-400 text-xs leading-6 text-justify">
+                                    Разработчик прямо сейчас архитектурует модуль видеосвязи. 
+                                    Ожидайте кристально чистые звонки peer-to-peer без серверов-посредников. 
+                                    Это сложная технология, требующая времени, но результат вас поразит.
+                                </p>
+                           </div>
+
+                           <div className="p-6 border border-white/5 bg-white/[0.02] rounded-2xl space-y-4 hover:bg-white/[0.04] transition-colors">
+                                <div className="flex items-center justify-between">
+                                    <h4 className="font-bold text-white flex items-center gap-2">
+                                        <CpuChipIcon className="w-5 h-5 text-amber-400" />
+                                        AI Neural Core
+                                    </h4>
+                                    <span className="text-[9px] bg-amber-500/20 text-amber-300 px-2 py-1 rounded border border-amber-500/20 tracking-wider">SECRET</span>
+                                </div>
+                                <p className="text-slate-400 text-xs leading-6 text-justify">
+                                    Готовится сюрприз с внедрением сложных ИИ-алгоритмов. 
+                                    Мы не будем раскрывать карты, но это изменит ваш опыт общения и прослушивания музыки. 
+                                    Оставайтесь в приложении, чтобы не пропустить этот апдейт! 🚀
+                                </p>
+                           </div>
                       </div>
                   </div>
               </section>
