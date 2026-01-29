@@ -28,14 +28,22 @@ const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ onBack, language })
           <h2 className="text-xl font-bold text-white">Энциклопедия StreamFlow</h2>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-8 space-y-12 no-scrollbar scroll-smooth">
+      <div className="flex-1 overflow-y-auto p-8 space-y-12 scroll-smooth">
           {/* Section 1 */}
           <section className="space-y-6">
               <div className="aspect-video rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl">
                   <img src="/guide_cover_premium.png" alt="Cover" className="w-full h-full object-cover" />
               </div>
               <h1 className="text-4xl font-black text-white leading-tight">📘 Энциклопедия StreamFlow: Полное руководство</h1>
-              <p className="text-slate-400 text-lg leading-relaxed">Издание 1.0 | Для пользователей, исследователей и ценителей звука</p>
+              <div className="flex justify-between items-center">
+                  <p className="text-slate-400 text-lg leading-relaxed">Издание 1.0 | Для пользователей, исследователей и ценителей звука</p>
+                  <div className="flex items-center gap-2 text-primary animate-bounce">
+                      <span className="text-xs font-bold uppercase tracking-widest">Прокрутите вниз</span>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                      </svg>
+                  </div>
+              </div>
           </section>
 
           <hr className="border-white/5" />

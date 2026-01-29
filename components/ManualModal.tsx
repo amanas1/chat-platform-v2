@@ -133,7 +133,9 @@ const ManualModal: React.FC<ManualModalProps> = ({ isOpen, onClose, language, on
           </div>
           
           {showEncyclopedia ? (
-              <EncyclopediaView onBack={() => setShowEncyclopedia(false)} language={language} />
+              <div className="flex-1 overflow-hidden flex flex-col">
+                <EncyclopediaView onBack={() => setShowEncyclopedia(false)} language={language} />
+              </div>
           ) : (
               <>
                 <div className="p-8 overflow-y-auto no-scrollbar space-y-8 flex-1">
