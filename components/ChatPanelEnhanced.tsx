@@ -1283,13 +1283,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </button>
                             )}
                         </div>
-                        <button onClick={() => {
+                        {/* <button onClick={() => {
                           if (partnerDetails) {
                             setCallPartner(partnerDetails);
                             setTimeout(() => initiateCall(), 0);
                           }
                         }} className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Голосовой звонок' : 'Voice Call'}><PhoneIcon className="w-5 h-5" /></button>
-                        <button disabled className="p-2.5 text-slate-500 cursor-not-allowed opacity-50 rounded-full" title={language === 'ru' ? 'Видео скоро' : 'Video coming soon'}><VideoCameraIcon className="w-5 h-5" /></button>
+                        <button disabled className="p-2.5 text-slate-500 cursor-not-allowed opacity-50 rounded-full" title={language === 'ru' ? 'Видео скоро' : 'Video coming soon'}><VideoCameraIcon className="w-5 h-5" /></button> */}
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors ml-1"><XMarkIcon className="w-6 h-6" /></button>
                     </div>
                 </>
