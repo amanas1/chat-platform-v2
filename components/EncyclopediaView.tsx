@@ -8,42 +8,52 @@ interface EncyclopediaViewProps {
 }
 
 const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ onBack, language }) => {
-  const isRu = language === 'ru';
+  const [scrollProgress, setScrollProgress] = React.useState(0);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
 
-  if (!isRu) {
-      return (
-          <div className="p-8 text-center">
-              <h2 className="text-2xl font-bold text-white mb-4">Encyclopedia is currently only available in Russian.</h2>
-              <button onClick={onBack} className="text-primary font-bold">Back to Manual</button>
-          </div>
-      );
-  }
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const progress = (scrollTop / (scrollHeight - clientHeight)) * 100;
+    setScrollProgress(progress);
+  };
+
+  const isRu = language === 'ru';
+  if (!isRu) return <div className="p-8 text-white">Only Russian supported.</div>;
 
   return (
-    <div className="flex flex-col h-full bg-slate-950/40">
-      <div className="p-6 border-b border-white/5 flex items-center gap-4 bg-white/5 shrink-0">
-          <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-all text-slate-400 hover:text-white">
-              <ArrowLeftIcon className="w-6 h-6" />
-          </button>
-          <h2 className="text-xl font-bold text-white">Энциклопедия StreamFlow</h2>
+    <div className="flex flex-col flex-1 min-h-0 bg-slate-950/60 relative">
+      {/* Dynamic Progress Bar */}
+      <div className="absolute top-0 left-0 h-1 bg-primary z-50 transition-all duration-150" style={{ width: `${scrollProgress}%` }} />
+      
+      <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/5 shrink-0">
+          <div className="flex items-center gap-4">
+            <button onClick={onBack} className="p-2 hover:bg-white/10 rounded-full transition-all text-slate-400 hover:text-white">
+                <ArrowLeftIcon className="w-6 h-6" />
+            </button>
+            <h2 className="text-xl font-bold text-white">Энциклопедия StreamFlow</h2>
+          </div>
+          <div className="flex items-center gap-2 text-primary/80 text-[10px] font-black uppercase tracking-[0.2em]">
+             <span>Листайте вниз</span>
+             <svg className="w-4 h-4 animate-bounce" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+             </svg>
+          </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-8 space-y-12 scroll-smooth">
+      <div 
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-8 space-y-16 scroll-smooth"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(188, 111, 241, 0.5) transparent' }}
+      >
           {/* Section 1 */}
           <section className="space-y-6">
               <div className="aspect-video rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl">
                   <img src="/guide_cover_premium.png" alt="Cover" className="w-full h-full object-cover" />
               </div>
-              <h1 className="text-4xl font-black text-white leading-tight">📘 Энциклопедия StreamFlow: Полное руководство</h1>
-              <div className="flex justify-between items-center">
-                  <p className="text-slate-400 text-lg leading-relaxed">Издание 1.0 | Для пользователей, исследователей и ценителей звука</p>
-                  <div className="flex items-center gap-2 text-primary animate-bounce">
-                      <span className="text-xs font-bold uppercase tracking-widest">Прокрутите вниз</span>
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                      </svg>
-                  </div>
-              </div>
+              <h1 className="text-5xl font-black text-white leading-tight tracking-tighter">📘 Энциклопедия StreamFlow</h1>
+              <p className="text-slate-400 text-xl leading-relaxed italic border-l-4 border-primary pl-6">Полное техническое и функциональное руководство. Издание 1.0</p>
           </section>
 
           <hr className="border-white/5" />
