@@ -230,7 +230,7 @@ const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ onBack, language })
                               Мы используем военный стандарт **AES-256**. Ключи расшифровки генерируются при старте сессии и никогда не покидают оперативную память вашего устройства. Сервер служит лишь «туннелем» для зашифрованного шума.
                           </p>
                           <div className="p-4 rounded-2xl bg-black/40 border border-white/5 text-[10px] text-emerald-500 font-mono tracking-tighter">
-                              [Session Start] -> Generate Key Pair (Local) -> Apply AES-256 -> Tunneling -> Remote Client Decryption (Local)
+                              [Session Start] → Generate Key Pair (Local) → Apply AES-256 → Tunneling → Remote Client Decryption (Local)
                           </div>
                       </div>
 
