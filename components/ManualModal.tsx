@@ -2,7 +2,8 @@
 import React from 'react';
 import { Language } from '../types';
 import { TRANSLATIONS } from '../constants';
-import { XMarkIcon, MusicNoteIcon, UsersIcon, AdjustmentsIcon, PaletteIcon, PlayIcon, CloudIcon, GlobeIcon, BellIcon, LifeBuoyIcon, MoonIcon, MapIcon } from './Icons';
+import { XMarkIcon, MusicNoteIcon, UsersIcon, AdjustmentsIcon, PaletteIcon, PlayIcon, CloudIcon, GlobeIcon, BellIcon, LifeBuoyIcon, MoonIcon, MapIcon, RocketIcon } from './Icons';
+import EncyclopediaView from './EncyclopediaView';
 
 interface ManualModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface ManualModalProps {
 }
 
 const ManualModal: React.FC<ManualModalProps> = ({ isOpen, onClose, language, onShowFeature }) => {
+  const [showEncyclopedia, setShowEncyclopedia] = React.useState(false);
   const t = TRANSLATIONS[language] || TRANSLATIONS.en;
 
   if (!isOpen) return null;
@@ -130,38 +132,51 @@ const ManualModal: React.FC<ManualModalProps> = ({ isOpen, onClose, language, on
               </button>
           </div>
           
-          <div className="p-8 overflow-y-auto no-scrollbar space-y-8 flex-1">
-              <p className="text-slate-300 text-xl leading-relaxed font-medium">{t.manualIntro}</p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {sections.map((s, i) => (
-                      <div key={i} className="flex flex-col gap-4 p-6 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all h-full relative group">
-                          <div className="flex items-center gap-4 mb-2">
-                              <div className="w-14 h-14 shrink-0 rounded-2xl bg-black/40 flex items-center justify-center shadow-inner border border-white/5">
-                                  {s.icon}
-                              </div>
-                              <h4 className="text-white font-bold text-xl leading-tight">{s.title}</h4>
-                          </div>
-                          <p className="text-base text-slate-300 leading-relaxed opacity-90 font-medium pb-8">{s.content}</p>
-                          
-                          {/* Show Where Button */}
-                          <div className="absolute bottom-4 right-4 opacity-70 group-hover:opacity-100 transition-opacity">
-                              <button 
-                                onClick={() => onShowFeature && onShowFeature(s.id)}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-primary text-xs font-bold uppercase tracking-widest text-white transition-all shadow-lg"
-                              >
-                                  <MapIcon className="w-4 h-4" />
-                                  {t.showWhere}
-                              </button>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-          </div>
-          
-          <div className="p-6 border-t border-white/5 bg-white/5 text-center shrink-0">
-              <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">© 2025 StreamFlow Radio Engine • Administration</p>
-          </div>
+          {showEncyclopedia ? (
+              <EncyclopediaView onBack={() => setShowEncyclopedia(false)} language={language} />
+          ) : (
+              <>
+                <div className="p-8 overflow-y-auto no-scrollbar space-y-8 flex-1">
+                    <p className="text-slate-300 text-xl leading-relaxed font-medium">{t.manualIntro}</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {sections.map((s, i) => (
+                            <div key={i} className="flex flex-col gap-4 p-6 rounded-3xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all h-full relative group">
+                                <div className="flex items-center gap-4 mb-2">
+                                    <div className="w-14 h-14 shrink-0 rounded-2xl bg-black/40 flex items-center justify-center shadow-inner border border-white/5">
+                                        {s.icon}
+                                    </div>
+                                    <h4 className="text-white font-bold text-xl leading-tight">{s.title}</h4>
+                                </div>
+                                <p className="text-base text-slate-300 leading-relaxed opacity-90 font-medium pb-8">{s.content}</p>
+                                
+                                {/* Show Where Button */}
+                                <div className="absolute bottom-4 right-4 opacity-70 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                        onClick={() => onShowFeature && onShowFeature(s.id)}
+                                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-primary text-xs font-bold uppercase tracking-widest text-white transition-all shadow-lg"
+                                    >
+                                        <MapIcon className="w-4 h-4" />
+                                        {t.showWhere}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                
+                <div className="p-6 border-t border-white/5 bg-white/5 text-center shrink-0 flex flex-col items-center gap-4">
+                    <button 
+                        onClick={() => setShowEncyclopedia(true)}
+                        className="group flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white font-black uppercase tracking-widest text-sm hover:scale-105 active:scale-95 transition-all shadow-2xl shadow-primary/20"
+                    >
+                        <RocketIcon className="w-6 h-6 animate-bounce" />
+                        {language === 'ru' ? 'Открыть полную энциклопедию' : 'Open Full Encyclopedia'}
+                    </button>
+                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">© 2025 StreamFlow Radio Engine • Administration</p>
+                </div>
+              </>
+          )}
       </div>
     </div>
   );
