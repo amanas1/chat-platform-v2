@@ -93,26 +93,27 @@ const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ onBack, language })
                   </div>
                   
                   <div className="bg-white/5 border border-white/5 rounded-[2rem] p-8 space-y-8">
-                      <div className="aspect-video rounded-3xl overflow-hidden border border-white/10 relative">
-                          <img src="/player_view.png" alt="Player Interface" className="w-full h-full object-cover" />
-                          {/* Simulated Highlights */}
-                          <div className="absolute top-4 left-4 bg-primary/90 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg shadow-primary/50">1. Поиск</div>
-                          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-secondary/90 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">2. Управление</div>
+                      {/* LIVE CUTOUT: Search Bar Focus */}
+                      <div className="relative rounded-3xl overflow-hidden border border-white/10 shadow-2xl bg-black/50">
+                          <div className="absolute top-3 left-4 z-10 bg-primary text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-lg">Зона 1: Поиск</div>
+                          {/* CSS Crop of the main interface to show only top bar */}
+                          <div className="h-32 overflow-hidden relative">
+                               <img 
+                                 src="/player_view.png" 
+                                 alt="Search Interface" 
+                                 className="w-[120%] max-w-none absolute -top-4 -left-4 opacity-80"
+                               />
+                               {/* Overlay Highlight */}
+                               <div className="absolute inset-0 bg-indigo-500/10 mix-blend-overlay" />
+                          </div>
                       </div>
 
                       <div className="space-y-6">
                           <div className="flex gap-4">
                               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-black shrink-0">1</div>
                               <div>
-                                  <h4 className="text-white font-bold text-lg mb-2">Поиск станции</h4>
-                                  <p className="text-slate-400 leading-relaxed">Нажмите на иконку <GlobeIcon className="inline w-4 h-4"/> <strong>Глобуса</strong> в верхнем меню. В открывшемся окне введите название жанра (например, 'Jazz') или выберите страну из списка.</p>
-                              </div>
-                          </div>
-                           <div className="flex gap-4">
-                              <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center text-white font-black shrink-0">2</div>
-                              <div>
-                                  <h4 className="text-white font-bold text-lg mb-2">Фильтрация</h4>
-                                  <p className="text-slate-400 leading-relaxed">Используйте кнопку <AdjustmentsIcon className="inline w-4 h-4"/> для настройки битрейта. Если у вас медленный интернет, выключите галочку "High Quality", чтобы сэкономить трафик.</p>
+                                  <h4 className="text-white font-bold text-lg mb-2">Глобальный Поиск</h4>
+                                  <p className="text-slate-400 leading-relaxed">Нажмите на иконку <GlobeIcon className="inline w-4 h-4 text-blue-400"/> в шапке. Введите жанр (<em>Lo-Fi, Jazz</em>) или страну.</p>
                               </div>
                           </div>
                       </div>
@@ -125,22 +126,48 @@ const EncyclopediaView: React.FC<EncyclopediaViewProps> = ({ onBack, language })
                       <div className="w-12 h-12 rounded-2xl bg-pink-500/20 flex items-center justify-center text-pink-400">
                           <ChatBubbleIcon className="w-6 h-6" />
                       </div>
-                      <h2 className="text-4xl font-black text-white tracking-tight">2. Чат: Общение и Поиск</h2>
+                      <h2 className="text-4xl font-black text-white tracking-tight">2. Чат: Пошаговый доступ</h2>
                   </div>
 
-                  {/* Step 1: Registration */}
+                  {/* Step 1: Registration (LIVE UI SIMULATION) */}
                   <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] overflow-hidden">
-                      <div className="p-10 pb-0">
-                          <h3 className="text-3xl font-black text-white mb-6">Шаг 1: Регистрация Профиля</h3>
-                          <p className="text-slate-400 tex-lg leading-relaxed mb-8">
-                             Чтобы попасть в онлайн к другим участникам, вам нужно создать временный цифровой паспорт. 
-                             Это необходимо для того, чтобы собеседники понимали, с кем они имеют дело — с мужчиной или женщиной, и из какой страны.
+                      <div className="p-10 pb-6">
+                          <h3 className="text-3xl font-black text-white mb-4">Шаг 1: Цифровой Паспорт</h3>
+                          <p className="text-slate-400 text-lg leading-relaxed">
+                             Вместо скриншота, вот <strong>интерактивная копия</strong> окна регистрации. Заполните эти поля при входе.
                           </p>
                       </div>
-                      <div className="w-full border-t border-white/5 bg-black/30 p-10 flex flex-col items-center gap-6">
-                          <img src="/chat_registration_ui_guide_1769690086556.png" alt="Registration Modal" className="rounded-2xl shadow-2xl border border-white/10 max-w-md w-full" />
-                          <div className="text-sm text-slate-500 text-center max-w-md">
-                              <strong className="text-white">На экране выше:</strong> Введите имя, укажите ваш реальный возраст и пол. Нажмите кнопку "Подключиться", чтобы войти в глобальную сеть.
+                      
+                      {/* THE PHANTOM UI - Re-creating the exact modal look */}
+                      <div className="w-full border-t border-white/5 bg-[#0f1014] p-10 flex justify-center py-16 relative overflow-hidden">
+                          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, #7c3aed 0%, transparent 50%)' }} />
+                          
+                          <div className="w-full max-w-sm bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl relative z-10 transform rotate-1 hover:rotate-0 transition-transform duration-500">
+                              <div className="text-center mb-6">
+                                  <h4 className="text-xl font-black text-white tracking-tight">Регистрация</h4>
+                                  <p className="text-xs text-slate-500 uppercase tracking-widest mt-1">Доступ к сети</p>
+                              </div>
+                              <div className="space-y-4">
+                                  <div className="space-y-1">
+                                      <label className="text-[10px] text-slate-400 font-bold ml-2">ИМЯ / НИКНЕЙМ</label>
+                                      <div className="h-10 bg-white/5 rounded-xl border border-white/5 flex items-center px-4 text-slate-300 text-sm">Alex_Runner_2049</div>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <div className="space-y-1">
+                                          <label className="text-[10px] text-slate-400 font-bold ml-2">ВОЗРАСТ</label>
+                                          <div className="h-10 bg-white/5 rounded-xl border border-white/5 flex items-center px-4 text-slate-300 text-sm">24</div>
+                                      </div>
+                                      <div className="space-y-1">
+                                          <label className="text-[10px] text-slate-400 font-bold ml-2">ПОЛ</label>
+                                          <div className="h-10 bg-white/5 rounded-xl border border-white/5 flex items-center px-4 text-slate-300 text-sm">Мужской</div>
+                                      </div>
+                                  </div>
+                                  <button className="w-full h-12 bg-primary hover:bg-primary/80 rounded-xl text-white font-bold uppercase tracking-widest text-xs mt-2 shadow-lg shadow-primary/20">
+                                      Создать Профиль
+                                  </button>
+                              </div>
+                              {/* Overlay Pointer */}
+                              <div className="absolute -right-12 top-10 bg-white text-black px-3 py-1 rounded-l-full text-[10px] font-black shadow-xl">ВАШИ ДАННЫЕ</div>
                           </div>
                       </div>
                   </div>
