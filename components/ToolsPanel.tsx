@@ -316,12 +316,6 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                          </button>
                          <button onClick={onStartTutorial} className="py-3 bg-white/5 rounded-xl text-xs font-bold text-slate-300 hover:bg-white/10 transition-all">{t.manualTooltip}</button>
                      </div>
-                     <div className="flex items-center justify-between">
-                         <span className="text-xs font-bold text-slate-500 uppercase">{t.developerNews}</span>
-                         <button onClick={() => setShowDeveloperNews(!showDeveloperNews)} className={`w-12 h-6 rounded-full relative transition-colors ${showDeveloperNews ? 'bg-green-500' : 'bg-slate-700'}`}>
-                             <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${showDeveloperNews ? 'left-7' : 'left-1'}`}></div>
-                         </button>
-                     </div>
 
                      {/* GLOBAL RESET BUTTON */}
                      {onGlobalReset && (

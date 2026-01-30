@@ -145,7 +145,7 @@ export default function App(): React.JSX.Element {
   const [vizSettings, setVizSettings] = useState<VisualizerSettings>(DEFAULT_VIZ_SETTINGS);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [isIdleView, setIsIdleView] = useState(false);
-  const [showDeveloperNews, setShowDeveloperNews] = useState(true);
+  const [showDeveloperNews, setShowDeveloperNews] = useState(false);
   const [newsIndex, setNewsIndex] = useState(0);
 
   const [installPrompt, setInstallPrompt] = useState<any>(null);
