@@ -1939,131 +1939,136 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             `}</style>
                             
                             <div className="max-w-xs mx-auto space-y-5 text-center">
-                                {/* Russian Text Block */}
-                                <div className={`space-y-4 transition-opacity duration-500 ${language === 'ru' ? 'opacity-100' : 'opacity-30 scale-95'}`}>
-                                    <p className="text-base text-slate-200 leading-relaxed font-medium">
-                                        Привет, уважаемый пользователь!
-                                    </p>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        Мы понимаем, что, возможно, ты не хотел(а) нарушать правила. А может быть, намеренно использовал(а) VPN или другие сервисы для обхода ограничений.
-                                    </p>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        Этот сервис создан для реальных людей, которые хотят общаться искренне и уважительно. Мы не желаем хаоса и беспорядка в нашем сообществе.
-                                    </p>
-                                    
-                                    <div className="py-2">
-                                        <span className="text-xl">✨</span>
-                                    </div>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        Мы долго работали над созданием этого места и не хотим, чтобы здесь оставался негатив.
-                                    </p>
-                                    
-                                    <p className="text-sm text-primary font-medium leading-relaxed">
-                                        Уважай себя и других пользователей!
-                                    </p>
-                                    
-                                    <div className="py-2">
-                                        <span className="text-xl">🤝</span>
-                                    </div>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        После разблокировки будь внимателен при регистрации. Укажи реальное местоположение и помни о правилах общения.
-                                    </p>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        Не оскорбляй и не унижай достоинство других. Не размещай фото непристойного характера. Веди себя культурно — и к тебе потянутся люди.
-                                    </p>
-                                    
-                                    <div className="py-2">
-                                        <span className="text-xl">💜</span>
-                                    </div>
-                                    
-                                    <p className="text-sm text-slate-300 leading-relaxed">
-                                        Если хочешь найти друга, знакомого или кого-то особенного — добро пожаловать к нам!
-                                    </p>
-                                    
-                                    <p className="text-base text-white font-bold leading-relaxed">
-                                        Мы откроем тебе доступ после окончания блокировки.
-                                    </p>
-                                    
-                                    <p className="text-xs text-slate-500 leading-relaxed">
-                                        Не обижайся — это наше правило!
-                                    </p>
-                                </div>
-                                
-                                {/* Separator */}
-                                <div className="py-6 border-t border-slate-800">
-                                    <span className="text-2xl">🌍</span>
-                                </div>
-                                
-                                {/* English Text Block */}
-                                <div className={`space-y-4 transition-opacity duration-500 ${language === 'en' ? 'opacity-100' : 'opacity-30 scale-95'}`}>
-                                    <p className="text-base text-slate-200 leading-relaxed font-medium">
-                                        Hello, dear user!
-                                    </p>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        We understand that perhaps you didn't mean to break the rules. Or maybe you intentionally used a VPN or other bypass services.
-                                    </p>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        This service is created for real people who want to communicate sincerely and respectfully. We don't want chaos in our community.
-                                    </p>
-                                    
-                                    <div className="py-2">
-                                        <span className="text-xl">✨</span>
-                                    </div>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        We worked hard to create this place and don't want negativity here.
-                                    </p>
-                                    
-                                    <p className="text-sm text-primary font-medium leading-relaxed">
-                                        Respect yourself and other users!
-                                    </p>
-                                    
-                                    <div className="py-2">
-                                        <span className="text-xl">🤝</span>
-                                    </div>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        After unblock, be careful during registration. Specify your real location and remember the rules.
-                                    </p>
-                                    
-                                    <p className="text-sm text-slate-400 leading-relaxed">
-                                        Don't insult others. Don't post inappropriate photos. Behave with culture — and people will be drawn to you.
-                                    </p>
-                                    
-                                    <div className="py-2">
-                                        <span className="text-xl">💜</span>
-                                    </div>
-                                    
-                                    <p className="text-sm text-slate-300 leading-relaxed">
-                                        If you want to find a friend or someone special — welcome!
-                                    </p>
-                                    
-                                    <p className="text-base text-white font-bold leading-relaxed">
-                                        We will grant you access after the block ends.
-                                    </p>
-                                    
-                                    <p className="text-xs text-slate-500 leading-relaxed">
-                                        Don't take offense — it's our rule!
-                                    </p>
-                                </div>
-                                
-                                {/* Radio Invite */}
-                                <div className="py-8 border-t border-slate-800">
-                                    <span className="text-3xl">🎵</span>
-                                    <p className="text-lg text-primary font-bold mt-4">
-                                        {language === 'ru' ? 'А пока — послушай наше радио!' : 'Meanwhile — enjoy our radio!'}
-                                    </p>
-                                    <p className="text-xs text-slate-600 uppercase tracking-widest mt-2">
-                                        StreamFlow Radio
-                                    </p>
-                                </div>
+                                {/* Show text based on selected language */}
+                                {language === 'ru' ? (
+                                    <>
+                                        <p className="text-base text-slate-200 leading-relaxed font-medium">
+                                            Привет, уважаемый пользователь!
+                                        </p>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            Мы понимаем, что, возможно, ты не хотел(а) нарушать правила. А может быть, намеренно использовал(а) VPN или другие сервисы для обхода ограничений.
+                                        </p>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            Этот сервис создан для реальных людей, которые хотят общаться искренне и уважительно. Мы не желаем хаоса и беспорядка в нашем сообществе.
+                                        </p>
+                                        
+                                        <div className="py-2">
+                                            <span className="text-xl">✨</span>
+                                        </div>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            Мы долго работали над созданием этого места и не хотим, чтобы здесь оставался негатив.
+                                        </p>
+                                        
+                                        <p className="text-sm text-primary font-medium leading-relaxed">
+                                            Уважай себя и других пользователей!
+                                        </p>
+                                        
+                                        <div className="py-2">
+                                            <span className="text-xl">🤝</span>
+                                        </div>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            После разблокировки будь внимателен при регистрации. Укажи реальное местоположение и помни о правилах общения.
+                                        </p>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            Не оскорбляй и не унижай достоинство других. Не размещай фото непристойного характера. Веди себя культурно — и к тебе потянутся люди.
+                                        </p>
+                                        
+                                        <div className="py-2">
+                                            <span className="text-xl">💜</span>
+                                        </div>
+                                        
+                                        <p className="text-sm text-slate-300 leading-relaxed">
+                                            Если хочешь найти друга, знакомого или кого-то особенного — добро пожаловать к нам!
+                                        </p>
+                                        
+                                        <p className="text-base text-white font-bold leading-relaxed">
+                                            Мы откроем тебе доступ после окончания блокировки.
+                                        </p>
+                                        
+                                        <p className="text-xs text-slate-500 leading-relaxed">
+                                            Не обижайся — это наше правило!
+                                        </p>
+                                        
+                                        <div className="py-6">
+                                            <span className="text-3xl">🎵</span>
+                                            <p className="text-lg text-primary font-bold mt-4">
+                                                А пока — послушай наше радио!
+                                            </p>
+                                            <p className="text-xs text-slate-600 uppercase tracking-widest mt-2">
+                                                StreamFlow Radio
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-base text-slate-200 leading-relaxed font-medium">
+                                            Hello, dear user!
+                                        </p>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            We understand that perhaps you didn't mean to break the rules. Or maybe you intentionally used a VPN or other bypass services.
+                                        </p>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            This service is created for real people who want to communicate sincerely and respectfully. We don't want chaos in our community.
+                                        </p>
+                                        
+                                        <div className="py-2">
+                                            <span className="text-xl">✨</span>
+                                        </div>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            We worked hard to create this place and don't want negativity here.
+                                        </p>
+                                        
+                                        <p className="text-sm text-primary font-medium leading-relaxed">
+                                            Respect yourself and other users!
+                                        </p>
+                                        
+                                        <div className="py-2">
+                                            <span className="text-xl">🤝</span>
+                                        </div>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            After unblock, be careful during registration. Specify your real location and remember the rules.
+                                        </p>
+                                        
+                                        <p className="text-sm text-slate-400 leading-relaxed">
+                                            Don't insult others. Don't post inappropriate photos. Behave with culture — and people will be drawn to you.
+                                        </p>
+                                        
+                                        <div className="py-2">
+                                            <span className="text-xl">💜</span>
+                                        </div>
+                                        
+                                        <p className="text-sm text-slate-300 leading-relaxed">
+                                            If you want to find a friend or someone special — welcome!
+                                        </p>
+                                        
+                                        <p className="text-base text-white font-bold leading-relaxed">
+                                            We will grant you access after the block ends.
+                                        </p>
+                                        
+                                        <p className="text-xs text-slate-500 leading-relaxed">
+                                            Don't take offense — it's our rule!
+                                        </p>
+                                        
+                                        <div className="py-6">
+                                            <span className="text-3xl">🎵</span>
+                                            <p className="text-lg text-primary font-bold mt-4">
+                                                Meanwhile — enjoy our radio!
+                                            </p>
+                                            <p className="text-xs text-slate-600 uppercase tracking-widest mt-2">
+                                                StreamFlow Radio
+                                            </p>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
