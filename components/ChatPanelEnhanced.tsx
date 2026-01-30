@@ -163,8 +163,8 @@ const SessionTimer = ({ expiresAt, onExpire }: { expiresAt: number; onExpire: ()
     }, [expiresAt]); // Intentionally omitting onExpire to prevent frequent re-binds if it changes
     
     return (
-        <div className={`px-3 py-1 rounded-full border ${isUrgent ? 'bg-red-500/20 border-red-500 text-red-200 animate-pulse' : 'bg-white/5 border-white/10 text-slate-300'} font-mono text-xs font-bold`}>
-            {timeLeft}
+        <div className={`px-2 py-0.5 rounded-full border ${isUrgent ? 'bg-red-500/20 border-red-500 text-red-200 animate-pulse' : 'bg-slate-900/80 border-white/10 text-slate-400'} font-mono text-[10px] font-bold backdrop-blur-sm`}>
+            ⏱ {timeLeft}
         </div>
     );
 };
@@ -1242,17 +1242,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                          <div className="min-w-0 flex-1"><h3 className="font-bold text-sm text-white truncate leading-tight">{partnerDetails.name}</h3><p className="text-[10px] text-green-500 font-bold uppercase tracking-widest leading-tight">{t.online}</p></div>
                     </div>
                     
-                    {profileExpiresAt && (
-                        <div className="mr-2 hidden md:block">
-                            <SessionTimer 
-                                expiresAt={profileExpiresAt} 
-                                onExpire={() => {
-                                    alert(language === 'ru' ? 'Время сессии истекло!' : 'Session time expired!');
-                                    window.location.reload();
-                                }} 
-                            />
-                        </div>
-                    )}
+
 
                     <div className="flex items-center gap-1">
                         <button onClick={() => handleReportUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-orange-500 transition-colors hover:bg-white/5 rounded-full" title={language === 'ru' ? 'Пожаловаться' : 'Report'}><LifeBuoyIcon className="w-5 h-5" /></button>
@@ -1736,6 +1726,18 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
         {view === 'chat' && activeSession && (
             <div className="p-3 bg-transparent border-t border-white/5 shrink-0 relative z-40 pb-6 backdrop-blur-md">
+                {/* Session Timer - Bottom Left */}
+                {profileExpiresAt && (
+                    <div className="absolute -top-8 left-3 z-50">
+                        <SessionTimer 
+                            expiresAt={profileExpiresAt} 
+                            onExpire={() => {
+                                alert(language === 'ru' ? 'Время сессии истекло!' : 'Session time expired!');
+                                window.location.reload();
+                            }} 
+                        />
+                    </div>
+                )}
                 {isRecording && (<div className="absolute inset-x-2 -top-16 h-14 bg-red-600/90 backdrop-blur-md rounded-2xl flex items-center justify-between px-6 text-white animate-in slide-in-from-bottom border border-red-400/30 shadow-2xl z-50"><div className="flex items-center gap-3"><div className="w-3 h-3 bg-white rounded-full animate-ping"></div><span className="font-bold text-xs uppercase tracking-widest">{recordingTime}s {t.recording}</span></div><button onPointerUp={stopRecording} className="text-[10px] font-black bg-white text-red-600 px-4 py-2 rounded-xl hover:scale-105 transition-transform shadow-lg">{t.send}</button></div>)}
                 {showEmojiPicker && (<div className="absolute bottom-24 left-2 right-2 bg-[#1e293b] p-3 rounded-[2rem] h-64 overflow-y-auto no-scrollbar grid grid-cols-8 gap-1 border border-white/10 shadow-2xl z-50 animate-in slide-in-from-bottom-5">{EMOJIS.map(e => <button key={e} onClick={() => { setInputText(p => p + e); setShowEmojiPicker(false); }} className="text-2xl hover:bg-white/10 rounded-lg p-1 transition-colors">{e}</button>)}</div>)}
                 <div className="flex items-center gap-1.5 md:gap-2">
