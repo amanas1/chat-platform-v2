@@ -178,7 +178,17 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [view, setView] = useState<'auth' | 'register' | 'search' | 'inbox' | 'chat'>('auth');
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
-  const [activeSessions, setActiveSessions] = useState<Map<string, any>>(new Map());
+  const [activeSessions, setActiveSessions] = useState<Map<string, any>>(() => {
+    // Load sessions from localStorage on init
+    try {
+      const saved = localStorage.getItem('streamflow_chat_sessions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return new Map(Object.entries(parsed));
+      }
+    } catch (e) {}
+    return new Map();
+  });
   const [activeSession, setActiveSession] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [pendingKnocks, setPendingKnocks] = useState<any[]>([]);
@@ -344,6 +354,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     return cleanup;
   }, []);
   
+  // Persist sessions to localStorage whenever they change
+  useEffect(() => {
+    if (activeSessions.size > 0) {
+      const sessionsObj = Object.fromEntries(activeSessions);
+      localStorage.setItem('streamflow_chat_sessions', JSON.stringify(sessionsObj));
+      console.log(`[SESSION] Saved ${activeSessions.size} sessions to localStorage`);
+    }
+  }, [activeSessions]);
+  
   // Message pruning for ephemeral chat (30s media, 60s text, 50 cap)
   useEffect(() => {
     const pruneInterval = setInterval(() => {
@@ -478,8 +497,21 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     socketService.onConnect(() => {
         if (currentUser && currentUser.id && currentUser.isAuthenticated) {
             console.log("🔄 Re-registering user after reconnect...");
-            socketService.registerUser(currentUser, () => {
+            socketService.registerUser(currentUser, (data) => {
                 console.log("✅ User re-registered successfully");
+                // Restore sessions from server on reconnect
+                if (data?.activeSessions && data.activeSessions.length > 0) {
+                  console.log(`[SESSION] Restoring ${data.activeSessions.length} sessions on reconnect`);
+                  setActiveSessions(prev => {
+                    const newMap = new Map(prev);
+                    data.activeSessions.forEach((session: any) => {
+                      if (!newMap.has(session.sessionId)) {
+                        newMap.set(session.sessionId, session);
+                      }
+                    });
+                    return newMap;
+                  });
+                }
             });
         }
     });
@@ -487,8 +519,21 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     // Check immediate connection status (for hydration/initial load)
     if (socketService.isConnected && currentUser && currentUser.id && currentUser.isAuthenticated) {
          console.log("👤 User state updated, ensuring registration (immediate)...");
-         socketService.registerUser(currentUser, () => {
+         socketService.registerUser(currentUser, (data) => {
              console.log("✅ User registered/updated on server");
+             // Restore sessions from server
+             if (data?.activeSessions && data.activeSessions.length > 0) {
+               console.log(`[SESSION] Restoring ${data.activeSessions.length} sessions (immediate)`);
+               setActiveSessions(prev => {
+                 const newMap = new Map(prev);
+                 data.activeSessions.forEach((session: any) => {
+                   if (!newMap.has(session.sessionId)) {
+                     newMap.set(session.sessionId, session);
+                   }
+                 });
+                 return newMap;
+               });
+             }
          });
     }
     
@@ -740,6 +785,20 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       socketService.registerUser(currentUser, (data) => {
         setProfileExpiresAt(data.expiresAt);
         console.log(`✅ Profile registered. Expires in ${Math.floor(data.ttl / 3600000)} hours`);
+        
+        // Restore sessions from server
+        if (data.activeSessions && data.activeSessions.length > 0) {
+          console.log(`[SESSION] Restoring ${data.activeSessions.length} sessions from server`);
+          setActiveSessions(prev => {
+            const newMap = new Map(prev);
+            data.activeSessions.forEach((session: any) => {
+              if (!newMap.has(session.sessionId)) {
+                newMap.set(session.sessionId, session);
+              }
+            });
+            return newMap;
+          });
+        }
       });
       setView('search');
     } else {
@@ -790,6 +849,20 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     socketService.registerUser(updatedUser, (data) => {
       setProfileExpiresAt(data.expiresAt);
       console.log(`✅ Profile created. Expires in 24 hours.`);
+      
+      // Restore sessions from server (if re-registering)
+      if (data.activeSessions && data.activeSessions.length > 0) {
+        console.log(`[SESSION] Restoring ${data.activeSessions.length} sessions from server after registration`);
+        setActiveSessions(prev => {
+          const newMap = new Map(prev);
+          data.activeSessions.forEach((session: any) => {
+            if (!newMap.has(session.sessionId)) {
+              newMap.set(session.sessionId, session);
+            }
+          });
+          return newMap;
+        });
+      }
     });
     
     setView('search');
@@ -1662,12 +1735,55 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     )}
                     <div className="space-y-2">
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 pl-2 mb-2">{t.myDialogs}</h4>
+                        {activeSessions.size === 0 && (
+                            <div className="text-center py-8 text-slate-500">
+                                <p className="text-xs">{language === 'ru' ? 'Нет активных диалогов' : 'No active dialogs'}</p>
+                            </div>
+                        )}
                         {Array.from(activeSessions.values()).map(session => {
                             const partner = getPartnerFromSession(session);
+                            const isPartnerOnline = onlineUsers.some(u => u.id === session.partnerId);
                             return (
-                                <div key={session.sessionId} onClick={() => { setActiveSession(session); setView('chat'); }} className="p-4 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-[1.5rem] flex items-center gap-4 cursor-pointer transition-all active:scale-98 bg-white/[0.02]">
-                                    <div className="relative"><img src={partner?.avatar} className="w-14 h-14 rounded-2xl object-cover bg-slate-800" /><div className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-green-500 border-2 border-[#1e293b] rounded-full"></div></div>
-                                    <div className="flex-1 min-w-0"><h5 className="font-bold text-sm text-white truncate">{partner?.name}</h5><p className="text-xs text-slate-400 truncate opacity-70 font-medium">Online</p></div>
+                                <div 
+                                    key={session.sessionId} 
+                                    onClick={() => { 
+                                        setActiveSession(session); 
+                                        setView('chat');
+                                        // Load messages for this session
+                                        socketService.getMessages(session.sessionId, ({ messages: msgs }) => {
+                                            const decrypted = msgs.map(msg => ({
+                                                ...msg,
+                                                text: msg.messageType === 'text' && msg.encryptedPayload 
+                                                    ? encryptionService.decrypt(msg.encryptedPayload, session.sessionId)
+                                                    : undefined,
+                                                image: msg.messageType === 'image' && msg.encryptedPayload
+                                                    ? encryptionService.decryptBinary(msg.encryptedPayload, session.sessionId)
+                                                    : undefined,
+                                                audioBase64: msg.messageType === 'audio' && msg.encryptedPayload
+                                                    ? encryptionService.decryptBinary(msg.encryptedPayload, session.sessionId)
+                                                    : undefined,
+                                                flagged: msg.metadata?.flagged || false
+                                            }));
+                                            setMessages(decrypted);
+                                        });
+                                    }} 
+                                    className="p-4 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-[1.5rem] flex items-center gap-4 cursor-pointer transition-all active:scale-98 bg-white/[0.02]"
+                                >
+                                    <div className="relative">
+                                        <img src={partner?.avatar} className="w-14 h-14 rounded-2xl object-cover bg-slate-800" />
+                                        <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 ${isPartnerOnline ? 'bg-green-500' : 'bg-slate-500'} border-2 border-[#1e293b] rounded-full`}></div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <h5 className="font-bold text-sm text-white truncate">{partner?.name}</h5>
+                                        <p className={`text-xs truncate font-medium ${isPartnerOnline ? 'text-green-400' : 'text-slate-500'}`}>
+                                            {isPartnerOnline ? (language === 'ru' ? 'Онлайн' : 'Online') : (language === 'ru' ? 'Был(а) в сети' : 'Was online')}
+                                        </p>
+                                    </div>
+                                    <div className="text-slate-600">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                                        </svg>
+                                    </div>
                                 </div>
                             );
                         })}
