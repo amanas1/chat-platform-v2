@@ -201,8 +201,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [regGender, setRegGender] = useState<'male' | 'female' | 'other'>('male');
   const [regAvatar, setRegAvatar] = useState<string | null>(currentUser.avatar || null);
   
-  const [searchAgeFrom, setSearchAgeFrom] = useState('Any');
-  const [searchAgeTo, setSearchAgeTo] = useState('Any');
+  const [searchAgeFrom, setSearchAgeFrom] = useState('18');
+  const [searchAgeTo, setSearchAgeTo] = useState('80');
   const [searchCountry, setSearchCountry] = useState('Any');
   const [searchCity, setSearchCity] = useState('Any');
   const [searchGender, setSearchGender] = useState<'any' | 'male' | 'female'>('any');
@@ -2384,15 +2384,21 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{language === 'ru' ? 'Возраст от' : 'Age from'}</label>
-                                    <select value={searchAgeFrom} onChange={(e) => setSearchAgeFrom(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-white text-xs outline-none appearance-none font-bold">
-                                        <option value="Any" className="bg-slate-900">{t.any}</option>
+                                    <select 
+                                        value={searchAgeFrom} 
+                                        onChange={(e) => setSearchAgeFrom(e.target.value)} 
+                                        className={`w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-xs outline-none appearance-none font-bold transition-all ${searchAgeFrom === '18' ? 'text-slate-500' : 'text-white'}`}
+                                    >
                                         {AGES.map(a => <option key={a} value={a} className="bg-slate-900">{a}</option>)}
                                     </select>
                                 </div>
                                 <div>
                                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{language === 'ru' ? 'до' : 'to'}</label>
-                                    <select value={searchAgeTo} onChange={(e) => setSearchAgeTo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-white text-xs outline-none appearance-none font-bold">
-                                        <option value="Any" className="bg-slate-900">{t.any}</option>
+                                    <select 
+                                        value={searchAgeTo} 
+                                        onChange={(e) => setSearchAgeTo(e.target.value)} 
+                                        className={`w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-xs outline-none appearance-none font-bold transition-all ${searchAgeTo === '80' ? 'text-slate-500' : 'text-white'}`}
+                                    >
                                         {AGES.map(a => <option key={a} value={a} className="bg-slate-900">{a}</option>)}
                                     </select>
                                 </div>
