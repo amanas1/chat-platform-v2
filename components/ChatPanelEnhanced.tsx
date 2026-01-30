@@ -1753,7 +1753,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                     </>
                                 ) : (view === 'inbox' ? (language === 'ru' ? 'Диалоги' : 'Inbox') : '')}
                             </h2>
-                            {!socketService.isConnected ? (
+                            {view === 'search' && detectedLocation?.country && detectedLocation.country !== 'Unknown' ? (
+                                <span className="text-[9px] text-primary font-bold uppercase tracking-wider flex items-center gap-1">
+                                    📍 {detectedLocation.country}
+                                </span>
+                            ) : !socketService.isConnected ? (
                                 <span className="text-[9px] text-red-500 font-bold uppercase animate-pulse">Offline</span>
                             ) : (
                                 <span className="text-[9px] text-green-500 font-bold uppercase tracking-wider flex items-center gap-1">
