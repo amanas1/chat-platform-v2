@@ -187,7 +187,32 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
         "Radio Marca",
         "Abdulbasit",
         "Test Stream",
-        "Generic Radio"
+        "Generic Radio",
+        ".977 Smooth Jazz",
+        "Exclusively Led Zeppelin",
+        "Sunshine Live - Die 90er",
+        "Sunshine Live - Techno",
+        "Mixadance FM",
+        "90s90s HipHop & Rap",
+        "Comedy Radio new link",
+        "RTL2",
+        "Mix (Medellín) 89.9 FM",
+        "the wave - relaxing radio",
+        "Islom.uz",
+        "Radio Felicidad",
+        "80s80s",
+        "90s90s Hits",
+        "90s90s Dance HQ",
+        "MIX Ciudad de México",
+        "Sunshine Live - Classics",
+        "KISS FM",
+        "Kiss FM",
+        "Sunshine Live - Focus",
+        "Bons Tempos FM",
+        "Technolovers - PSYTRANCE",
+        "Radio Caprice - Dark Psytrance",
+        "DrGnu - Metallica",
+        "80s80s Dark Wave"
     ];
 
     const ARABIC_CHAR_REGEX = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
