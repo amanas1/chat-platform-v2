@@ -229,6 +229,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [showLocationWarning, setShowLocationWarning] = useState(false); // First warning popup
   const [countryNotInList, setCountryNotInList] = useState(false); // Country not supported
   const [geoPermissionDenied, setGeoPermissionDenied] = useState(false); // User denied geolocation permission
+  const [vpnDetected, setVpnDetected] = useState(false); // VPN usage detected (browser geo != IP geo)
   const [locationWarningCount, setLocationWarningCount] = useState(() => {
     const saved = localStorage.getItem('streamflow_location_warnings');
     return saved ? parseInt(saved) : 0;
@@ -498,16 +499,40 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           }
           
           // Try browser geolocation first - THIS IS REQUIRED
-          let location = await geolocationService.getBrowserLocation();
+          let browserLocation = await geolocationService.getBrowserLocation();
           
           // If browser geolocation failed due to permission denial, BLOCK registration
-          if (!location) {
+          if (!browserLocation) {
             console.warn('[GEO] 🚫 Browser geolocation denied or failed. Registration BLOCKED.');
             setGeoPermissionDenied(true);
             setDetectedLocation({ country: 'DENIED', city: 'DENIED' });
             setIsDetectingLocation(false);
             return;
           }
+          
+          // VPN DETECTION: Also get IP-based location and compare
+          console.log('[GEO] Step 2: Fetching IP-based location for VPN check...');
+          const ipLocation = await geolocationService.getIPLocation();
+          
+          // Compare browser country with IP country
+          const browserCountry = browserLocation.country.toLowerCase().trim();
+          const ipCountry = ipLocation.country.toLowerCase().trim();
+          
+          console.log(`[GEO] 🔍 VPN Check: Browser says "${browserLocation.country}", IP says "${ipLocation.country}"`);
+          
+          // If countries don't match, it's likely a VPN
+          if (browserCountry !== 'unknown' && ipCountry !== 'unknown' && browserCountry !== ipCountry) {
+            console.warn(`[GEO] 🚨 VPN DETECTED! Browser: ${browserLocation.country}, IP: ${ipLocation.country}`);
+            setVpnDetected(true);
+            setDetectedLocation({ country: 'VPN', city: 'VPN', ip: ipLocation.ip });
+            setIsDetectingLocation(false);
+            return;
+          }
+          
+          console.log('[GEO] ✅ VPN check passed - locations match');
+          setVpnDetected(false);
+          
+          const location = browserLocation;
           
           if (location && (location.country !== 'Unknown' || location.city !== 'Unknown')) {
             console.log('[GEO] ✅ Successfully detected location:', location);
@@ -2165,6 +2190,49 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 </div>
             )}
 
+            {/* VPN Detected Modal */}
+            {vpnDetected && !geoPermissionDenied && !countryNotInList && !isLocationBlocked && (
+                <div className="absolute inset-0 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-in fade-in duration-500">
+                    <div className="text-center p-8">
+                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center mx-auto mb-6 border-2 border-red-500/50 animate-pulse">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                                <path d="M12 8v4"/>
+                                <path d="M12 16h.01"/>
+                            </svg>
+                        </div>
+                        <h2 className="text-2xl font-black text-red-500 uppercase tracking-widest mb-3">
+                            {language === 'ru' ? 'VPN ОБНАРУЖЕН' : 'VPN DETECTED'}
+                        </h2>
+                        <p className="text-sm text-slate-400 mb-4 max-w-sm mx-auto">
+                            {language === 'ru' 
+                                ? 'Мы обнаружили, что вы используете VPN или прокси-сервер для маскировки вашего реального местоположения.'
+                                : 'We detected that you are using a VPN or proxy server to mask your real location.'}
+                        </p>
+                        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 mb-6 max-w-sm mx-auto">
+                            <p className="text-xs text-red-400 font-bold uppercase tracking-wider mb-1">
+                                {language === 'ru' ? 'Причина блокировки:' : 'Reason for block:'}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                {language === 'ru' 
+                                    ? 'Ваш браузер сообщает одну страну, а ваш IP-адрес указывает на другую. Это типичный признак использования VPN.'
+                                    : 'Your browser reports one country, but your IP address indicates another. This is a typical sign of VPN usage.'}
+                            </p>
+                        </div>
+                        <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto">
+                            {language === 'ru' 
+                                ? 'Для регистрации в чате отключите VPN и обновите страницу.'
+                                : 'To register in the chat, disable your VPN and refresh the page.'}
+                        </p>
+                        <button 
+                            onClick={() => window.location.reload()}
+                            className="px-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold uppercase text-xs tracking-wider rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-red-500/30"
+                        >
+                            {language === 'ru' ? 'Обновить страницу' : 'Refresh Page'}
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Location Warning Modal - First Attempt */}
             {showLocationWarning && (
