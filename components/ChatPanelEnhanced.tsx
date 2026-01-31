@@ -2420,7 +2420,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                     {regAvatar ? (
                                         <img src={regAvatar} className="w-full h-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
+                                        <div key={regGender} className="w-full h-full flex items-center justify-center">
                                             {/* Gender-based default avatar */}
                                             {regGender === 'female' ? (
                                                 <svg viewBox="0 0 100 100" className="w-28 h-28 opacity-80">
