@@ -14,7 +14,7 @@ import DancingAvatar from './DancingAvatar';
 import { socketService } from '../services/socketService';
 import { encryptionService } from '../services/encryptionService';
 import { geolocationService } from '../services/geolocationService';
-import { TRANSLATIONS, COUNTRIES_DATA, COUNTRY_VERIFICATION_DATA, BLOCKED_COUNTRIES } from '../constants';
+import { TRANSLATIONS, COUNTRIES_DATA, COUNTRY_VERIFICATION_DATA, BLOCKED_COUNTRIES, normalizeCountryName } from '../constants';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -1096,10 +1096,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     let trustScore = 100;
     const trustFlags: string[] = [];
     
-    // Check for country mismatch (main check)
+    // Check for country mismatch (main check) - normalize names to handle different languages
+    // e.g. "Казахстан" should match "Kazakhstan"
+    const detectedCountryNormalized = normalizeCountryName(detectedLocation?.country || '');
+    const selectedCountryNormalized = normalizeCountryName(regCountry);
+    
     const hasCountryMismatch = detectedLocation && 
       detectedLocation.country !== 'Unknown' && 
-      detectedLocation.country.toLowerCase() !== regCountry.toLowerCase();
+      detectedCountryNormalized.toLowerCase() !== selectedCountryNormalized.toLowerCase();
     
     // 1. Check IP geolocation match
     if (hasCountryMismatch) {

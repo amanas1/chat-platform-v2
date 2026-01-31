@@ -90,6 +90,358 @@ export const BLOCKED_COUNTRIES = [
   'Algeria', 'Tunisia', 'Libya', 'Egypt',
 ];
 
+// Map country names from various languages to standard English names used in COUNTRIES_DATA
+// This helps match geolocation API responses (which may be in Russian or local language)
+export const COUNTRY_NAME_ALIASES: Record<string, string> = {
+  // Kazakhstan
+  'казахстан': 'Kazakhstan',
+  'қазақстан': 'Kazakhstan',
+  'kz': 'Kazakhstan',
+  
+  // Russia
+  'россия': 'Russia',
+  'российская федерация': 'Russia',
+  'russian federation': 'Russia',
+  'ru': 'Russia',
+  
+  // Ukraine
+  'украина': 'Ukraine',
+  'україна': 'Ukraine',
+  'ua': 'Ukraine',
+  
+  // Belarus
+  'беларусь': 'Belarus',
+  'белоруссия': 'Belarus',
+  'беларусія': 'Belarus',
+  'by': 'Belarus',
+  
+  // Uzbekistan
+  'узбекистан': 'Uzbekistan',
+  'oʻzbekiston': 'Uzbekistan',
+  'uz': 'Uzbekistan',
+  
+  // Kyrgyzstan
+  'кыргызстан': 'Kyrgyzstan',
+  'киргизия': 'Kyrgyzstan',
+  'кыргызстан республикасы': 'Kyrgyzstan',
+  'kg': 'Kyrgyzstan',
+  
+  // Turkmenistan
+  'туркменистан': 'Turkmenistan',
+  'türkmenistan': 'Turkmenistan',
+  'tm': 'Turkmenistan',
+  
+  // Azerbaijan
+  'азербайджан': 'Azerbaijan',
+  'azərbaycan': 'Azerbaijan',
+  'az': 'Azerbaijan',
+  
+  // Armenia
+  'армения': 'Armenia',
+  'հայdelays': 'Armenia',
+  'am': 'Armenia',
+  
+  // Georgia
+  'грузия': 'Georgia',
+  'საქართველო': 'Georgia',
+  'ge': 'Georgia',
+  
+  // Mongolia
+  'монголия': 'Mongolia',
+  'монгол улс': 'Mongolia',
+  'mn': 'Mongolia',
+  
+  // Turkey
+  'турция': 'Turkey',
+  'türkiye': 'Turkey',
+  'tr': 'Turkey',
+  
+  // Germany
+  'германия': 'Germany',
+  'deutschland': 'Germany',
+  'de': 'Germany',
+  
+  // France
+  'франция': 'France',
+  'fr': 'France',
+  
+  // Italy
+  'италия': 'Italy',
+  'italia': 'Italy',
+  'it': 'Italy',
+  
+  // Spain
+  'испания': 'Spain',
+  'españa': 'Spain',
+  'es': 'Spain',
+  
+  // Poland
+  'польша': 'Poland',
+  'polska': 'Poland',
+  'pl': 'Poland',
+  
+  // UK
+  'великобритания': 'UK',
+  'соединённое королевство': 'UK',
+  'united kingdom': 'UK',
+  'england': 'UK',
+  'великобританія': 'UK',
+  'gb': 'UK',
+  
+  // USA
+  'сша': 'USA',
+  'соединённые штаты америки': 'USA',
+  'united states': 'USA',
+  'united states of america': 'USA',
+  'us': 'USA',
+  
+  // China
+  'китай': 'China',
+  '中国': 'China',
+  'cn': 'China',
+  
+  // Japan
+  'япония': 'Japan',
+  '日本': 'Japan',
+  'jp': 'Japan',
+  
+  // South Korea
+  'южная корея': 'South Korea',
+  '한국': 'South Korea',
+  'republic of korea': 'South Korea',
+  'kr': 'South Korea',
+  
+  // Israel
+  'израиль': 'Israel',
+  'ישראל': 'Israel',
+  'il': 'Israel',
+  
+  // UAE
+  'оаэ': 'UAE',
+  'объединённые арабские эмираты': 'UAE',
+  'united arab emirates': 'UAE',
+  'ae': 'UAE',
+  
+  // Thailand
+  'таиланд': 'Thailand',
+  'ประเทศไทย': 'Thailand',
+  'th': 'Thailand',
+  
+  // Czech Republic
+  'чехия': 'Czech Republic',
+  'česko': 'Czech Republic',
+  'czech': 'Czech Republic',
+  'cz': 'Czech Republic',
+  
+  // Austria
+  'австрия': 'Austria',
+  'österreich': 'Austria',
+  'at': 'Austria',
+  
+  // Netherlands
+  'нидерланды': 'Netherlands',
+  'голландия': 'Netherlands',
+  'nederland': 'Netherlands',
+  'nl': 'Netherlands',
+  
+  // Belgium
+  'бельгия': 'Belgium',
+  'belgië': 'Belgium',
+  'belgique': 'Belgium',
+  'be': 'Belgium',
+  
+  // Sweden
+  'швеция': 'Sweden',
+  'sverige': 'Sweden',
+  'se': 'Sweden',
+  
+  // Norway
+  'норвегия': 'Norway',
+  'norge': 'Norway',
+  'no': 'Norway',
+  
+  // Finland
+  'финляндия': 'Finland',
+  'suomi': 'Finland',
+  'fi': 'Finland',
+  
+  // Denmark
+  'дания': 'Denmark',
+  'danmark': 'Denmark',
+  'dk': 'Denmark',
+  
+  // Portugal
+  'португалия': 'Portugal',
+  'pt': 'Portugal',
+  
+  // Greece
+  'греция': 'Greece',
+  'ελλάδα': 'Greece',
+  'gr': 'Greece',
+  
+  // Hungary
+  'венгрия': 'Hungary',
+  'magyarország': 'Hungary',
+  'hu': 'Hungary',
+  
+  // Romania
+  'румыния': 'Romania',
+  'românia': 'Romania',
+  'ro': 'Romania',
+  
+  // Bulgaria
+  'болгария': 'Bulgaria',
+  'българия': 'Bulgaria',
+  'bg': 'Bulgaria',
+  
+  // Serbia
+  'сербия': 'Serbia',
+  'србија': 'Serbia',
+  'rs': 'Serbia',
+  
+  // Croatia
+  'хорватия': 'Croatia',
+  'hrvatska': 'Croatia',
+  'hr': 'Croatia',
+  
+  // Slovakia
+  'словакия': 'Slovakia',
+  'slovensko': 'Slovakia',
+  'sk': 'Slovakia',
+  
+  // Slovenia
+  'словения': 'Slovenia',
+  'slovenija': 'Slovenia',
+  'si': 'Slovenia',
+  
+  // Switzerland
+  'швейцария': 'Switzerland',
+  'schweiz': 'Switzerland',
+  'suisse': 'Switzerland',
+  'ch': 'Switzerland',
+  
+  // Canada
+  'канада': 'Canada',
+  'ca': 'Canada',
+  
+  // Australia
+  'австралия': 'Australia',
+  'au': 'Australia',
+  
+  // New Zealand
+  'новая зеландия': 'New Zealand',
+  'nz': 'New Zealand',
+  
+  // Singapore
+  'сингапур': 'Singapore',
+  'sg': 'Singapore',
+  
+  // Malaysia
+  'малайзия': 'Malaysia',
+  'my': 'Malaysia',
+  
+  // Vietnam
+  'вьетнам': 'Vietnam',
+  'việt nam': 'Vietnam',
+  'vn': 'Vietnam',
+  
+  // Saudi Arabia
+  'саудовская аравия': 'Saudi Arabia',
+  'sa': 'Saudi Arabia',
+  
+  // Qatar
+  'катар': 'Qatar',
+  'qa': 'Qatar',
+  
+  // Ireland
+  'ирландия': 'Ireland',
+  'éire': 'Ireland',
+  'ie': 'Ireland',
+  
+  // Lithuania
+  'литва': 'Lithuania',
+  'lietuva': 'Lithuania',
+  'lt': 'Lithuania',
+  
+  // Latvia
+  'латвия': 'Latvia',
+  'latvija': 'Latvia',
+  'lv': 'Latvia',
+  
+  // Estonia
+  'эстония': 'Estonia',
+  'eesti': 'Estonia',
+  'ee': 'Estonia',
+  
+  // Cyprus
+  'кипр': 'Cyprus',
+  'κύπρος': 'Cyprus',
+  'cy': 'Cyprus',
+  
+  // Malta
+  'мальта': 'Malta',
+  'mt': 'Malta',
+  
+  // Luxembourg
+  'люксембург': 'Luxembourg',
+  'lu': 'Luxembourg',
+  
+  // Iceland
+  'исландия': 'Iceland',
+  'ísland': 'Iceland',
+  'is': 'Iceland',
+  
+  // Maldives
+  'мальдивы': 'Maldives',
+  'mv': 'Maldives',
+  
+  // Cambodia
+  'камбоджа': 'Cambodia',
+  'kh': 'Cambodia',
+  
+  // Laos
+  'лаос': 'Laos',
+  'la': 'Laos',
+  
+  // Taiwan
+  'тайвань': 'Taiwan',
+  '台灣': 'Taiwan',
+  'tw': 'Taiwan',
+  
+  // Moldova
+  'молдова': 'Moldova',
+  'молдавия': 'Moldova',
+  'md': 'Moldova',
+  
+  // Brazil
+  'бразилия': 'Brazil',
+  'brasil': 'Brazil',
+  'br': 'Brazil',
+};
+
+// Helper function to normalize country names
+export function normalizeCountryName(name: string): string {
+  if (!name) return 'Unknown';
+  
+  const lowercaseName = name.toLowerCase().trim();
+  
+  // Check if it's in our aliases
+  if (COUNTRY_NAME_ALIASES[lowercaseName]) {
+    return COUNTRY_NAME_ALIASES[lowercaseName];
+  }
+  
+  // Check if it directly matches any country in COUNTRIES_DATA (case-insensitive)
+  const directMatch = COUNTRIES_DATA.find(c => 
+    c.name.toLowerCase() === lowercaseName
+  );
+  if (directMatch) {
+    return directMatch.name;
+  }
+  
+  // Return original name capitalized if no match found
+  return name;
+}
+
 export const COUNTRIES_DATA = [
   // Europe (EU + approved)
   { name: 'Austria', lat: 47.51, lon: 14.55, cities: ['Vienna', 'Graz', 'Linz', 'Salzburg', 'Innsbruck'] },
