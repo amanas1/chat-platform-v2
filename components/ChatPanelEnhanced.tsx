@@ -235,6 +235,18 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     return saved ? parseInt(saved) : 0;
   });
   const [isLocationBlocked, setIsLocationBlocked] = useState(() => {
+    // Check for reset parameter in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('reset') === '1') {
+      // Clear all block data
+      localStorage.removeItem('streamflow_location_blocked_until');
+      localStorage.removeItem('streamflow_location_warnings');
+      console.log('[RESET] Block data cleared via URL parameter');
+      // Remove the parameter from URL without reload
+      window.history.replaceState({}, '', window.location.pathname);
+      return false;
+    }
+    
     const blockedUntil = localStorage.getItem('streamflow_location_blocked_until');
     if (blockedUntil && Date.now() < parseInt(blockedUntil)) {
       return true;
