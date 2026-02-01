@@ -20,9 +20,10 @@ const io = new Server(server, {
 // IN-MEMORY STORAGE WITH TTL & PERSISTENCE
 // ============================================
 
-const USER_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const USER_TTL = 60 * 24 * 60 * 60 * 1000; // 60 days
 const MEDIA_TTL = 30 * 1000; // 30 seconds
 const TEXT_TTL = 60 * 1000; // 60 seconds
+const VOICE_INTRO_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_MESSAGES_PER_SESSION = 50;
 
 const storage = require('./storage');
@@ -40,8 +41,7 @@ const messages = new Map();
 // Map: userId -> Set<knockRequestId>
 const knockRequests = new Map();
 
-// Map: deviceId_OR_IP -> { timestamp, userId } (Anti-Chaos/Spam)
-const registrationLog = new Map(Object.entries(storage.load('registrationLog', {})));
+
 
 
 // ============================================
@@ -80,6 +80,20 @@ setInterval(() => {
     syncGlobalPresence();
   }
 }, 5 * 60 * 1000);
+
+// Clean expired voice intros every hour
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, userData] of activeUsers.entries()) {
+    if (userData.profile.voiceIntro && userData.profile.voiceIntroTimestamp) {
+      if (now - userData.profile.voiceIntroTimestamp > VOICE_INTRO_TTL) {
+        console.log(`[CLEANUP] Removing expired voice intro for user ${userId}`);
+        userData.profile.voiceIntro = null;
+        userData.profile.voiceIntroTimestamp = null;
+      }
+    }
+  }
+}, 60 * 60 * 1000);
 
 // Clean expired messages every 10 seconds
 setInterval(() => {
@@ -182,80 +196,6 @@ io.on('connection', (socket) => {
         return;
     }
 
-    // Anti-Chaos: 24h Registration Lock (by deviceId and IP)
-    const clientIp = socket.handshake.address;
-    const deviceId = profile.deviceId;
-    const now = Date.now();
-    
-    const checkLock = (key, type) => {
-        if (registrationLog.has(key)) {
-            const entry = registrationLog.get(key);
-            // Allow if same user is re-registering (session resume)
-            if (entry.userId === profile.id) return null;
-
-            if (now - entry.timestamp < USER_TTL) {
-                const timeLeft = Math.ceil((USER_TTL - (now - entry.timestamp)) / (60 * 60 * 1000));
-                return { 
-                    message: language === 'ru' 
-                        ? `С этого ${type} уже была регистрация. Попробуйте снова через ${timeLeft} ч.`
-                        : `This ${type} already registered today. Try again in ${timeLeft}h.` 
-                };
-            }
-        }
-        return null;
-    };
-
-    const deviceLock = deviceId ? checkLock(deviceId, 'устройства') : null;
-    const ipLock = checkLock(clientIp, 'IP');
-    const activeLock = deviceLock || ipLock;
-
-    if (activeLock) {
-        console.warn(`[REG] Blocked ${profile.id}: ${activeLock.message}`);
-        if (callback) callback({ error: activeLock });
-        socket.emit('user:error', activeLock);
-        return;
-    }
-
-    // Log the registration
-    const logEntry = { timestamp: now, userId: profile.id };
-    if (deviceId) registrationLog.set(deviceId, logEntry);
-    registrationLog.set(clientIp, logEntry);
-    
-    // Persist log
-    storage.save('registrationLog', Object.fromEntries(registrationLog));
-
-    // Location Mismatch Detection
-    if (profile.detectedCountry && profile.country && profile.detectedCountry !== profile.country) {
-        console.warn(`[REG] ⚠️ Location Mismatch: User ${profile.id} claims ${profile.country} but detected in ${profile.detectedCountry} (IP: ${clientIp})`);
-    }
-
-    // Trust Score Enforcement
-    if (profile.trustLevel) {
-        console.log(`[TRUST] User ${profile.id}: Score=${profile.trustScore}/100, Level=${profile.trustLevel}, Flags=${(profile.trustFlags || []).join(', ')}`);
-        
-        if (profile.trustLevel === 'HIGH_RISK') {
-            console.warn(`[TRUST] ⛔ BLOCKED HIGH_RISK user: ${profile.id}`);
-            const error = { 
-                message: language === 'ru' 
-                    ? 'Ваш профиль не прошел проверку местоположения. Пожалуйста, используйте реальные данные.'
-                    : 'Your profile failed location verification. Please use accurate information.',
-                code: 'LOCATION_VERIFICATION_FAILED'
-            };
-            if (callback) callback({ error });
-            socket.emit('user:error', error);
-            return;
-        }
-        
-        if (profile.trustLevel === 'SUSPICIOUS') {
-            console.warn(`[TRUST] ⚠️ SUSPICIOUS user allowed with restrictions: ${profile.id}`);
-            // Apply restrictions (saved to profile for client to respect)
-            profile.restrictions = {
-                maxMessagesPerHour: 10,
-                canSendMedia: false,
-                canSendLinks: false
-            };
-        }
-    }
 
     boundUserId = profile.id;
     const expiresAt = Date.now() + USER_TTL;
@@ -315,13 +255,6 @@ io.on('connection', (socket) => {
           return false;
         }
         
-        if (filters.country && filters.country !== 'Any' && user.country !== filters.country) {
-          return false;
-        }
-        
-        if (filters.city && filters.city !== 'Any' && user.city !== filters.city) {
-          return false;
-        }
         
         return true;
       });

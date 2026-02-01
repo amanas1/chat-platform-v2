@@ -14,7 +14,7 @@ import DancingAvatar from './DancingAvatar';
 import { socketService } from '../services/socketService';
 import { encryptionService } from '../services/encryptionService';
 import { geolocationService } from '../services/geolocationService';
-import { TRANSLATIONS, COUNTRIES_DATA, COUNTRY_VERIFICATION_DATA, BLOCKED_COUNTRIES, normalizeCountryName } from '../constants';
+import { TRANSLATIONS, COUNTRIES_DATA } from '../constants';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -40,7 +40,26 @@ const EMOJIS = [
 
 const AGES = Array.from({ length: 63 }, (_, i) => (i + 18).toString()); 
 
-const compressImage = (file: File): Promise<string> => {
+const INTENT_STATUSES = ['Хочу поговорить', 'Свободен', 'Просто слушаю', 'Без флирта'] as const;
+
+const SMART_PROMPTS = {
+  ru: {
+    neutral: ['Привет, я здесь, чтобы просто пообщаться', 'Ищу спокойный диалог'],
+    friendly: ['Если хочешь пообщаться — я здесь', 'Открыт к диалогу'],
+    calm: ['Без спешки, просто разговор', 'Спокойный диалог'],
+    short: ['Просто общение', 'Свободен'],
+    open: ['Сейчас свободен, можем пообщаться', 'Если ищешь разговор — постучись']
+  },
+  en: {
+    neutral: ['Hi, I’m here just to talk', 'Looking for a calm conversation'],
+    friendly: ['Feel free to reach out if you want to talk', 'Open to a friendly chat'],
+    calm: ['No rush, just talking', 'Relaxed conversation'],
+    short: ['Just chatting', 'Free to chat'],
+    open: ['I’m free right now if you want to talk', 'Feel free to knock']
+  }
+};
+
+const stylizeAvatar = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -49,13 +68,26 @@ const compressImage = (file: File): Promise<string> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1200;
-                const scaleSize = MAX_WIDTH / img.width;
-                canvas.width = scaleSize < 1 ? MAX_WIDTH : img.width;
-                canvas.height = scaleSize < 1 ? img.height * scaleSize : img.height;
+                const SIZE = 384;
+                canvas.width = SIZE;
+                canvas.height = SIZE;
                 const ctx = canvas.getContext('2d');
-                ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-                resolve(canvas.toDataURL('image/jpeg', 0.8));
+                if (!ctx) return reject('No context');
+
+                const min = Math.min(img.width, img.height);
+                const sx = (img.width - min) / 2;
+                const sy = (img.height - min) / 2;
+                ctx.drawImage(img, sx, sy, min, min, 0, 0, SIZE, SIZE);
+
+                const imageData = ctx.getImageData(0, 0, SIZE, SIZE);
+                const data = imageData.data;
+                for (let i = 0; i < data.length; i += 4) {
+                    data[i] = Math.floor(data[i] / 64) * 64;
+                    data[i+1] = Math.floor(data[i+1] / 64) * 64;
+                    data[i+2] = Math.floor(data[i+2] / 64) * 64;
+                }
+                ctx.putImageData(imageData, 0, 0);
+                resolve(canvas.toDataURL('image/webp', 0.6));
             };
             img.onerror = (err) => reject(err);
         };
@@ -94,10 +126,10 @@ const DrumPicker: React.FC<DrumPickerProps> = ({ options, value, onChange, label
       <div className="relative h-24 bg-slate-800/80 border border-slate-700/50 rounded-xl overflow-hidden shadow-inner">
         <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none opacity-80"></div>
         <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none opacity-80"></div>
-        <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-10 bg-slate-700/60 rounded-xl border-2 border-slate-500/50 pointer-events-none shadow-lg"></div>
+        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-8 bg-primary/10 rounded-lg border border-primary/40 shadow-[0_0_12px_rgba(188,111,241,0.3)] pointer-events-none"></div>
         <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-8" style={{ scrollBehavior: 'smooth' }}>
           {options.map((opt, i) => (
-            <div key={i} className={`h-8 flex items-center justify-center snap-center transition-all duration-300 text-sm font-bold ${value === opt ? 'text-primary scale-105' : 'text-slate-600 opacity-30'}`}>
+            <div key={i} className={`h-8 flex items-center justify-center snap-center transition-all duration-300 text-sm font-bold ${value === opt ? 'text-primary scale-110' : 'text-slate-600 opacity-30'}`}>
               {opt}
             </div>
           ))}
@@ -176,8 +208,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     isPlaying, onTogglePlay, onNextStation, onPrevStation, currentStation, analyserNode,
     volume, onVolumeChange, visualMode
 }) => {
-  const [view, setView] = useState<'auth' | 'register' | 'search' | 'inbox' | 'chat'>('auth');
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
+  const [hasRegisteredWithServer, setHasRegisteredWithServer] = useState(false);
+  const [authEmail, setAuthEmail] = useState('');
+  const [authOtp, setAuthOtp] = useState('');
+  const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpError, setOtpError] = useState('');
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [activeSessions, setActiveSessions] = useState<Map<string, any>>(() => {
     // Load sessions from localStorage on init
@@ -195,16 +232,22 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [pendingKnocks, setPendingKnocks] = useState<any[]>([]);
   
   const [regName, setRegName] = useState('');
-  const [regAge, setRegAge] = useState('25');
-  const [regCountry, setRegCountry] = useState(COUNTRIES_DATA[0].name);
-  const [regCity, setRegCity] = useState(COUNTRIES_DATA[0].cities[0]);
-  const [regGender, setRegGender] = useState<'male' | 'female' | 'other'>('male');
+  const [regAge, setRegAge] = useState<string>(currentUser.age?.toString() || '18');
+  const [regGender, setRegGender] = useState<'male' | 'female' | 'other'>(currentUser.gender || 'male');
   const [regAvatar, setRegAvatar] = useState<string | null>(currentUser.avatar || null);
+  const [regIntentStatus, setRegIntentStatus] = useState<typeof INTENT_STATUSES[number]>(() => {
+    return (currentUser.intentStatus as any) || 'Свободен';
+  });
+  const [regVoiceIntro, setRegVoiceIntro] = useState<string | null>(currentUser.voiceIntro || null);
+  const [isRecordingIntro, setIsRecordingIntro] = useState(false);
+  const [introRecordingTime, setIntroRecordingTime] = useState(0);
+  const [activePrompt, setActivePrompt] = useState<string>('');
+  const mediaRecorderIntroRef = useRef<MediaRecorder | null>(null);
+  const audioChunksIntroRef = useRef<Blob[]>([]);
+  const introTimerRef = useRef<any>(null);
   
   const [searchAgeFrom, setSearchAgeFrom] = useState('18');
   const [searchAgeTo, setSearchAgeTo] = useState('80');
-  const [searchCountry, setSearchCountry] = useState('Any');
-  const [searchCity, setSearchCity] = useState('Any');
   const [searchGender, setSearchGender] = useState<'any' | 'male' | 'female'>('any');
   
   const [sentKnocks, setSentKnocks] = useState<Set<string>>(new Set());
@@ -223,71 +266,25 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [onlineStats, setOnlineStats] = useState({ totalOnline: 0, chatOnline: 0 });
   
   //Geolocation state
-  const [detectedLocation, setDetectedLocation] = useState<{country: string, city: string, ip?: string} | null>(null);
-  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
-  const [showLocationMismatch, setShowLocationMismatch] = useState(false);
-  const [showLocationWarning, setShowLocationWarning] = useState(false); // First warning popup
-  const [countryNotInList, setCountryNotInList] = useState(false); // Country not supported
-  const [geoPermissionDenied, setGeoPermissionDenied] = useState(false); // User denied geolocation permission
-  const [vpnDetected, setVpnDetected] = useState(false); // VPN usage detected (browser geo != IP geo)
-  const [locationWarningCount, setLocationWarningCount] = useState(() => {
-    const saved = localStorage.getItem('streamflow_location_warnings');
-    return saved ? parseInt(saved) : 0;
+  const [view, setView] = useState<'auth' | 'register' | 'search' | 'inbox' | 'chat'>(() => {
+    if (currentUser.id && currentUser.name && currentUser.age) return 'search';
+    if (currentUser.isAuthenticated) return 'register';
+    return 'auth';
   });
-  const [isLocationBlocked, setIsLocationBlocked] = useState(() => {
-    // Check for reset parameter in URL
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('reset') === '1') {
-      // Clear all block data
-      localStorage.removeItem('streamflow_location_blocked_until');
-      localStorage.removeItem('streamflow_location_warnings');
-      console.log('[RESET] Block data cleared via URL parameter');
-      // Remove the parameter from URL without reload
-      window.history.replaceState({}, '', window.location.pathname);
-      return false;
-    }
-    
-    const blockedUntil = localStorage.getItem('streamflow_location_blocked_until');
-    if (blockedUntil && Date.now() < parseInt(blockedUntil)) {
-      return true;
-    }
-    return false;
-  });
-  const [blockTimeRemaining, setBlockTimeRemaining] = useState<string>('');
   
-  // Countdown timer for block
-  useEffect(() => {
-    if (!isLocationBlocked) {
-      setBlockTimeRemaining('');
-      return;
+  const [detectedLocation, setDetectedLocation] = useState<{country: string, city: string, ip?: string} | null>(() => {
+    // Priority 1: currentUser data
+    if (currentUser.detectedCountry && currentUser.detectedCity) {
+      return { 
+        country: currentUser.detectedCountry, 
+        city: currentUser.detectedCity,
+        ip: currentUser.detectedIP 
+      };
     }
-    
-    const blockedUntil = localStorage.getItem('streamflow_location_blocked_until');
-    if (!blockedUntil) return;
-    
-    const updateTimer = () => {
-      const now = Date.now();
-      const remaining = parseInt(blockedUntil) - now;
-      
-      if (remaining <= 0) {
-        setIsLocationBlocked(false);
-        setBlockTimeRemaining('');
-        localStorage.removeItem('streamflow_location_blocked_until');
-        localStorage.setItem('streamflow_location_warnings', '0');
-        return;
-      }
-      
-      const hours = Math.floor(remaining / (60 * 60 * 1000));
-      const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
-      const seconds = Math.floor((remaining % (60 * 1000)) / 1000);
-      
-      setBlockTimeRemaining(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-    };
-    
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, [isLocationBlocked]);
+    // Priority 2: localStorage cache
+    return geolocationService.getCachedLocation();
+  });
+
   
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
@@ -459,15 +456,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const pendingCandidates = useRef<RTCIceCandidate[]>([]);
 
   const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
-  const availableCitiesReg = useMemo(() => COUNTRIES_DATA.find(c => c.name === regCountry)?.cities || [], [regCountry]);
-  const availableCitiesSearch = useMemo(() => COUNTRIES_DATA.find(c => c.name === searchCountry)?.cities || [], [searchCountry]);
-
-  // Pre-fill cities when country changes
-  useEffect(() => { 
-    if (availableCitiesReg.length > 0) {
-      setRegCity(availableCitiesReg[0]); 
-    }
-  }, [availableCitiesReg]);
+  const availableCitiesSearch = useMemo(() => [], []);
 
   useEffect(() => { scrollToBottom(); }, [messages, view]);
 
@@ -478,128 +467,21 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     return cleanup;
   }, []);
 
-  // Auto-detect location when entering registration view
+  // Background Location Detection (Silent)
   useEffect(() => {
-    // Check if we are in register view and haven't finished detection/have no location
-    const shouldStartDetection = view === 'register' && !detectedLocation && !isDetectingLocation;
-    
-    console.log('[GEO] useEffect check', { 
-      view, 
-      hasLocation: !!detectedLocation, 
-      isDetecting: isDetectingLocation,
-      shouldStart: shouldStartDetection 
-    });
-
-    if (shouldStartDetection) {
-      console.log('[GEO] 🚀 Starting detection cycle...');
-      setIsDetectingLocation(true);
-      
-      (async () => {
-        try {
-          console.log('[GEO] Step 1: Requesting browser geolocation...');
-          
-          // Check if geolocation permission was previously denied
-          if (navigator.permissions) {
-            const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-            if (permissionStatus.state === 'denied') {
-              console.warn('[GEO] 🚫 Geolocation permission was previously denied. Blocking registration.');
-              setGeoPermissionDenied(true);
-              setDetectedLocation({ country: 'DENIED', city: 'DENIED' });
-              setIsDetectingLocation(false);
-              return;
-            }
-          }
-          
-          // Try browser geolocation first - THIS IS REQUIRED
-          let browserLocation = await geolocationService.getBrowserLocation();
-          
-          // If browser geolocation failed due to permission denial, BLOCK registration
-          if (!browserLocation) {
-            console.warn('[GEO] 🚫 Browser geolocation denied or failed. Registration BLOCKED.');
-            setGeoPermissionDenied(true);
-            setDetectedLocation({ country: 'DENIED', city: 'DENIED' });
-            setIsDetectingLocation(false);
-            return;
-          }
-          
-          // VPN DETECTION: Also get IP-based location and compare
-          console.log('[GEO] Step 2: Fetching IP-based location for VPN check...');
-          const ipLocation = await geolocationService.getIPLocation();
-          
-          // Compare browser country with IP country
-          const browserCountry = browserLocation.country.toLowerCase().trim();
-          const ipCountry = ipLocation.country.toLowerCase().trim();
-          
-          console.log(`[GEO] 🔍 VPN Check: Browser says "${browserLocation.country}", IP says "${ipLocation.country}"`);
-          
-          // If countries don't match, it's likely a VPN
-          if (browserCountry !== 'unknown' && ipCountry !== 'unknown' && browserCountry !== ipCountry) {
-            console.warn(`[GEO] 🚨 VPN DETECTED! Browser: ${browserLocation.country}, IP: ${ipLocation.country}`);
-            setVpnDetected(true);
-            setDetectedLocation({ country: 'VPN', city: 'VPN', ip: ipLocation.ip });
-            setIsDetectingLocation(false);
-            return;
-          }
-          
-          console.log('[GEO] ✅ VPN check passed - locations match');
-          setVpnDetected(false);
-          
-          const location = browserLocation;
-          
-          if (location && (location.country !== 'Unknown' || location.city !== 'Unknown')) {
-            console.log('[GEO] ✅ Successfully detected location:', location);
-            setDetectedLocation(location);
-            setGeoPermissionDenied(false);
-            
-            // Auto-fill country and city if detected
-            // First check if country is blocked
-            const isBlocked = BLOCKED_COUNTRIES.some(bc => 
-              bc.toLowerCase() === location.country.toLowerCase()
-            );
-            
-            if (isBlocked) {
-              console.warn(`[GEO] 🚫 Country "${location.country}" is in BLOCKED_COUNTRIES list`);
-              setCountryNotInList(true);
-            } else {
-              // Find country in COUNTRIES_DATA for auto-fill
-              const countryData = COUNTRIES_DATA.find(c => 
-                c.name.toLowerCase() === location.country.toLowerCase()
-              );
-
-              if (countryData) {
-                console.log(`[GEO] Auto-filling country: ${countryData.name}`);
-                setRegCountry(countryData.name);
-                setCountryNotInList(false);
-                
-                // Try to match detected city, or use first city as default
-                const cityMatch = countryData.cities.find(c => 
-                  c.toLowerCase() === location.city.toLowerCase()
-                );
-                setRegCity(cityMatch || countryData.cities[0]);
-              } else {
-                // Country not in our list but NOT blocked - allow access
-                console.log(`[GEO] Country "${location.country}" not in COUNTRIES_DATA but not blocked - allowing access`);
-                setCountryNotInList(false);
-                // Let user select manually
-              }
-            }
-          } else {
-            console.warn('[GEO] ❌ All detection methods failed or returned Unknown');
-            // Block registration if we can't verify location
-            setGeoPermissionDenied(true);
-            setDetectedLocation({ country: 'Unknown', city: 'Unknown' });
-          }
-        } catch (err) {
-          console.error('[GEO] 💥 Unexpected error during detection:', err);
-          setGeoPermissionDenied(true);
-          setDetectedLocation({ country: 'Unknown', city: 'Unknown' });
-        } finally {
-          console.log('[GEO] 🏁 Detection cycle finished');
-          setIsDetectingLocation(false);
+    const detect = async () => {
+      try {
+        const location = await geolocationService.detectLocation();
+        if (location) {
+          setDetectedLocation(location);
+          geolocationService.saveLocationToCache(location);
         }
-      })();
-    }
-  }, [view, detectedLocation, isDetectingLocation]);
+      } catch (err) {
+        console.error('[GEO] Silent detection error:', err);
+      }
+    };
+    if (!detectedLocation) detect();
+  }, []);
   
   // Persist sessions to localStorage whenever they change
   useEffect(() => {
@@ -673,7 +555,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
   // Socket.IO connection setup
   useEffect(() => {
-    socketService.connect();
+    // socketService.connect() is handled by parent App.tsx
     
     // Collect cleanup functions
     const cleanups: (() => void)[] = [];
@@ -1039,15 +921,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     };
   }, [currentUser.id, activeSession]);
 
-  // Entry logic: show registration if profile incomplete, otherwise search
   useEffect(() => {
-    if (currentUser.country && currentUser.age) {
-      // Register user on server
+    if (currentUser.id && currentUser.name && currentUser.age && !hasRegisteredWithServer) {
+      console.log(`[AUTH] Registering with server...`);
       socketService.registerUser(currentUser, (data) => {
+        setHasRegisteredWithServer(true);
         setProfileExpiresAt(data.expiresAt);
         console.log(`✅ Profile registered. Expires in ${Math.floor(data.ttl / 3600000)} hours`);
         
-        // Restore sessions from server
         if (data.activeSessions && data.activeSessions.length > 0) {
           console.log(`[SESSION] Restoring ${data.activeSessions.length} sessions from server`);
           setActiveSessions(prev => {
@@ -1061,187 +942,149 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           });
         }
       });
+    }
+  }, [currentUser.id, currentUser.name, currentUser.age, hasRegisteredWithServer]);
+
+  useEffect(() => {
+    if (view !== 'auth') return;
+
+    if (currentUser.name && currentUser.age) {
       setView('search');
-    } else {
+    } else if (currentUser.isAuthenticated) {
       setView('register');
     }
-  }, [currentUser.country, currentUser.age]);
+  }, [currentUser.id, currentUser.name, currentUser.age, currentUser.isAuthenticated, view]);
 
-  const handleLogin = () => {
-    const mockUser = {
-      id: `user_${Date.now()}`,
-      name: 'Guest',
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`,
-      isAuthenticated: true,
-      age: 0,
-      country: '',
-      city: '',
-      gender: 'other' as const,
-      status: 'online' as const,
-      safetyLevel: 'green' as const,
-      blockedUsers: [],
-      bio: '',
-      hasAgreedToRules: false,
-      filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true }
-    };
-    onUpdateCurrentUser(mockUser as UserProfile);
+  const handleGetCode = () => {
+    if (!authEmail || !authEmail.includes('@')) {
+      setOtpError(language === 'ru' ? 'Введите корректный email' : 'Enter a valid email');
+      return;
+    }
+    setOtpError('');
+    setIsVerifyingOtp(true);
+    
+    // Simulate API call to send OTP
+    setTimeout(() => {
+      setIsVerifyingOtp(false);
+      setOtpStep('otp');
+      console.log(`[AUTH] OTP sent to ${authEmail}. Mock code: 1234`);
+    }, 1500);
   };
 
-  const handleRegistrationComplete = () => {
-    // Check if user is blocked for 24 hours
-    const blockedUntil = localStorage.getItem('streamflow_location_blocked_until');
-    if (blockedUntil && Date.now() < parseInt(blockedUntil)) {
-      const hoursLeft = Math.ceil((parseInt(blockedUntil) - Date.now()) / (60 * 60 * 1000));
-      const errorMsg = language === 'ru'
-        ? `Вы заблокированы за нарушение правил чата! Попробуйте через ${hoursLeft} ч.`
-        : `You are blocked for violating chat rules! Try again in ${hoursLeft}h.`;
-      setViolationMessage(errorMsg);
+  const handleVerifyOtp = () => {
+    if (authOtp !== '1234') {
+      setOtpError(language === 'ru' ? 'Неверный код' : 'Invalid code');
       return;
     }
     
-    // Collect location fingerprint for trust score
-    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const browserLocale = navigator.language;
-    const browserUtcOffset = -(new Date().getTimezoneOffset() / 60); // Convert to UTC offset hours
-    
-    // Calculate Trust Score
-    let trustScore = 100;
-    const trustFlags: string[] = [];
-    
-    // Check for country mismatch (main check) - normalize names to handle different languages
-    // e.g. "Казахстан" should match "Kazakhstan"
-    const detectedCountryNormalized = normalizeCountryName(detectedLocation?.country || '');
-    const selectedCountryNormalized = normalizeCountryName(regCountry);
-    
-    const hasCountryMismatch = detectedLocation && 
-      detectedLocation.country !== 'Unknown' && 
-      detectedCountryNormalized.toLowerCase() !== selectedCountryNormalized.toLowerCase();
-    
-    // 1. Check IP geolocation match
-    if (hasCountryMismatch) {
-      trustScore -= 40;
-      trustFlags.push(`IP_MISMATCH:${detectedLocation.country}vs${regCountry}`);
-      console.log(`[TRUST] ❌ IP mismatch: detected ${detectedLocation.country}, selected ${regCountry} (-40)`);
-      
-      // TWO-ATTEMPT WARNING SYSTEM
-      const currentWarnings = locationWarningCount;
-      
-      if (currentWarnings === 0) {
-        // First attempt with mismatch - show warning, don't block
-        console.log('[TRUST] ⚠️ First mismatch - showing warning');
-        setLocationWarningCount(1);
-        localStorage.setItem('streamflow_location_warnings', '1');
-        setShowLocationWarning(true);
-        return; // Stop registration, show warning first
-      } else {
-        // Second attempt with mismatch - BLOCK for 24 hours
-        console.log('[TRUST] 🚫 Second mismatch - blocking for 24 hours');
-        const blockUntil = Date.now() + (24 * 60 * 60 * 1000);
-        localStorage.setItem('streamflow_location_blocked_until', blockUntil.toString());
-        localStorage.setItem('streamflow_location_warnings', '0'); // Reset for next time
-        setIsLocationBlocked(true);
-        
-        const errorMsg = language === 'ru'
-          ? 'Вы заблокированы за нарушение правил чата! Доступ закрыт на 24 часа.'
-          : 'You are blocked for violating chat rules! Access denied for 24 hours.';
-        setViolationMessage(errorMsg);
-        return;
-      }
-    } else {
-      // Country matches - reset warning count
-      if (locationWarningCount > 0) {
-        setLocationWarningCount(0);
-        localStorage.setItem('streamflow_location_warnings', '0');
-      }
-    }
-    
-    // 2. Check Timezone match
-    const countryVerification = COUNTRY_VERIFICATION_DATA[regCountry];
-    if (countryVerification) {
-      const tzMatches = countryVerification.timezones.some(tz => 
-        browserTimezone.startsWith(tz) || browserTimezone.includes(tz.replace('/', '/'))
-      );
-      
-      if (!tzMatches) {
-        trustScore -= 30;
-        trustFlags.push(`TZ_MISMATCH:${browserTimezone}`);
-        console.log(`[TRUST] ❌ Timezone mismatch: ${browserTimezone} for ${regCountry} (-30)`);
-      } else {
-        console.log(`[TRUST] ✅ Timezone matches: ${browserTimezone}`);
-      }
-      
-      // 3. Check UTC offset range
-      const [minOffset, maxOffset] = countryVerification.utcOffsetRange;
-      if (browserUtcOffset < minOffset || browserUtcOffset > maxOffset) {
-        trustScore -= 20;
-        trustFlags.push(`UTC_MISMATCH:${browserUtcOffset}`);
-        console.log(`[TRUST] ❌ UTC offset mismatch: ${browserUtcOffset} not in [${minOffset}, ${maxOffset}] (-20)`);
-      }
-      
-      // 4. Check Browser Locale
-      const localeMatches = countryVerification.locales.some(loc => 
-        browserLocale.toLowerCase().startsWith(loc.toLowerCase()) ||
-        browserLocale.toLowerCase().includes(loc.split('-')[0].toLowerCase())
-      );
-      
-      if (!localeMatches) {
-        trustScore -= 15;
-        trustFlags.push(`LOCALE_MISMATCH:${browserLocale}`);
-        console.log(`[TRUST] ⚠️ Locale mismatch: ${browserLocale} for ${regCountry} (-15)`);
-      } else {
-        console.log(`[TRUST] ✅ Locale matches: ${browserLocale}`);
+    setIsVerifyingOtp(true);
+    setOtpError('');
+
+    setTimeout(() => {
+      const mockUser = {
+        id: `user_${Date.now()}`,
+        email: authEmail,
+        name: 'User',
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${authEmail}`,
+        isAuthenticated: true,
+        registrationTimestamp: Date.now(),
+        filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true }
+      };
+      onUpdateCurrentUser(mockUser as UserProfile);
+      setIsVerifyingOtp(false);
+    }, 1000);
+  };
+
+  const startIntroRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderIntroRef.current = mediaRecorder;
+      audioChunksIntroRef.current = [];
+      mediaRecorder.ondataavailable = (e) => audioChunksIntroRef.current.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksIntroRef.current, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = () => {
+          setRegVoiceIntro(reader.result as string);
+        };
+        stream.getTracks().forEach(t => t.stop());
+      };
+      mediaRecorder.start();
+      setIsRecordingIntro(true);
+      setIntroRecordingTime(0);
+      introTimerRef.current = setInterval(() => setIntroRecordingTime(p => p >= 7 ? 7 : p + 1), 1000);
+      const prompts = language === 'ru' ? SMART_PROMPTS.ru : SMART_PROMPTS.en;
+      const cats = Object.values(prompts).flat();
+      setActivePrompt(cats[Math.floor(Math.random() * cats.length)]);
+    } catch (err) { alert('Microphone error'); }
+  };
+
+  const stopIntroRecording = () => {
+    if (mediaRecorderIntroRef.current?.state !== 'inactive') mediaRecorderIntroRef.current?.stop();
+    setIsRecordingIntro(false);
+    if (introTimerRef.current) clearInterval(introTimerRef.current);
+  };
+
+  const handleSentImageClick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const stylized = await stylizeAvatar(file);
+      // In chat, we send stylized images for consistency with the privacy brief
+      if (activeSession) {
+        socketService.sendMessage(activeSession.sessionId, stylized, 'image');
       }
     }
+  };
+
+  const handleDeleteAccount = () => {
+    const confirmMsg = language === 'ru' 
+      ? 'Вы уверены, что хотите удалить свой профиль и все данные? Это действие необратимо.' 
+      : 'Are you sure you want to delete your profile and all data? This action is irreversible.';
     
-    // Determine trust level
-    let trustLevel: 'TRUSTED' | 'SUSPICIOUS' | 'HIGH_RISK';
-    if (trustScore >= 80) trustLevel = 'TRUSTED';
-    else if (trustScore >= 50) trustLevel = 'SUSPICIOUS';
-    else trustLevel = 'HIGH_RISK';
-    
-    console.log(`[TRUST] 🏁 Final score: ${trustScore}/100 = ${trustLevel}`, trustFlags);
-    
+    if (window.confirm(confirmMsg)) {
+      localStorage.removeItem('streamflow_user_profile');
+      window.location.reload();
+    }
+  };
+
+  const handleRegistrationComplete = () => {
+    if (!regName.trim()) {
+      alert(language === 'ru' ? 'Введите имя' : 'Please enter your name');
+      return;
+    }
+
+    if (!regVoiceIntro && !currentUser.voiceIntro) {
+      alert(language === 'ru' ? 'Пожалуйста, запишите голосовое приветствие!' : 'Please record a voice intro!');
+      return;
+    }
+
     const updatedUser: UserProfile = { 
       ...currentUser, 
-      name: regName, 
-      avatar: regAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${regName || Date.now()}`,
+      name: regName || (language === 'ru' ? 'Гость' : 'Guest'), 
+      avatar: regAvatar,
       age: parseInt(regAge), 
-      country: regCountry, 
-      city: regCity, 
       gender: regGender, 
+      intentStatus: regIntentStatus,
+      voiceIntro: regVoiceIntro,
+      voiceIntroTimestamp: regVoiceIntro ? Date.now() : currentUser.voiceIntroTimestamp,
       isAuthenticated: true,
       hasAgreedToRules: true,
-      // Geolocation data
-      detectedCountry: detectedLocation?.country,
-      detectedCity: detectedLocation?.city,
-      detectedIP: detectedLocation?.ip,
-      deviceId: geolocationService.getDeviceId(),
-      registrationTimestamp: Date.now(),
-      // Trust Score data
-      trustScore,
-      trustLevel,
-      trustFlags,
-      locationFingerprint: {
-        browserTimezone,
-        browserLocale,
-        browserUtcOffset,
-        userAgent: navigator.userAgent,
-        platform: navigator.platform
-      },
+      lastSeen: Date.now(),
+      registrationTimestamp: currentUser.registrationTimestamp || Date.now(),
       chatSettings: {
         notificationsEnabled: regNotificationsEnabled,
         notificationVolume: regNotificationVolume,
         notificationSound: regNotificationSound as 'default' | 'soft' | 'alert'
-      }
+      },
+      safetyLevel: 'green',
+      blockedUsers: currentUser.blockedUsers || []
     };
-    
-    // Save registration timestamp in localStorage for 24h lock
-    geolocationService.markRegisteredToday();
     
     onUpdateCurrentUser(updatedUser);
     localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
 
-    
     // Register on server
     socketService.registerUser(updatedUser, (data) => {
       setProfileExpiresAt(data.expiresAt);
@@ -1268,15 +1111,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const handleAvatarSetup = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    compressImage(file).then(setRegAvatar);
+    stylizeAvatar(file).then(setRegAvatar);
   };
 
   const handleSearch = () => {
     const filters: any = {};
     if (searchAgeFrom !== 'Any') filters.minAge = parseInt(searchAgeFrom);
     if (searchAgeTo !== 'Any') filters.maxAge = parseInt(searchAgeTo);
-    if (searchCountry !== 'Any') filters.country = searchCountry;
-    if (searchCity !== 'Any') filters.city = searchCity;
     if (searchGender !== 'any') filters.gender = searchGender;
     
     socketService.searchUsers(filters, (results) => {
@@ -1395,7 +1236,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }
     
     try {
-      const compressedBase64 = await compressImage(file);
+      const compressedBase64 = await stylizeAvatar(file);
       
       /* Optimistic UI removed to prevent duplication
       const tempId = `temp_img_${Date.now()}`;
@@ -1826,18 +1667,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                     </>
                                 ) : (view === 'inbox' ? (language === 'ru' ? 'Диалоги' : 'Inbox') : '')}
                             </h2>
-                            {view === 'search' && detectedLocation?.country && detectedLocation.country !== 'Unknown' ? (
-                                <span className="text-[9px] text-primary font-bold uppercase tracking-wider flex items-center gap-1">
-                                    📍 {detectedLocation.country}
-                                </span>
-                            ) : !socketService.isConnected ? (
-                                <span className="text-[9px] text-red-500 font-bold uppercase animate-pulse">Offline</span>
-                            ) : (
                                 <span className="text-[9px] text-green-500 font-bold uppercase tracking-wider flex items-center gap-1">
                                     <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                                     {onlineStats.chatOnline} {language === 'ru' ? 'онлайн' : 'online'}
                                 </span>
-                            )}
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full border border-white/5"><XMarkIcon className="w-5 h-5" /></button>
@@ -1945,394 +1778,76 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 </div>
             )}
 
-            {/* Block Overlay with Countdown Timer and Scrolling Message */}
-            {isLocationBlocked && (
-                <div className="absolute inset-0 bg-gradient-to-b from-black via-slate-900 to-black flex flex-col z-50 overflow-hidden">
-                    {/* Top Section - Timer */}
-                    <div className="shrink-0 text-center pt-6 pb-3 relative z-10">
-                        <div className="w-14 h-14 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-3 border-2 border-red-500/50 animate-pulse">
-                            <NoSymbolIcon className="w-7 h-7 text-red-500" />
-                        </div>
-                        <h2 className="text-base font-black text-red-500 uppercase tracking-widest mb-2">
-                            {language === 'ru' ? 'ДОСТУП ЗАБЛОКИРОВАН' : 'ACCESS BLOCKED'}
-                        </h2>
-                        
-                        {/* Language Toggle */}
-                        <div className="flex justify-center gap-2 mb-3">
-                            <button
-                                onClick={() => onLanguageChange('ru')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                                    language === 'ru' 
-                                        ? 'bg-primary text-white' 
-                                        : 'bg-slate-800 text-slate-500 hover:bg-slate-700'
-                                }`}
-                            >
-                                🇷🇺 RU
-                            </button>
-                            <button
-                                onClick={() => onLanguageChange('en')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
-                                    language === 'en' 
-                                        ? 'bg-primary text-white' 
-                                        : 'bg-slate-800 text-slate-500 hover:bg-slate-700'
-                                }`}
-                            >
-                                🇺🇸 EN
-                            </button>
-                        </div>
-                        
-                        {/* Countdown Timer */}
-                        <div className="bg-slate-800/50 border border-slate-700 rounded-2xl px-5 py-3 mx-auto inline-block">
-                            <p className="text-[9px] text-slate-500 uppercase tracking-widest mb-1">
-                                {language === 'ru' ? 'До разблокировки' : 'Time remaining'}
-                            </p>
-                            <div className="text-2xl font-black text-white font-mono tracking-wider">
-                                {blockTimeRemaining || '00:00:00'}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {/* Scrolling Credits Container */}
-                    <div className="flex-1 relative overflow-hidden">
-                        {/* Gradient Fade Top */}
-                        <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none" />
-                        {/* Gradient Fade Bottom */}
-                        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black to-transparent z-10 pointer-events-none" />
-                        
-                        {/* Scrolling Text - Slower, starts after 3s */}
-                        <div 
-                            className="px-6 py-4"
-                            style={{
-                                animation: 'scrollCredits 120s linear infinite',
-                                animationDelay: '3s',
-                            }}
-                        >
-                            <style>{`
-                                @keyframes scrollCredits {
-                                    0% { transform: translateY(0%); opacity: 1; }
-                                    95% { transform: translateY(-85%); opacity: 1; }
-                                    100% { transform: translateY(-90%); opacity: 0; }
-                                }
-                            `}</style>
-                            
-                            <div className="max-w-xs mx-auto space-y-5 text-center">
-                                {/* Show text based on selected language */}
-                                {language === 'ru' ? (
-                                    <>
-                                        <p className="text-base text-slate-200 leading-relaxed font-medium">
-                                            Привет, уважаемый пользователь!
-                                        </p>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            Мы понимаем, что, возможно, ты не хотел(а) нарушать правила. А может быть, намеренно использовал(а) VPN или другие сервисы для обхода ограничений.
-                                        </p>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            Этот сервис создан для реальных людей, которые хотят общаться искренне и уважительно. Мы не желаем хаоса и беспорядка в нашем сообществе.
-                                        </p>
-                                        
-                                        <div className="py-2">
-                                            <span className="text-xl">✨</span>
-                                        </div>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            Мы долго работали над созданием этого места и не хотим, чтобы здесь оставался негатив.
-                                        </p>
-                                        
-                                        <p className="text-sm text-primary font-medium leading-relaxed">
-                                            Уважай себя и других пользователей!
-                                        </p>
-                                        
-                                        <div className="py-2">
-                                            <span className="text-xl">🤝</span>
-                                        </div>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            После разблокировки будь внимателен при регистрации. Укажи реальное местоположение и помни о правилах общения.
-                                        </p>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            Не оскорбляй и не унижай достоинство других. Не размещай фото непристойного характера. Веди себя культурно — и к тебе потянутся люди.
-                                        </p>
-                                        
-                                        <div className="py-2">
-                                            <span className="text-xl">💜</span>
-                                        </div>
-                                        
-                                        <p className="text-sm text-slate-300 leading-relaxed">
-                                            Если хочешь найти друга, знакомого или кого-то особенного — добро пожаловать к нам!
-                                        </p>
-                                        
-                                        <p className="text-base text-white font-bold leading-relaxed">
-                                            Мы откроем тебе доступ после окончания блокировки.
-                                        </p>
-                                        
-                                        <p className="text-xs text-slate-500 leading-relaxed">
-                                            Не обижайся — это наше правило!
-                                        </p>
-                                        
-                                        <div className="py-6">
-                                            <span className="text-3xl">🎵</span>
-                                            <p className="text-lg text-primary font-bold mt-4">
-                                                А пока — послушай наше радио!
-                                            </p>
-                                            <p className="text-xs text-slate-600 uppercase tracking-widest mt-2">
-                                                StreamFlow Radio
-                                            </p>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        <p className="text-base text-slate-200 leading-relaxed font-medium">
-                                            Hello, dear user!
-                                        </p>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            We understand that perhaps you didn't mean to break the rules. Or maybe you intentionally used a VPN or other bypass services.
-                                        </p>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            This service is created for real people who want to communicate sincerely and respectfully. We don't want chaos in our community.
-                                        </p>
-                                        
-                                        <div className="py-2">
-                                            <span className="text-xl">✨</span>
-                                        </div>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            We worked hard to create this place and don't want negativity here.
-                                        </p>
-                                        
-                                        <p className="text-sm text-primary font-medium leading-relaxed">
-                                            Respect yourself and other users!
-                                        </p>
-                                        
-                                        <div className="py-2">
-                                            <span className="text-xl">🤝</span>
-                                        </div>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            After unblock, be careful during registration. Specify your real location and remember the rules.
-                                        </p>
-                                        
-                                        <p className="text-sm text-slate-400 leading-relaxed">
-                                            Don't insult others. Don't post inappropriate photos. Behave with culture — and people will be drawn to you.
-                                        </p>
-                                        
-                                        <div className="py-2">
-                                            <span className="text-xl">💜</span>
-                                        </div>
-                                        
-                                        <p className="text-sm text-slate-300 leading-relaxed">
-                                            If you want to find a friend or someone special — welcome!
-                                        </p>
-                                        
-                                        <p className="text-base text-white font-bold leading-relaxed">
-                                            We will grant you access after the block ends.
-                                        </p>
-                                        
-                                        <p className="text-xs text-slate-500 leading-relaxed">
-                                            Don't take offense — it's our rule!
-                                        </p>
-                                        
-                                        <div className="py-6">
-                                            <span className="text-3xl">🎵</span>
-                                            <p className="text-lg text-primary font-bold mt-4">
-                                                Meanwhile — enjoy our radio!
-                                            </p>
-                                            <p className="text-xs text-slate-600 uppercase tracking-widest mt-2">
-                                                StreamFlow Radio
-                                            </p>
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Country Not In List Modal */}
-            {countryNotInList && !isLocationBlocked && (
-                <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-in fade-in duration-500">
-                    <div className="text-center p-8">
-                        <div className="w-20 h-20 rounded-full bg-slate-700/50 flex items-center justify-center mx-auto mb-6 border-2 border-slate-600">
-                            <GlobeIcon className="w-10 h-10 text-slate-500" />
-                        </div>
-                        <h2 className="text-xl font-black text-slate-400 uppercase tracking-widest mb-2">
-                            {language === 'ru' ? 'ДОСТУП НЕДОСТУПЕН' : 'ACCESS UNAVAILABLE'}
-                        </h2>
-                        <p className="text-sm text-slate-500 mb-4 max-w-xs mx-auto">
-                            {language === 'ru' 
-                                ? `Извините, у вас нет доступа к чату из-за отсутствия вашей страны (${detectedLocation?.country || 'Unknown'}) в списке поддерживаемых.`
-                                : `Sorry, you don't have access to chat because your country (${detectedLocation?.country || 'Unknown'}) is not in our supported list.`}
-                        </p>
-                        <p className="text-xs text-slate-600">
-                            {language === 'ru' 
-                                ? 'Мы работаем над расширением географии сервиса'
-                                : 'We are working on expanding our service coverage'}
-                        </p>
-                    </div>
-                </div>
-            )}
 
-            {/* Geolocation Permission Denied Modal */}
-            {geoPermissionDenied && !countryNotInList && !isLocationBlocked && (
-                <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-in fade-in duration-500">
-                    <div className="text-center p-8">
-                        <div className="w-20 h-20 rounded-full bg-red-900/30 flex items-center justify-center mx-auto mb-6 border-2 border-red-600/50">
-                            <NoSymbolIcon className="w-10 h-10 text-red-500" />
-                        </div>
-                        <h2 className="text-xl font-black text-red-400 uppercase tracking-widest mb-2">
-                            {language === 'ru' ? 'ДОСТУП ЗАПРЕЩЁН' : 'ACCESS DENIED'}
-                        </h2>
-                        <p className="text-sm text-slate-400 mb-4 max-w-xs mx-auto">
-                            {language === 'ru' 
-                                ? 'Вы отклонили запрос на доступ к вашему местоположению. Для регистрации в чате необходимо разрешить определение геолокации.'
-                                : 'You denied the location access request. You must allow geolocation to register in the chat.'}
-                        </p>
-                        <p className="text-xs text-slate-500 mb-6 max-w-xs mx-auto">
-                            {language === 'ru' 
-                                ? 'Чтобы продолжить, разрешите доступ к местоположению в настройках браузера и обновите страницу.'
-                                : 'To continue, enable location access in your browser settings and refresh the page.'}
-                        </p>
-                        <button 
-                            onClick={() => window.location.reload()}
-                            className="px-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold uppercase text-xs tracking-wider rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-red-500/30"
-                        >
-                            {language === 'ru' ? 'Обновить страницу' : 'Refresh Page'}
-                        </button>
-                    </div>
-                </div>
-            )}
 
-            {/* VPN Detected Modal */}
-            {vpnDetected && !geoPermissionDenied && !countryNotInList && !isLocationBlocked && (
-                <div className="absolute inset-0 bg-black/95 backdrop-blur-md flex flex-col items-center justify-center z-50 animate-in fade-in duration-500">
-                    <div className="text-center p-8">
-                        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-red-900/50 to-orange-900/50 flex items-center justify-center mx-auto mb-6 border-2 border-red-500/50 animate-pulse">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                                <path d="M12 8v4"/>
-                                <path d="M12 16h.01"/>
-                            </svg>
-                        </div>
-                        <h2 className="text-2xl font-black text-red-500 uppercase tracking-widest mb-3">
-                            {language === 'ru' ? 'VPN ОБНАРУЖЕН' : 'VPN DETECTED'}
-                        </h2>
-                        <p className="text-sm text-slate-400 mb-4 max-w-sm mx-auto">
-                            {language === 'ru' 
-                                ? 'Мы обнаружили, что вы используете VPN или прокси-сервер для маскировки вашего реального местоположения.'
-                                : 'We detected that you are using a VPN or proxy server to mask your real location.'}
-                        </p>
-                        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-4 mb-6 max-w-sm mx-auto">
-                            <p className="text-xs text-red-400 font-bold uppercase tracking-wider mb-1">
-                                {language === 'ru' ? 'Причина блокировки:' : 'Reason for block:'}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                                {language === 'ru' 
-                                    ? 'Ваш браузер сообщает одну страну, а ваш IP-адрес указывает на другую. Это типичный признак использования VPN.'
-                                    : 'Your browser reports one country, but your IP address indicates another. This is a typical sign of VPN usage.'}
-                            </p>
-                        </div>
-                        <p className="text-xs text-slate-600 mb-6 max-w-xs mx-auto">
-                            {language === 'ru' 
-                                ? 'Для регистрации в чате отключите VPN и обновите страницу.'
-                                : 'To register in the chat, disable your VPN and refresh the page.'}
-                        </p>
-                        <button 
-                            onClick={() => window.location.reload()}
-                            className="px-6 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold uppercase text-xs tracking-wider rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-red-500/30"
-                        >
-                            {language === 'ru' ? 'Обновить страницу' : 'Refresh Page'}
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {/* Location Warning Modal - First Attempt */}
-            {showLocationWarning && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
-                    <div className="bg-slate-900 border border-orange-500/50 rounded-2xl p-6 m-4 max-w-sm shadow-2xl shadow-orange-500/20 animate-in zoom-in duration-300">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center">
-                                <NoSymbolIcon className="w-6 h-6 text-orange-500" />
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-black text-orange-500 uppercase tracking-wide">
-                                    {language === 'ru' ? 'Внимание!' : 'Warning!'}
-                                </h3>
-                                <p className="text-[10px] text-slate-400 uppercase tracking-wider">
-                                    {language === 'ru' ? 'Несовпадение местоположения' : 'Location Mismatch'}
-                                </p>
-                            </div>
-                        </div>
-                        
-                        <div className="space-y-3 mb-6">
-                            <p className="text-sm text-slate-300 leading-relaxed">
-                                {language === 'ru' 
-                                    ? `Вы определены в стране: `
-                                    : `You are detected in: `}
-                                <span className="font-bold text-white">{detectedLocation?.country || 'Unknown'}</span>
-                            </p>
-                            <p className="text-sm text-slate-300 leading-relaxed">
-                                {language === 'ru' 
-                                    ? `Но вы выбрали: `
-                                    : `But you selected: `}
-                                <span className="font-bold text-orange-400">{regCountry}</span>
-                            </p>
-                            <p className="text-xs text-slate-400 leading-relaxed">
-                                {language === 'ru' 
-                                    ? 'Пожалуйста, укажите реальную страну проживания. Если у вас включён VPN, отключите его и обновите страницу.'
-                                    : 'Please specify your actual country of residence. If you have VPN enabled, turn it off and refresh the page.'}
-                            </p>
-                        </div>
-                        
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 mb-6">
-                            <p className="text-xs text-red-400 font-bold text-center">
-                                {language === 'ru' 
-                                    ? '⚠️ При повторной ошибке вы будете заблокированы на 24 часа!'
-                                    : '⚠️ If you try again with wrong info, you will be blocked for 24 hours!'}
-                            </p>
-                        </div>
-                        
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={() => {
-                                    setShowLocationWarning(false);
-                                    // Auto-select detected country
-                                    if (detectedLocation?.country && detectedLocation.country !== 'Unknown') {
-                                        const countryData = COUNTRIES_DATA.find(c => 
-                                            c.name.toLowerCase() === detectedLocation.country.toLowerCase()
-                                        );
-                                        if (countryData) {
-                                            setRegCountry(countryData.name);
-                                            setRegCity(countryData.cities[0]);
-                                        }
-                                    }
-                                }}
-                                className="flex-1 py-3 bg-green-600 hover:bg-green-500 text-white rounded-xl font-bold text-sm transition-colors"
-                            >
-                                {language === 'ru' ? 'Исправить данные' : 'Fix My Data'}
-                            </button>
-                            <button 
-                                onClick={() => setShowLocationWarning(false)}
-                                className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-sm transition-colors"
-                            >
-                                {language === 'ru' ? 'Закрыть' : 'Close'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {view === 'auth' && (
-                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8 animate-in fade-in zoom-in duration-500">
-                    <div className="w-32 h-32 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shadow-[0_0_40px_rgba(188,111,241,0.1)] mb-4"><UsersIcon className="w-16 h-16 text-primary opacity-80" /></div>
-                    <div><p className="text-sm text-slate-400 leading-relaxed max-w-[250px] mx-auto">{t.authDesc}</p></div>
-                    <button onClick={handleLogin} className="flex items-center gap-3 px-6 py-4 bg-white text-black rounded-2xl font-bold text-sm shadow-xl hover:scale-105 transition-transform active:scale-95 w-full justify-center">
-                        {t.signInGuest}
-                    </button>
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6 animate-in fade-in zoom-in duration-500">
+                    <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shadow-[0_0_40px_rgba(188,111,241,0.1)] mb-2">
+                        <UsersIcon className="w-12 h-12 text-primary opacity-80" />
+                    </div>
+                    
+                    <div>
+                        <h2 className="text-xl font-black text-white uppercase tracking-wider mb-2">
+                            {language === 'ru' ? 'Вход в чат' : 'Chat Login'}
+                        </h2>
+                        <p className="text-xs text-slate-400 leading-relaxed max-w-[250px] mx-auto">
+                            {otpStep === 'email' 
+                                ? (language === 'ru' ? 'Введите email для получения кода доступа' : 'Enter email to receive access code')
+                                : (language === 'ru' ? `Код отправлен на ${authEmail}` : `Code sent to ${authEmail}`)
+                            }
+                        </p>
+                    </div>
+
+                    <div className="w-full space-y-4">
+                        {otpStep === 'email' ? (
+                            <>
+                                <input 
+                                    type="email"
+                                    value={authEmail}
+                                    onChange={(e) => setAuthEmail(e.target.value)}
+                                    placeholder="your@email.com"
+                                    className="w-full bg-slate-900/50 border border-white/10 rounded-2xl px-5 py-4 text-sm text-white focus:border-primary/50 transition-all outline-none"
+                                />
+                                {otpError && <p className="text-[10px] text-red-500 font-bold uppercase">{otpError}</p>}
+                                <button 
+                                    onClick={handleGetCode}
+                                    disabled={isVerifyingOtp || !authEmail.includes('@')}
+                                    className="flex items-center gap-3 px-6 py-4 bg-white text-black rounded-2xl font-bold text-sm shadow-xl hover:scale-[1.02] transition-transform active:scale-95 w-full justify-center disabled:opacity-50"
+                                >
+                                    {isVerifyingOtp ? (language === 'ru' ? 'ОТПРАВКА...' : 'SENDING...') : (language === 'ru' ? 'ПОЛУЧИТЬ КОД' : 'GET CODE')}
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <input 
+                                    type="text"
+                                    maxLength={4}
+                                    value={authOtp}
+                                    onChange={(e) => setAuthOtp(e.target.value.replace(/\D/g, ''))}
+                                    placeholder="0 0 0 0"
+                                    className="w-full bg-slate-900/50 border border-white/10 rounded-2xl px-5 py-4 text-2xl font-black text-center text-white tracking-[1em] focus:border-primary/50 transition-all outline-none"
+                                />
+                                {otpError && <p className="text-[10px] text-red-500 font-bold uppercase">{otpError}</p>}
+                                <div className="flex flex-col gap-3">
+                                    <button 
+                                        onClick={handleVerifyOtp}
+                                        disabled={isVerifyingOtp || authOtp.length < 4}
+                                        className="flex items-center gap-3 px-6 py-4 bg-primary text-white rounded-2xl font-bold text-sm shadow-xl hover:scale-[1.02] transition-transform active:scale-95 w-full justify-center disabled:opacity-50"
+                                    >
+                                        {isVerifyingOtp ? (language === 'ru' ? 'ПРОВЕРКА...' : 'VERIFYING...') : (language === 'ru' ? 'ВОЙТИ' : 'LOGIN')}
+                                    </button>
+                                    <button 
+                                        onClick={() => setOtpStep('email')}
+                                        className="text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-white transition-colors"
+                                    >
+                                        {language === 'ru' ? 'Изменить Email' : 'Change Email'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
             
@@ -2345,70 +1860,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     </div>
                     
                     <div className="flex-1 flex flex-col space-y-6">
-                        {/* Geolocation Status Indicator */}
-                        {isDetectingLocation && (
-                            <div className="bg-primary border border-primary/40 rounded-xl p-3 flex items-center justify-between animate-pulse" style={{ backgroundColor: 'rgba(188, 111, 241, 0.2)' }}>
-                                <div className="flex items-center gap-3">
-                                    <GlobeIcon className="w-4 h-4 text-primary animate-spin" />
-                                    <span className="text-[10px] font-bold text-white uppercase tracking-wider">
-                                        {language === 'ru' ? 'Определяем ваше местоположение...' : 'Detecting your location...'}
-                                    </span>
-                                </div>
-                            </div>
-                        )}
 
-                        {detectedLocation && !isDetectingLocation && (
-                            <div 
-                                className={`border rounded-xl p-3 flex items-center justify-between transition-all ${
-                                    detectedLocation.country === 'Unknown' 
-                                    ? 'bg-slate-800/40 border-white/10' 
-                                    : 'bg-green-600/20 border-green-500/40'
-                                }`}
-                            >
-                                <div className="flex items-center gap-3">
-                                    <GlobeIcon className={`w-4 h-4 ${detectedLocation.country === 'Unknown' ? 'text-slate-500' : 'text-green-500'}`} />
-                                    <div className="flex flex-col">
-                                        <span className={`text-[8px] font-black uppercase tracking-[0.2em] leading-none mb-1 ${
-                                            detectedLocation.country === 'Unknown' ? 'text-slate-500' : 'text-green-500'
-                                        }`}>
-                                            {detectedLocation.country === 'Unknown' 
-                                                ? (language === 'ru' ? 'МЕСТОПОЛОЖЕНИЕ НЕ ОПРЕДЕЛЕНО' : 'LOCATION NOT DETECTED')
-                                                : (language === 'ru' ? 'ВАШЕ МЕСТОПОЛОЖЕНИЕ ПОДТВЕРЖДЕНО' : 'LOCATION VERIFIED')
-                                            }
-                                        </span>
-                                        <span className="text-[10px] font-bold text-white leading-none">
-                                            {detectedLocation.country === 'Unknown' 
-                                                ? (language === 'ru' ? 'Выберите город вручную' : 'Please select manually')
-                                                : `${detectedLocation.country}, ${detectedLocation.city}`
-                                            }
-                                        </span>
-                                    </div>
-                                </div>
-                                {detectedLocation.ip && detectedLocation.ip !== 'Unknown' && (
-                                    <span className="text-[9px] font-mono text-slate-400">{detectedLocation.ip}</span>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Country Mismatch Warning */}
-                        {detectedLocation && detectedLocation.country !== 'Unknown' && regCountry !== detectedLocation.country && (
-                            <div className="bg-orange-600/20 border border-orange-500/40 rounded-xl p-4 animate-in fade-in slide-in-from-top-2">
-                                <div className="flex gap-3">
-                                    <NoSymbolIcon className="w-5 h-5 text-orange-500 shrink-0" />
-                                    <div className="flex-1">
-                                        <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1">
-                                            {language === 'ru' ? 'НЕСООТВЕТСТВИЕ СТРАНЫ' : 'COUNTRY MISMATCH'}
-                                        </h4>
-                                        <p className="text-[11px] text-slate-200 font-medium leading-relaxed">
-                                            {language === 'ru' 
-                                                ? `Вы находитесь в ${detectedLocation.country}, но выбрали ${regCountry}. Пожалуйста, укажите точное местоположение.`
-                                                : `You are in ${detectedLocation.country}, but selected ${regCountry}. Please specify your exact location.`
-                                            }
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
 
                         {/* Top: Avatar Section */}
                         <div className="flex justify-center py-2">
@@ -2474,8 +1926,22 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             </div>
                         </div>
 
-                        {/* Middle: Name & Gender */}
+                        {/* Middle: Name & Gender & Intent */}
                         <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2">
+                                <label className="text-[9px] font-bold text-slate-500 uppercase ml-1 mb-1 block tracking-widest">{language === 'ru' ? 'ВАША ЦЕЛЬ' : 'YOUR INTENT'}</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {INTENT_STATUSES.map(status => (
+                                        <button 
+                                            key={status}
+                                            onClick={() => setRegIntentStatus(status)}
+                                            className={`py-2 px-3 rounded-xl text-[10px] font-bold border transition-all ${regIntentStatus === status ? 'bg-primary border-primary text-white' : 'bg-white/5 border-white/10 text-slate-400'}`}
+                                        >
+                                            {status}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                             <div>
                                 <label className="text-[9px] font-bold text-slate-500 uppercase ml-1 mb-1 block tracking-widest">{language === 'ru' ? 'ВАШЕ ИМЯ' : 'NAME'}</label>
                                 <input 
@@ -2500,20 +1966,93 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </div>
                             </div>
                         </div>
+
+                        {/* Voice Intro Section */}
+                        <div className="p-4 bg-primary/10 border border-primary/20 rounded-2xl space-y-3">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-[10px] font-black text-primary uppercase tracking-widest">
+                                    {language === 'ru' ? 'ГОЛОСОВОЕ ПРИВЕТСТВИЕ' : 'VOICE INTRO'}
+                                </h4>
+                                {regVoiceIntro && !isRecordingIntro && (
+                                    <div className="flex items-center gap-1 text-[8px] text-green-500 font-bold uppercase">
+                                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                        {language === 'ru' ? 'ЗАПИСАНО' : 'RECORDED'}
+                                    </div>
+                                )}
+                            </div>
+                            
+                            {isRecordingIntro ? (
+                                <div className="flex flex-col items-center gap-3 py-2">
+                                    <div className="animate-pulse bg-red-500 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
+                                        REC 0:0{introRecordingTime} / 0:07
+                                    </div>
+                                    <p className="text-xs text-white font-medium italic animate-in fade-in slide-in-from-bottom-2">"{activePrompt}"</p>
+                                    <button onClick={stopIntroRecording} className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-all">
+                                        <XMarkIcon className="w-6 h-6 text-white" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-4">
+                                    <button 
+                                        onClick={startIntroRecording}
+                                        className="w-12 h-12 bg-primary rounded-full flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all"
+                                    >
+                                        <MicrophoneIcon className="w-6 h-6 text-white" />
+                                    </button>
+                                    <div className="flex-1">
+                                        <p className="text-[10px] text-slate-300 leading-tight">
+                                            {language === 'ru' 
+                                                ? 'Запишите 5-7 секунд о себе. Это ваш главный «крючок» для общения.' 
+                                                : 'Record 5-7 seconds about yourself. This is your main hook for conversation.'}
+                                        </p>
+                                        {regVoiceIntro && (
+                                            <button 
+                                                onClick={() => {
+                                                    const audio = new Audio(regVoiceIntro);
+                                                    audio.play();
+                                                }}
+                                                className="mt-2 text-[9px] font-bold text-primary uppercase flex items-center gap-1 hover:underline"
+                                            >
+                                                <PlayIcon className="w-2.5 h-2.5" /> {language === 'ru' ? 'Прослушать' : 'Listen Back'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                         
-                        {/* Bottom: Pickers */}
-                        <div className="grid grid-cols-3 gap-3 pt-2">
+                        <div className="grid grid-cols-1 gap-3 pt-2">
                             <DrumPicker label={language === 'ru' ? 'ВОЗРАСТ' : 'AGE'} options={AGES} value={regAge} onChange={setRegAge} />
-                            <DrumPicker label={language === 'ru' ? 'СТРАНА' : 'COUNTRY'} options={COUNTRIES_DATA.map(c => c.name)} value={regCountry} onChange={setRegCountry} />
-                            <DrumPicker label={language === 'ru' ? 'ГОРОД' : 'CITY'} options={availableCitiesReg} value={regCity} onChange={setRegCity} />
+                        </div>
+
+                        <div className="pt-4 flex flex-col items-center gap-2">
+                             <p className="text-[10px] text-slate-500 text-center leading-relaxed">
+                                {language === 'ru' 
+                                    ? 'Нажимая «СОХРАНИТЬ», вы подтверждаете, что вам исполнилось 18 лет и вы согласны с ' 
+                                    : 'By clicking "SAVE", you confirm you are 18+ and agree to '}
+                                <a href="/terms.html" target="_blank" className="text-primary hover:underline">{language === 'ru' ? 'Условиями использования' : 'Terms of Use'}</a>
+                                {language === 'ru' ? ' и ' : ' and '}
+                                <a href="/privacy.html" target="_blank" className="text-primary hover:underline">{language === 'ru' ? 'Политикой конфиденциальности' : 'Privacy Policy'}</a>.
+                             </p>
                         </div>
 
                         <button 
                             onClick={handleRegistrationComplete} 
-                            className="w-full py-4 bg-gradient-to-r from-primary to-secondary text-white rounded-[1.5rem] font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(188,111,241,0.25)] hover:shadow-primary/40 hover:scale-[1.01] active:scale-95 transition-all text-xs"
+                            className="w-full py-4 mt-2 bg-gradient-to-r from-primary to-secondary text-white rounded-[1.5rem] font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(188,111,241,0.25)] hover:shadow-primary/40 hover:scale-[1.01] active:scale-95 transition-all text-xs"
                         >
                             {language === 'ru' ? 'СОХРАНИТЬ' : 'SAVE'}
                         </button>
+
+                        {/* Apple Requirement: Account Deletion (Rule 5.1.1 v) */}
+                        {currentUser.id && (
+                            <button 
+                                onClick={handleDeleteAccount}
+                                className="w-full mt-4 py-3 bg-red-600/10 border border-red-500/30 text-red-500 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-red-600/20 transition-all flex items-center justify-center gap-2"
+                            >
+                                <UsersIcon className="w-3 h-3" />
+                                {language === 'ru' ? 'УДАЛИТЬ АККАУНТ И ДАННЫЕ' : 'DELETE ACCOUNT & DATA'}
+                            </button>
+                        )}
 
                         {/* Chat Settings Section */}
                         <div className="pt-6 border-t border-white/5 space-y-4">
@@ -2592,8 +2131,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         {AGES.map(a => <option key={a} value={a} className="bg-slate-900">{a}</option>)}
                                     </select>
                                 </div>
-                                <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{t.country}</label><select value={searchCountry} onChange={(e) => setSearchCountry(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-white text-xs outline-none appearance-none font-bold"><option value="Any" className="bg-slate-900">{t.any}</option>{COUNTRIES_DATA.map(c => <option key={c.name} value={c.name} className="bg-slate-900">{c.name}</option>)}</select></div>
-                                <div><label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{t.city}</label><select value={searchCity} onChange={(e) => setSearchCity(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-2.5 text-white text-xs outline-none appearance-none font-bold"><option value="Any" className="bg-slate-900">{t.any}</option>{availableCitiesSearch.map(c => <option key={c} value={c} className="bg-slate-900">{c}</option>)}</select></div>
+
                                 <div className="col-span-2">
                                     <label className="text-[10px] font-bold text-slate-500 uppercase ml-1">{t.gender}</label>
                                     <div className="flex bg-white/5 rounded-xl p-1">
@@ -2607,16 +2145,58 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         </div>
                         <div className="space-y-3">
                             {(searchResults.length > 0 ? searchResults : onlineUsers).map(user => (
-                                <div key={user.id} className="p-3 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-3 hover:bg-white/10 transition-colors animate-in slide-in-from-bottom-2 duration-300">
-                                    <div className="relative"><img src={user.avatar || ''} className="w-12 h-12 rounded-xl object-cover bg-slate-800" /><div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-[#1e293b] ${user.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`}></div></div>
-                                    <div className="flex-1 min-w-0"><h5 className="font-bold text-sm text-white truncate">{user.name}</h5><p className="text-[10px] text-slate-400 font-medium">{user.age} • {user.city}</p></div>
-                                    {user.id === currentUser.id ? (
-                                        <div className="px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-lg text-green-500 text-[10px] font-black uppercase tracking-widest shadow-inner">
-                                            {t.online}
+                                <div key={user.id} className="p-4 bg-white/5 border border-white/5 rounded-3xl flex flex-col gap-4 hover:bg-white/[0.08] transition-all animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="flex items-center gap-4">
+                                        <div className="relative">
+                                            <img src={user.avatar || ''} className="w-16 h-16 rounded-2xl object-cover bg-slate-800 shadow-2xl" />
+                                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#0f172a] ${user.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`}></div>
                                         </div>
-                                    ) : (
-                                        <button onClick={() => handleKnock(user)} disabled={sentKnocks.has(user.id)} className={`px-4 py-2 rounded-lg font-black text-[9px] uppercase tracking-widest transition-all ${sentKnocks.has(user.id) ? 'bg-green-500/20 text-green-500' : 'bg-blue-600 text-white hover:bg-blue-500 shadow-lg'}`}>{sentKnocks.has(user.id) ? t.knockSent : t.knock}</button>
-                                    )}
+                                        <div className="flex-1 min-w-0">
+                                            <h5 className="font-black text-base text-white truncate flex items-center gap-2">
+                                                {user.name}
+                                                <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{user.age}</span>
+                                            </h5>
+
+                                            <div className="mt-1 inline-block px-2 py-0.5 bg-secondary/10 border border-secondary/20 rounded-lg text-[9px] font-black text-secondary uppercase tracking-tighter">
+                                                {user.intentStatus || 'Свободен'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        {user.voiceIntro ? (
+                                            <button 
+                                                onClick={() => {
+                                                    const audio = new Audio(user.voiceIntro);
+                                                    audio.play();
+                                                }}
+                                                className="flex-1 h-10 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary transition-all border border-white/5"
+                                            >
+                                                <PlayIcon className="w-4 h-4" />
+                                                {language === 'ru' ? 'Послушать голос' : 'Listen Voice'}
+                                            </button>
+                                        ) : (
+                                            <div className="flex-1 h-10 bg-white/5 rounded-xl flex items-center justify-center text-[10px] font-bold text-slate-600 uppercase">
+                                                {language === 'ru' ? 'Без голоса' : 'No voice'}
+                                            </div>
+                                        )}
+
+                                        {user.id === currentUser.id ? (
+                                            <button 
+                                                className="px-6 h-10 bg-green-500/10 border border-green-500/20 rounded-xl text-green-500 text-[10px] font-black uppercase tracking-widest cursor-default"
+                                            >
+                                                {t.online}
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={() => handleKnock(user)} 
+                                                disabled={sentKnocks.has(user.id)} 
+                                                className={`px-6 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${sentKnocks.has(user.id) ? 'bg-green-500/20 text-green-500' : 'bg-primary text-white hover:shadow-lg shadow-primary/20'}`}
+                                            >
+                                                {sentKnocks.has(user.id) ? t.knockSent : t.knock}
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>

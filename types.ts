@@ -88,10 +88,14 @@ export interface UserProfile {
   name: string;
   avatar: string | null;
   age: number;
-  country: string;
-  city: string;
+  country?: string; 
+  city?: string;
+  approxRegion?: string; // Internal privacy-first region hint
   gender: 'male' | 'female' | 'other';
   status: 'online' | 'offline';
+  intentStatus?: 'Хочу поговорить' | 'Свободен' | 'Просто слушаю' | 'Без флирта';
+  voiceIntro?: string; // Base64 encoded voice snippet (5-7s)
+  voiceIntroTimestamp?: number;
   lastSeen?: number;
   safetyLevel: 'green' | 'yellow' | 'red';
   blockedUsers: string[];

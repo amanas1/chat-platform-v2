@@ -188,6 +188,42 @@ class GeolocationService {
       console.warn('[GEO] Failed to save registration timestamp:', error);
     }
   }
+
+  /**
+   * Cache detected location to avoid repeated lookups
+   */
+  saveLocationToCache(location: LocationData): void {
+    try {
+      localStorage.setItem('streamflow_last_detected_location', JSON.stringify(location));
+    } catch (e) {}
+  }
+
+  /**
+   * Get cached location
+   */
+  getCachedLocation(): LocationData | null {
+    try {
+      const saved = localStorage.getItem('streamflow_last_detected_location');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * Universal location detection
+   * Tries browser geolocation first, then IP fallback
+   */
+  async detectLocation(): Promise<LocationData | null> {
+    try {
+      const browserLoc = await this.getBrowserLocation();
+      if (browserLoc) return browserLoc;
+      
+      return await this.getIPLocation();
+    } catch (error) {
+      console.error('[GEO] Detect location error:', error);
+      return null;
+    }
+  }
 }
 
 // Export singleton instance

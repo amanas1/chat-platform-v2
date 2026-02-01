@@ -10,6 +10,7 @@ import CosmicBackground from './components/CosmicBackground';
 import RainEffect from './components/RainEffect';
 import NewsCarousel from './components/NewsCarousel';
 import FireEffect from './components/FireEffect';
+import { geolocationService } from './services/geolocationService';
 import { 
   PauseIcon, VolumeIcon, LoadingIcon, MusicNoteIcon, HeartIcon, MenuIcon, AdjustmentsIcon,
   PlayIcon, ChatBubbleIcon, NextIcon, PreviousIcon, MaximizeIcon, XMarkIcon, DownloadIcon,
@@ -138,6 +139,12 @@ export default function App(): React.JSX.Element {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('streamflow_language') as Language;
       if (saved) return saved;
+      
+      const cached = geolocationService.getCachedLocation();
+      if (cached && cached.country) {
+        const ruCountries = ['Russia', 'Ukraine', 'Belarus', 'Kazakhstan', 'Uzbekistan', 'Kyrgyzstan', 'Tajikistan', 'Turkmenistan', 'Armenia', 'Azerbaijan', 'Georgia', 'Moldova'];
+        if (ruCountries.includes(cached.country)) return 'ru';
+      }
     }
     return 'ru';
   });
@@ -170,11 +177,28 @@ export default function App(): React.JSX.Element {
       const saved = localStorage.getItem('streamflow_user_profile');
       if (saved) {
         const profile = JSON.parse(saved);
-        // Migration: Add chatSettings if missing
-        if (!profile.chatSettings) {
-          profile.chatSettings = defaultSettings;
+        
+        // 60-day TTL Check (Store Submission Standard)
+        if (profile.registrationTimestamp) {
+          const daysPassed = (Date.now() - profile.registrationTimestamp) / (1000 * 60 * 60 * 24);
+          if (daysPassed >= 60) {
+            console.log(`[PROFILE] Cleanup: Profile expired after ${Math.floor(daysPassed)} days.`);
+            localStorage.removeItem('streamflow_user_profile');
+            // Fall through to return new guest profile
+          } else {
+            // Migration: Add chatSettings if missing
+            if (!profile.chatSettings) {
+              profile.chatSettings = defaultSettings;
+            }
+            return profile;
+          }
+        } else {
+          // No timestamp? Treat as expired/invalid for safety if it looks old
+          // But to avoid deleting non-chat users, let's keep it if it has country/age
+          if (!profile.name || !profile.age) {
+             return profile; 
+          }
         }
-        return profile;
       }
     } catch (e) {}
     
@@ -183,8 +207,6 @@ export default function App(): React.JSX.Element {
       name: 'GuestUser',
       avatar: null,
       age: 0,
-      country: '',
-      city: '',
       gender: 'other',
       status: 'online',
       safetyLevel: 'green',
@@ -609,6 +631,13 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     localStorage.setItem('streamflow_language', language);
   }, [language]);
+
+  // Persistent User Profile protection
+  useEffect(() => {
+    if (currentUser && currentUser.id) {
+        localStorage.setItem('streamflow_user_profile', JSON.stringify(currentUser));
+    }
+  }, [currentUser]);
 
   useEffect(() => {
     if ('mediaSession' in navigator) {
