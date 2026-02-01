@@ -795,7 +795,11 @@ setInterval(() => {
     }
 }, 60 * 60 * 1000);
 
-server.listen(PORT, () => {
+app.get('/', (req, res) => {
+  res.status(200).send('StreamFlow Server is Running');
+});
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 StreamFlow Server running on port ${PORT}`);
   console.log(`   - Users: 24h TTL`);
   console.log(`   - Text Msgs: 60s TTL (Newest on Top)`);
