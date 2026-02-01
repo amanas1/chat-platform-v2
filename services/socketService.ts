@@ -7,9 +7,15 @@ import { UserProfile, ChatMessage, ChatSession } from '../types';
  * NO window.location, NO origin, NO platform detection
  */
 const getSocketURL = (): string => {
-  // Use env variable if set (production/mobile/custom)
-  if (import.meta.env.VITE_SOCKET_URL) {
-    return import.meta.env.VITE_SOCKET_URL;
+  let url = import.meta.env.VITE_SOCKET_URL;
+  
+  // Use env variable if set
+  if (url) {
+    // If it doesn't start with http/https, assume https for production
+    if (!url.startsWith('http')) {
+      url = `https://${url}`;
+    }
+    return url;
   }
   
   // Fallback to localhost for development
