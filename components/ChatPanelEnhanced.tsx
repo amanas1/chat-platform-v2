@@ -303,6 +303,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     socketService.verifyAuthCode(authEmail, authOtp, (data) => {
       setIsVerifyingOtp(false);
       if (data.success && data.userId) {
+        setAuthOtp(''); // Clear OTP on success
         const updatedUser = { ...currentUser, id: data.userId, email: data.email, isAuthenticated: true };
         onUpdateCurrentUser(updatedUser);
         setView(updatedUser.name && updatedUser.age ? 'search' : 'register');
@@ -1875,6 +1876,17 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         className="text-[10px] text-slate-500 font-bold uppercase tracking-widest hover:text-white transition-colors"
                                     >
                                         {language === 'ru' ? 'Изменить Email' : 'Change Email'}
+                                    </button>
+                                    
+                                    <button 
+                                        onClick={handleGetCode}
+                                        disabled={authCooldown > 0 || isVerifyingOtp}
+                                        className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${authCooldown > 0 ? 'text-slate-600' : 'text-primary hover:text-primary/80'}`}
+                                    >
+                                        {authCooldown > 0 
+                                            ? (language === 'ru' ? `Отправить снова (${authCooldown}с)` : `Resend in ${authCooldown}s`)
+                                            : (language === 'ru' ? 'Отправить код еще раз' : 'Resend Code')
+                                        }
                                     </button>
                                 </div>
                             </>

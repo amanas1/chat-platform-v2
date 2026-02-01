@@ -48,7 +48,15 @@ const knockRequests = new Map();
 
 // Authentication Storage
 // Map: email -> { otpHash, expiresAt, attempts, lastSent }
-const authCodes = new Map();
+// Authentication Storage
+// Map: email -> { otpHash, expiresAt, attempts, lastSent }
+// Load persistent auth codes
+const rawAuthCodes = storage.load('authCodes', {});
+const authCodes = new Map(Object.entries(rawAuthCodes));
+
+function saveAuthCodes() {
+  storage.save('authCodes', Object.fromEntries(authCodes));
+}
 // Map: token -> { email, expiresAt }
 const magicTokens = new Map();
 
@@ -556,8 +564,11 @@ io.on('connection', (socket) => {
       return socket.emit('auth:error', { message: 'Invalid email' });
     }
 
+    // 1. Strict Normalization
+    const normalizedEmail = email.trim().toLowerCase();
+    
     const now = Date.now();
-    const existing = authCodes.get(email);
+    const existing = authCodes.get(normalizedEmail);
     
     // Rate limit: 60 seconds
     if (existing && now - existing.lastSent < 60000) {
@@ -567,34 +578,42 @@ io.on('connection', (socket) => {
       });
     }
 
-    // Generate 6-digit OTP
+    // 2. Generate 6-digit OTP as STRING
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
     
     // Generate Magic Link Token
     const magicToken = crypto.randomBytes(32).toString('hex');
 
+    console.log(`[AUTH DEBUG] Request for: '${normalizedEmail}'`);
+    console.log(`[AUTH DEBUG] Generated OTP: ${otp} (Type: ${typeof otp})`);
+    console.log(`[AUTH DEBUG] OTP Hash: ${otpHash}`);
+
     // Store with 10 minute TTL
-    authCodes.set(email, {
+    authCodes.set(normalizedEmail, {
       otpHash,
       expiresAt: now + 10 * 60 * 1000,
       attempts: 0,
       lastSent: now
     });
+    
+    // 3. Persist immediately
+    saveAuthCodes();
 
     magicTokens.set(magicToken, {
-      email,
+      email: normalizedEmail,
       expiresAt: now + 10 * 60 * 1000
     });
 
-    console.log(`[AUTH] OTP for ${email}: ${otp}`);
-    console.log(`[AUTH] Magic Link for ${email}: ?token=${magicToken}`);
+    console.log(`[AUTH] OTP for ${normalizedEmail}: ${otp}`);
+    const appUrl = process.env.VITE_APP_URL || 'http://localhost:5173';
+    console.log(`[AUTH] Magic Link for ${normalizedEmail}: ${appUrl}?token=${magicToken}`);
 
     if (resend) {
       try {
         const { data, error } = await resend.emails.send({
-          from: 'StreamFlow <login@mg.streamflow.space>', // This should be updated to a verified domain
-          to: [email],
+          from: 'StreamFlow <login@mg.streamflow.space>',
+          to: [normalizedEmail],
           subject: 'Ваш код для входа',
           text: `Ваш код для входа: ${otp}\n\nИли используйте ссылку для автоматического входа: ${process.env.VITE_APP_URL || 'http://localhost:5173'}?token=${magicToken}\n\nЕсли это были не вы — просто проигнорируйте письмо.`,
           html: `
@@ -605,7 +624,7 @@ io.on('connection', (socket) => {
                 ${otp}
               </div>
               <p style="margin-top: 20px;">Или нажмите кнопку ниже, чтобы войти автоматически:</p>
-              <a href="${process.env.VITE_APP_URL || 'http://localhost:5173'}?token=${magicToken}" 
+              <a href="${appUrl}?token=${magicToken}" 
                  style="display: block; background: #bc6ff1; color: white; padding: 15px; text-decoration: none; border-radius: 12px; font-weight: bold; text-align: center;">
                 Войти автоматически
               </a>
@@ -621,7 +640,7 @@ io.on('connection', (socket) => {
           socket.emit('auth:error', { message: 'Failed to send email' });
         } else {
           console.log('[AUTH] Email sent:', data.id);
-          socket.emit('auth:code_sent', { email });
+          socket.emit('auth:code_sent', { email: normalizedEmail });
         }
       } catch (err) {
         console.error('[AUTH] Server error during email send:', err);
@@ -629,16 +648,26 @@ io.on('connection', (socket) => {
       }
     } else {
       console.log('[AUTH] MOCK MODE: Email not sent (RESEND_API_KEY missing)');
-      socket.emit('auth:code_sent', { email, mock: true });
+      socket.emit('auth:code_sent', { email: normalizedEmail, mock: true });
     }
   });
 
   socket.on('auth:verify_code', ({ email, otp }) => {
-    const data = authCodes.get(email);
-    if (!data) return socket.emit('auth:error', { message: 'Code expired or not found' });
+    // 1. Strict Normalization
+    const normalizedEmail = email ? email.trim().toLowerCase() : '';
+    const inputOtp = String(otp).trim();
+
+    console.log(`[AUTH DEBUG] Verify Request: '${normalizedEmail}' with Code: '${inputOtp}'`);
+
+    const data = authCodes.get(normalizedEmail);
+    if (!data) {
+        console.log(`[AUTH DEBUG] No record found for: '${normalizedEmail}'`);
+        return socket.emit('auth:error', { message: 'Code expired or not found' });
+    }
 
     if (Date.now() > data.expiresAt) {
-      authCodes.delete(email);
+      authCodes.delete(normalizedEmail);
+      saveAuthCodes(); // Persist deletion
       return socket.emit('auth:error', { message: 'Code expired' });
     }
 
@@ -646,13 +675,24 @@ io.on('connection', (socket) => {
       return socket.emit('auth:error', { message: 'Too many attempts. Request a new code.' });
     }
 
-    const inputHash = crypto.createHash('sha256').update(otp).digest('hex');
+    const inputHash = crypto.createHash('sha256').update(inputOtp).digest('hex');
+    
+    console.log(`[AUTH DEBUG] Stored Hash: ${data.otpHash}`);
+    console.log(`[AUTH DEBUG] Input Hash:  ${inputHash}`);
+
     if (inputHash === data.otpHash) {
-      authCodes.delete(email);
-      const userId = `u_${crypto.createHash('md5').update(email).digest('hex')}`;
-      socket.emit('auth:success', { userId, email });
+      // SUCCESS
+      authCodes.delete(normalizedEmail);
+      saveAuthCodes(); // Persist deletion
+      
+      const userId = `u_${crypto.createHash('md5').update(normalizedEmail).digest('hex')}`;
+      socket.emit('auth:success', { userId, email: normalizedEmail });
     } else {
+      // FAILURE
       data.attempts++;
+      saveAuthCodes(); // Persist attempt count
+      
+      console.log(`[AUTH DEBUG] Invalid Code. Attempts: ${data.attempts}/5`);
       socket.emit('auth:error', { message: 'Invalid code', attemptsRemaining: 5 - data.attempts });
     }
   });
