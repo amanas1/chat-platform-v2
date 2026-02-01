@@ -612,7 +612,7 @@ io.on('connection', (socket) => {
     if (resend) {
       try {
         const { data, error } = await resend.emails.send({
-          from: 'StreamFlow <login@mg.streamflow.space>',
+          from: 'StreamFlow <onboarding@resend.dev>', // Use default until domain is verified
           to: [normalizedEmail],
           subject: 'Ваш код для входа',
           text: `Ваш код для входа: ${otp}\n\nИли используйте ссылку для автоматического входа: ${process.env.VITE_APP_URL || 'http://localhost:5173'}?token=${magicToken}\n\nЕсли это были не вы — просто проигнорируйте письмо.`,
