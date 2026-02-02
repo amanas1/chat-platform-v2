@@ -254,6 +254,22 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     volume, onVolumeChange, visualMode
 }) => {
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
+
+  // Format Last Seen Time
+  const formatLastSeen = (timestamp?: number) => {
+    if (!timestamp) return language === 'ru' ? 'Давно' : 'A while ago';
+    const now = Date.now();
+    const diff = now - timestamp;
+    const mins = Math.floor(diff / 60000);
+    const hours = Math.floor(mins / 60);
+    const days = Math.floor(hours / 24);
+
+    if (mins < 1) return language === 'ru' ? 'только что' : 'just now';
+    if (mins < 60) return language === 'ru' ? `${mins}м назад` : `${mins}m ago`;
+    if (hours < 24) return language === 'ru' ? `${hours}ч назад` : `${hours}h ago`;
+    if (days < 7) return language === 'ru' ? `${days}д назад` : `${days}d ago`;
+    return new Date(timestamp).toLocaleDateString();
+  };
   const [hasRegisteredWithServer, setHasRegisteredWithServer] = useState(false);
   const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
   const [activeSessions, setActiveSessions] = useState<Map<string, any>>(() => {
@@ -1224,22 +1240,39 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   };
 
   const handleRegistrationComplete = () => {
+    // 1. Mandatory Fields Validation
     if (!regName.trim()) {
-      alert(language === 'ru' ? 'Введите имя' : 'Please enter your name');
+      alert(language === 'ru' ? 'Пожалуйста, введите ваше имя.' : 'Please enter your name.');
+      return;
+    }
+    
+    if (!regAge) {
+      alert(language === 'ru' ? 'Пожалуйста, укажите ваш возраст.' : 'Please specify your age.');
       return;
     }
 
-    if (!regVoiceIntro && !currentUser.voiceIntro) {
-      alert(language === 'ru' ? 'Пожалуйста, запишите голосовое приветствие!' : 'Please record a voice intro!');
+    if (!regGender) {
+      alert(language === 'ru' ? 'Пожалуйста, укажите ваш пол.' : 'Please specify your gender.');
       return;
     }
 
-    /* 
-     * User Management: Preserve account status and role during updates 
-     */
+    if (!regAvatar && !currentUser.avatar) {
+      alert(language === 'ru' ? 'Пожалуйста, загрузите фотографию профиля.' : 'Please upload a profile photo.');
+      return;
+    }
+
+    // 2. Pre-save Confirmation
+    const confirmMessage = language === 'ru' 
+        ? "Проверьте свои данные - после регистрации изменения недоступны до истечения 30 дней. Сохранить?" 
+        : "Check your details - core changes will be locked for 30 days after saving. Proceed?";
+    
+    if (!window.confirm(confirmMessage)) {
+        return;
+    }
+
     const updatedUser: UserProfile = { 
       ...currentUser, 
-      name: regName || (language === 'ru' ? 'Гость' : 'Guest'), 
+      name: regName.trim(), 
       avatar: regAvatar,
       age: parseInt(regAge), 
       gender: regGender, 
@@ -1257,7 +1290,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       },
       safetyLevel: 'green',
       blockedUsers: currentUser.blockedUsers || [],
-      // Ensure these are preserved (though ...currentUser handles it, explicit is better for clarity)
       role: currentUser.role,
       early_access: currentUser.early_access,
       free_until: currentUser.free_until,
@@ -1267,14 +1299,18 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     onUpdateCurrentUser(updatedUser);
     localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
 
-    // Register on server
+    // Register on server/Sync
     socketService.registerUser(updatedUser, (data) => {
       setProfileExpiresAt(data.expiresAt);
-      console.log(`✅ Profile created. Expires in 24 hours.`);
+      console.log(`[USER] Profile saved/synced. ID: ${updatedUser.id}`);
       
-      // Restore sessions from server (if re-registering)
+      // If server returned a corrected profile (e.g. from lockdown), sync it back
+      if (data.profile) {
+          onUpdateCurrentUser({ ...updatedUser, ...data.profile });
+      }
+
+      // Restore sessions from server 
       if (data.activeSessions && data.activeSessions.length > 0) {
-        console.log(`[SESSION] Restoring ${data.activeSessions.length} sessions from server after registration`);
         setActiveSessions(prev => {
           const newMap = new Map(prev);
           data.activeSessions.forEach((session: any) => {
@@ -2415,20 +2451,35 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         </div>
                         <div className="space-y-3">
                             {(searchResults.length > 0 ? searchResults : onlineUsers).map(user => (
-                                <div key={user.id} className="p-4 bg-white/5 border border-white/5 rounded-3xl flex flex-col gap-4 hover:bg-white/[0.08] transition-all animate-in slide-in-from-bottom-2 duration-300">
+                                <div key={user.id} className={`p-4 rounded-3xl flex flex-col gap-4 transition-all animate-in slide-in-from-bottom-2 duration-300 border ${user.status === 'online' ? 'bg-white/5 border-white/5 hover:bg-white/[0.08]' : 'bg-white/[0.02] border-white/[0.02] opacity-80'}`}>
                                     <div className="flex items-center gap-4">
                                         <div className="relative">
-                                            <img src={user.avatar || ''} className="w-16 h-16 rounded-2xl object-cover bg-slate-800 shadow-2xl" />
-                                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#0f172a] ${user.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`}></div>
+                                            <img src={user.avatar || ''} className={`w-16 h-16 rounded-2xl object-cover bg-slate-800 shadow-2xl ${user.status === 'offline' ? 'grayscale-[0.5]' : ''}`} />
+                                            <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-[#0f172a] ${user.status === 'online' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-slate-500'}`}></div>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h5 className="font-black text-base text-white truncate flex items-center gap-2">
-                                                {user.name}
-                                                <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{user.age}</span>
-                                            </h5>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <h5 className="font-black text-base text-white truncate flex items-center gap-2">
+                                                    {user.name}
+                                                    <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full">{user.age}</span>
+                                                </h5>
+                                                {user.country && (
+                                                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-white/5 rounded-full border border-white/5">
+                                                        <span className="text-[10px] leading-none opacity-80">📍</span>
+                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{user.country}</span>
+                                                    </div>
+                                                )}
+                                            </div>
 
-                                            <div className="mt-1 inline-block px-2 py-0.5 bg-secondary/10 border border-secondary/20 rounded-lg text-[9px] font-black text-secondary uppercase tracking-tighter">
-                                                {user.intentStatus || 'Свободен'}
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <div className="px-2 py-0.5 bg-secondary/10 border border-secondary/20 rounded-lg text-[9px] font-black text-secondary uppercase tracking-tighter">
+                                                    {user.intentStatus || 'Свободен'}
+                                                </div>
+                                                {user.status === 'offline' && (
+                                                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter italic">
+                                                        {language === 'ru' ? 'Был: ' : 'Last seen: '} {formatLastSeen(user.lastSeen || (user as any).last_login_at)}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -2452,16 +2503,16 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         )}
 
                                         {user.id === currentUser.id ? (
-                                            <button 
-                                                className="px-6 h-10 bg-green-500/10 border border-green-500/20 rounded-xl text-green-500 text-[10px] font-black uppercase tracking-widest cursor-default"
+                                            <div 
+                                                className="px-6 h-10 bg-green-500/10 border border-green-500/20 rounded-xl text-green-500 text-[10px] font-black uppercase tracking-widest flex items-center justify-center"
                                             >
                                                 {t.online}
-                                            </button>
+                                            </div>
                                         ) : (
                                             <button 
                                                 onClick={() => handleKnock(user)} 
                                                 disabled={sentKnocks.has(user.id)} 
-                                                className={`px-6 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${sentKnocks.has(user.id) ? 'bg-green-500/20 text-green-500' : 'bg-primary text-white hover:shadow-lg shadow-primary/20'}`}
+                                                className={`px-6 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${sentKnocks.has(user.id) ? 'bg-green-500/20 text-green-500' : 'bg-primary text-white hover:shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed'}`}
                                             >
                                                 {sentKnocks.has(user.id) ? t.knockSent : t.knock}
                                             </button>

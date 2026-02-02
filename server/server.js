@@ -234,15 +234,27 @@ setInterval(() => {
 // UTILITY FUNCTIONS
 // ============================================
 
+// Helper to get all registered users with their current status
+function getAllParticipants() {
+    const all = Array.from(persistentUsers.values()).map(user => {
+        const active = activeUsers.get(user.id);
+        return {
+            ...user,
+            status: active ? 'online' : 'offline'
+        };
+    });
+    
+    // Sort: Online first, then recent
+    return all.sort((a, b) => {
+        if (a.status === 'online' && b.status !== 'online') return -1;
+        if (a.status !== 'online' && b.status === 'online') return 1;
+        return (b.last_login_at || 0) - (a.last_login_at || 0);
+    });
+}
+
 function syncGlobalPresence() {
-  // Only send online users (with active socketId)
-  const userList = Array.from(activeUsers.values())
-    .filter(u => u.socketId !== null)
-    .map(u => ({
-      ...u.profile,
-      status: 'online'
-    }));
-  io.emit('presence:list', userList);
+  const participants = getAllParticipants();
+  io.emit('presence:list', participants);
 }
 
 function findSession(userId1, userId2) {
@@ -371,13 +383,23 @@ io.on('connection', (socket) => {
     broadcastPresenceCount();
   });
 
-  // SEARCH USERS
+  // SEARCH USERS (Online + Offline)
   socket.on('users:search', (filters) => {
-    const results = Array.from(activeUsers.values())
-      .map(u => u.profile)
-      .filter(user => {
+    // 1. Get all registered users from persistence
+    const allUsers = Array.from(persistentUsers.values());
+    
+    // 2. Map status from activeUsers
+    const results = allUsers.map(user => {
+        const active = activeUsers.get(user.id);
+        return {
+            ...user,
+            status: active ? 'online' : 'offline',
+            // Ensure we don't leak sensitive internal fields if any
+        };
+    }).filter(user => {
         if (user.id === boundUserId) return false; // Don't show self
         
+        // Basic filtering
         if (filters.name && !user.name.toLowerCase().includes(filters.name.toLowerCase())) {
           return false;
         }
@@ -389,10 +411,19 @@ io.on('connection', (socket) => {
           return false;
         }
         
-        
+        // Ensure only complete profiles are shown
+        if (!user.name || !user.age) return false;
+
         return true;
-      });
+    });
     
+    // Sort: Online first, then by last seen
+    results.sort((a, b) => {
+        if (a.status === 'online' && b.status !== 'online') return -1;
+        if (a.status !== 'online' && b.status === 'online') return 1;
+        return (b.last_login_at || 0) - (a.last_login_at || 0);
+    });
+
     socket.emit('users:search:results', results);
   });
 
