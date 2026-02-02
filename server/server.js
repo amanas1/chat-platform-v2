@@ -48,15 +48,27 @@ const knockRequests = new Map();
 
 // Authentication Storage
 // Map: email -> { otpHash, expiresAt, attempts, lastSent }
-// Authentication Storage
-// Map: email -> { otpHash, expiresAt, attempts, lastSent }
 // Load persistent auth codes
 const rawAuthCodes = storage.load('authCodes', {});
 const authCodes = new Map(Object.entries(rawAuthCodes));
 
+// Map: userId -> { id, email, created_at, last_login_at, status }
+const rawUsers = storage.load('users', []); 
+// Convert array to Map for easier lookup if using ID, but for Email lookup array find is okay. 
+// Actually lets keep it as a Map of userId -> UserData for consistency, or Email -> UserData?
+// Requirement 4: "Email - User ID". 
+// Let's use an array for storage to mimic SQL rows, but load into memory.
+const persistentUsers = new Map(); // userId -> User
+rawUsers.forEach(u => persistentUsers.set(u.id, u));
+
 function saveAuthCodes() {
   storage.save('authCodes', Object.fromEntries(authCodes));
 }
+
+function savePersistentUsers() {
+  storage.save('users', Array.from(persistentUsers.values()));
+}
+
 // Map: token -> { email, expiresAt }
 const magicTokens = new Map();
 
