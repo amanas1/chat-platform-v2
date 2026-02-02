@@ -294,6 +294,41 @@ io.on('connection', (socket) => {
         return;
     }
 
+    // 30-Day Lockdown Enforcement
+    let userRecord = persistentUsers.get(profile.id);
+    if (userRecord) {
+        const now = Date.now();
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        const regTime = userRecord.registrationTimestamp || profile.registrationTimestamp || userRecord.created_at;
+        
+        const isLocked = (now - regTime) < thirtyDaysMs;
+        
+        if (isLocked && userRecord.name && userRecord.age) {
+            console.log(`[USER] Profile LOCKED for ${profile.id} (${Math.floor((thirtyDaysMs - (now - regTime))/(1000*60*60*24))} days left)`);
+            // Restore locked fields from persistent record
+            profile.name = userRecord.name;
+            profile.age = userRecord.age;
+            profile.gender = userRecord.gender;
+            profile.avatar = userRecord.avatar;
+            profile.registrationTimestamp = regTime; // Keep original
+        } else {
+            // Update/Verify core fields for the first time or after lock expired
+            userRecord.name = profile.name || userRecord.name;
+            userRecord.age = profile.age || userRecord.age;
+            userRecord.gender = profile.gender || userRecord.gender;
+            userRecord.avatar = profile.avatar || userRecord.avatar;
+            userRecord.registrationTimestamp = regTime || now;
+            profile.registrationTimestamp = userRecord.registrationTimestamp;
+        }
+        
+        // Always allowed updates
+        userRecord.intentStatus = profile.intentStatus;
+        userRecord.voiceIntro = profile.voiceIntro;
+        userRecord.last_login_at = now;
+        
+        persistentUsers.set(profile.id, userRecord);
+        savePersistentUsers();
+    }
 
     boundUserId = profile.id;
     const expiresAt = Date.now() + USER_TTL;
@@ -305,7 +340,7 @@ io.on('connection', (socket) => {
       createdAt: Date.now()
     });
 
-    console.log(`[USER] Registered: ${boundUserId} (Socket: ${socket.id}, Country: ${profile.country}, Detected: ${profile.detectedCountry || 'N/A'})`);
+    console.log(`[USER] Registered/Synced: ${boundUserId} (Socket: ${socket.id}, Name: ${profile.name})`);
     
     // ... rest of join logic
     // Find all active sessions for this user to sync
@@ -323,6 +358,7 @@ io.on('connection', (socket) => {
 
     const regData = {
       userId: boundUserId,
+      profile: profile, // Return the (potentially corrected) profile back to client
       expiresAt,
       ttl: USER_TTL,
       activeSessions: userSessions
@@ -879,6 +915,7 @@ const rateLimiter = new RateLimitService();
               accountStatus: 'active', // Renamed to avoid config with online status
               role: isEarlyAdopter ? 'early_user' : 'regular',
               early_access: isEarlyAdopter,
+              registrationTimestamp: Date.now(),
               free_until: isEarlyAdopter ? Date.now() + (1000 * 60 * 60 * 24 * 30 * 6) : null // 6 months approx
           };
           persistentUsers.set(userRecord.id, userRecord);
@@ -894,7 +931,7 @@ const rateLimiter = new RateLimitService();
       }
       savePersistentUsers();
 
-      socket.emit('auth:success', { userId: userRecord.id, email: normalizedEmail });
+      socket.emit('auth:success', { userId: userRecord.id, email: normalizedEmail, profile: userRecord });
     } else {
       // FAILURE
       data.attempts++;
@@ -938,6 +975,7 @@ const rateLimiter = new RateLimitService();
             accountStatus: 'active',
             role: isEarlyAdopter ? 'early_user' : 'regular',
             early_access: isEarlyAdopter,
+            registrationTimestamp: Date.now(),
             free_until: isEarlyAdopter ? Date.now() + (1000 * 60 * 60 * 24 * 30 * 6) : null
         };
         persistentUsers.set(userRecord.id, userRecord);
@@ -951,7 +989,7 @@ const rateLimiter = new RateLimitService();
     }
     savePersistentUsers();
 
-    socket.emit('auth:success', { userId: userRecord.id, email });
+    socket.emit('auth:success', { userId: userRecord.id, email, profile: userRecord });
   });
 
   // FEEDBACK VIA SOCKET

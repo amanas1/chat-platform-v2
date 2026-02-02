@@ -143,13 +143,14 @@ interface DrumPickerProps {
   value: string;
   onChange: (val: string) => void;
   label: string;
+  disabled?: boolean;
 }
 
-const DrumPicker: React.FC<DrumPickerProps> = ({ options, value, onChange, label }) => {
+const DrumPicker: React.FC<DrumPickerProps> = ({ options, value, onChange, label, disabled }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const itemHeight = 32; 
   const handleScroll = () => {
-    if (!scrollRef.current) return;
+    if (!scrollRef.current || disabled) return;
     const scrollTop = scrollRef.current.scrollTop;
     const index = Math.round(scrollTop / itemHeight);
     if (options[index] && options[index] !== value) {
@@ -166,11 +167,11 @@ const DrumPicker: React.FC<DrumPickerProps> = ({ options, value, onChange, label
   return (
     <div className="flex flex-col gap-1 w-full">
       <label className="text-[9px] font-bold text-slate-600 uppercase ml-1 tracking-widest">{label}</label>
-      <div className="relative h-24 bg-slate-800/80 border border-slate-700/50 rounded-xl overflow-hidden shadow-inner">
+      <div className={`relative h-24 bg-slate-800/80 border rounded-xl overflow-hidden shadow-inner transition-opacity ${disabled ? 'border-white/5 opacity-50' : 'border-slate-700/50'}`}>
         <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none opacity-80"></div>
         <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none opacity-80"></div>
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-8 bg-primary/10 rounded-lg border border-primary/40 shadow-[0_0_12px_rgba(188,111,241,0.3)] pointer-events-none"></div>
-        <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-8" style={{ scrollBehavior: 'smooth' }}>
+        <div ref={scrollRef} onScroll={handleScroll} className={`h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-8 ${disabled ? 'pointer-events-none' : ''}`} style={{ scrollBehavior: 'smooth' }}>
           {options.map((opt, i) => (
             <div key={i} className={`h-8 flex items-center justify-center snap-center transition-all duration-300 text-sm font-bold ${value === opt ? 'text-primary scale-110' : 'text-slate-600 opacity-30'}`}>
               {opt}
@@ -299,6 +300,38 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     const [showFlagged, setShowFlagged] = useState<Record<string, boolean>>({});
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+
+  // Profile Lockdown Logic (30 Days)
+  const isProfileLocked = useMemo(() => {
+    if (!currentUser.registrationTimestamp || !currentUser.name || !currentUser.age) return false;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const elapsed = Date.now() - currentUser.registrationTimestamp;
+    return elapsed < thirtyDaysMs;
+  }, [currentUser.registrationTimestamp, currentUser.name, currentUser.age]);
+
+  const lockDaysRemaining = useMemo(() => {
+    if (!currentUser.registrationTimestamp) return 30;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const elapsed = Date.now() - currentUser.registrationTimestamp;
+    const remainingMs = Math.max(0, thirtyDaysMs - elapsed);
+    return Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+  }, [currentUser.registrationTimestamp]);
+
+  // Sync registration state with currentUser (especially after login)
+  useEffect(() => {
+    if (currentUser.name) setRegName(currentUser.name);
+    if (currentUser.age) setRegAge(currentUser.age.toString());
+    if (currentUser.gender) setRegGender(currentUser.gender);
+    if (currentUser.avatar) setRegAvatar(currentUser.avatar);
+    if (currentUser.intentStatus) setRegIntentStatus(currentUser.intentStatus as any);
+    if (currentUser.voiceIntro) setRegVoiceIntro(currentUser.voiceIntro);
+    // Sync settings too
+    if (currentUser.chatSettings) {
+      setRegNotificationsEnabled(currentUser.chatSettings.notificationsEnabled);
+      setRegNotificationVolume(currentUser.chatSettings.notificationVolume);
+      setRegNotificationSound(currentUser.chatSettings.notificationSound);
+    }
+  }, [currentUser.id, currentUser.name, currentUser.age, currentUser.gender, currentUser.avatar, currentUser.intentStatus, currentUser.voiceIntro]);
   const [profileExpiresAt, setProfileExpiresAt] = useState<number | null>(null);
   const [expirationWarning, setExpirationWarning] = useState(false);
   const [violationMessage, setViolationMessage] = useState<string | null>(null);
@@ -350,9 +383,26 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       setIsVerifyingOtp(false);
       if (data.success && data.userId) {
         setAuthOtp(''); // Clear OTP on success
-        const updatedUser = { ...currentUser, id: data.userId, email: data.email, isAuthenticated: true };
+        
+        // Use profile from server if available, otherwise fallback to local
+        const serverProfile = (data as any).profile || {};
+        const updatedUser = { 
+            ...currentUser, 
+            ...serverProfile, 
+            id: data.userId, 
+            email: data.email, 
+            isAuthenticated: true 
+        };
+        
+        console.log("[AUTH] Success. Profile restored from server:", serverProfile.name || 'New User');
         onUpdateCurrentUser(updatedUser);
-        setView(updatedUser.name && updatedUser.age ? 'search' : 'register');
+        
+        // If profile is complete, go to search, else go to register
+        if (updatedUser.name && updatedUser.age) {
+          setView('search');
+        } else {
+          setView('register');
+        }
       } else {
         setOtpError(data.message || 'Invalid code');
       }
@@ -376,9 +426,23 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       socketService.verifyMagicToken(token, (data) => {
         setIsVerifyingOtp(false);
         if (data.success && data.userId) {
-          const updatedUser = { ...currentUser, id: data.userId, email: data.email, isAuthenticated: true };
+          const serverProfile = (data as any).profile || {};
+          const updatedUser = { 
+              ...currentUser, 
+              ...serverProfile, 
+              id: data.userId, 
+              email: data.email, 
+              isAuthenticated: true 
+          };
+          
+          console.log("[AUTH] Magic success. Profile restored:", serverProfile.name || 'New User');
           onUpdateCurrentUser(updatedUser);
-          setView(updatedUser.name && updatedUser.age ? 'search' : 'register');
+          
+          if (updatedUser.name && updatedUser.age) {
+            setView('search');
+          } else {
+            setView('register');
+          }
           // Clean up URL
           window.history.replaceState({}, document.title, window.location.pathname);
         } else {
@@ -1996,14 +2060,29 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     </div>
                     
                     <div className="flex-1 flex flex-col space-y-6">
-
+                        {/* Profile Lock Warning */}
+                        {isProfileLocked && (
+                            <div className="p-3 rounded-2xl bg-primary/20 border border-primary/30 flex items-start gap-3 animate-pulse">
+                                <span className="text-xl">🔒</span>
+                                <div className="flex-1">
+                                    <p className="text-[10px] text-white font-black uppercase tracking-wider mb-0.5">
+                                        {language === 'ru' ? 'Профиль закреплен' : 'Profile Locked'}
+                                    </p>
+                                    <p className="text-[9px] text-slate-300 leading-tight">
+                                        {language === 'ru' 
+                                          ? `Основные данные нельзя менять в течение 30 дней после регистрации. Осталось: ${lockDaysRemaining} дн.`
+                                          : `Core details cannot be changed for 30 days after registration. Remaining: ${lockDaysRemaining} days.`}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Top: Avatar Section */}
                         <div className="flex justify-center py-2">
                             <div className="relative group">
                                 <div 
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="w-40 h-40 rounded-[2.5rem] bg-slate-800/40 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden transition-all group-hover:border-primary/50 relative cursor-pointer shadow-2xl"
+                                    onClick={() => !isProfileLocked && fileInputRef.current?.click()}
+                                    className={`w-40 h-40 rounded-[2.5rem] bg-slate-800/40 border-2 border-dashed border-white/10 flex items-center justify-center overflow-hidden transition-all relative shadow-2xl ${isProfileLocked ? 'opacity-90 cursor-default border-primary/20' : 'group-hover:border-primary/50 cursor-pointer'}`}
                                 >
                                     {regAvatar ? (
                                         <img src={regAvatar} className="w-full h-full object-cover" />
@@ -2052,12 +2131,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         </div>
                                     )}
                                 </div>
-                                <button 
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="absolute bottom-2 right-2 w-10 h-10 bg-primary shadow-xl rounded-full flex items-center justify-center border-2 border-[#1e293b] text-white hover:scale-110 transition-transform"
-                                >
-                                    <CameraIcon className="w-5 h-5" />
-                                </button>
+                                {!isProfileLocked && (
+                                    <button 
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="absolute bottom-2 right-2 w-10 h-10 bg-primary shadow-xl rounded-full flex items-center justify-center border-2 border-[#1e293b] text-white hover:scale-110 transition-transform"
+                                    >
+                                        <CameraIcon className="w-5 h-5" />
+                                    </button>
+                                )}
                                 <input type="file" ref={fileInputRef} onChange={handleAvatarSetup} className="hidden" accept="image/*" />
                             </div>
                         </div>
@@ -2103,19 +2184,21 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 <label className="text-[9px] font-bold text-slate-500 uppercase ml-1 mb-1 block tracking-widest">{language === 'ru' ? 'ВАШЕ ИМЯ' : 'NAME'}</label>
                                 <input 
                                     value={regName} 
+                                    disabled={isProfileLocked}
                                     onChange={(e) => setRegName(e.target.value)} 
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3.5 text-white outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all font-bold text-sm"
+                                    className={`w-full border rounded-xl px-4 py-3.5 outline-none font-bold text-sm transition-all ${isProfileLocked ? 'bg-white/5 border-white/5 text-slate-500 cursor-not-allowed' : 'bg-white/5 border-white/10 text-white focus:border-primary/50 focus:bg-white/[0.08]'}`}
                                     placeholder="GuestUser"
                                 />
                             </div>
                             <div>
                                 <label className="text-[9px] font-bold text-slate-500 uppercase ml-1 mb-1 block tracking-widest">{language === 'ru' ? 'ПОЛ' : 'GENDER'}</label>
-                                <div className="flex bg-white/5 rounded-xl p-1 border border-white/5 h-[46px]">
+                                <div className={`flex bg-white/5 rounded-xl p-1 border h-[46px] ${isProfileLocked ? 'border-white/5 opacity-80' : 'border-white/5'}`}>
                                     {(['male', 'female'] as const).map(g => (
                                         <button 
                                             key={g} 
+                                            disabled={isProfileLocked}
                                             onClick={() => setRegGender(g)} 
-                                            className={`flex-1 rounded-lg text-[10px] font-black transition-all uppercase tracking-tighter ${regGender === g ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white'}`}
+                                            className={`flex-1 rounded-lg text-[10px] font-black transition-all uppercase tracking-tighter ${regGender === g ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white'} ${isProfileLocked && regGender !== g ? 'opacity-30' : ''}`}
                                         >
                                             {language === 'ru' ? (g === 'male' ? 'Мужской' : 'Женский') : g}
                                         </button>
@@ -2179,7 +2262,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         </div>
                         
                         <div className="grid grid-cols-1 gap-3 pt-2">
-                            <DrumPicker label={language === 'ru' ? 'ВОЗРАСТ' : 'AGE'} options={AGES} value={regAge} onChange={setRegAge} />
+                            <DrumPicker label={language === 'ru' ? 'ВОЗРАСТ' : 'AGE'} options={AGES} value={regAge} onChange={setRegAge} disabled={isProfileLocked} />
                         </div>
 
                         <div className="pt-4 flex flex-col items-center gap-2">
