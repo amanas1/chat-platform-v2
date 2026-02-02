@@ -783,8 +783,38 @@ const rateLimiter = new RateLimitService();
       authCodes.delete(normalizedEmail);
       saveAuthCodes(); // Persist deletion
       
-      const userId = `u_${crypto.createHash('md5').update(normalizedEmail).digest('hex')}`;
-      socket.emit('auth:success', { userId, email: normalizedEmail });
+      // PERSISTENT USER LOGIC
+      let userRecord = null;
+      for (const user of persistentUsers.values()) {
+          if (user.email === normalizedEmail) {
+              userRecord = user;
+              break;
+          }
+      }
+
+      if (!userRecord) {
+          // CREATE NEW
+          userRecord = {
+              id: crypto.randomUUID(),
+              email: normalizedEmail,
+              created_at: Date.now(),
+              last_login_at: Date.now(),
+              status: 'active'
+          };
+          persistentUsers.set(userRecord.id, userRecord);
+          console.log(`[AUTH] Created NEW User: ${userRecord.id}`);
+      } else {
+          // UPDATE EXISTING
+          userRecord.last_login_at = Date.now();
+          if (userRecord.status === 'blocked') {
+              return socket.emit('auth:error', { message: 'Account blocked.' });
+          }
+           // Re-set to ensure map updates if it was a deep copy (though it's ref)
+          persistentUsers.set(userRecord.id, userRecord); 
+      }
+      savePersistentUsers();
+
+      socket.emit('auth:success', { userId: userRecord.id, email: normalizedEmail });
     } else {
       // FAILURE
       data.attempts++;
@@ -806,8 +836,35 @@ const rateLimiter = new RateLimitService();
 
     const email = data.email;
     magicTokens.delete(token);
-    const userId = `u_${crypto.createHash('md5').update(email).digest('hex')}`;
-    socket.emit('auth:success', { userId, email });
+    
+    // PERSISTENT USER LOGIC (Duplicate of above, refactor later)
+    let userRecord = null;
+    for (const user of persistentUsers.values()) {
+        if (user.email === email) {
+            userRecord = user;
+            break;
+        }
+    }
+
+    if (!userRecord) {
+        userRecord = {
+            id: crypto.randomUUID(),
+            email: email,
+            created_at: Date.now(),
+            last_login_at: Date.now(),
+            status: 'active'
+        };
+        persistentUsers.set(userRecord.id, userRecord);
+    } else {
+        userRecord.last_login_at = Date.now();
+        if (userRecord.status === 'blocked') {
+            return socket.emit('auth:error', { message: 'Account blocked.' });
+        }
+        persistentUsers.set(userRecord.id, userRecord);
+    }
+    savePersistentUsers();
+
+    socket.emit('auth:success', { userId: userRecord.id, email });
   });
 
   // FEEDBACK VIA SOCKET
