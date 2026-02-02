@@ -2159,6 +2159,16 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             {language === 'ru' ? 'СОХРАНИТЬ' : 'SAVE'}
                         </button>
 
+                         {/* Free Access Info */}
+                         {currentUser.early_access && currentUser.free_until && (
+                            <div className="mt-3 text-center">
+                                <span className="text-[9px] text-emerald-400/60 font-mono border-b border-dashed border-emerald-500/30 pb-0.5">
+                                    {language === 'ru' ? 'PRO доступ до: ' : 'PRO access until: '} 
+                                    <span className="text-emerald-400 font-bold">{new Date(currentUser.free_until).toLocaleDateString()}</span>
+                                </span>
+                            </div>
+                         )}
+
                         {/* Apple Requirement: Account Deletion (Rule 5.1.1 v) */}
                         {currentUser.id && (
                             <>
