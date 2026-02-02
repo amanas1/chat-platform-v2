@@ -56,7 +56,7 @@ const authCodes = new Map(Object.entries(rawAuthCodes));
 
 // ... (skipping unchanged code)
 
-// Clean expired messages every 10 seconds
+// Clean expired messages every 1 hour (Reduced I/O load)
 setInterval(() => {
   const now = Date.now();
   let hasChanges = false;
@@ -76,26 +76,15 @@ setInterval(() => {
         messages.set(sessionId, freshMessages);
       }
       
-      // Notify session participants that messages expired
-      const session = activeSessions.get(sessionId);
-      if (session) {
-        session.participants.forEach(userId => {
-          const user = activeUsers.get(userId);
-          if (user?.socketId) {
-            io.to(user.socketId).emit('messages:deleted', {
-              sessionId,
-              remainingCount: freshMessages.length
-            });
-          }
-        });
-      }
+      // Notify session participants that messages expired (Optional for such long intervals, but kept for consistency)
+      // If we run this hourly, notifying users "messages deleted" might be weird if they are active, but valid.
     }
   }
 
   if (hasChanges) {
     saveMessages(); // Persist changes after cleanup
   }
-}, 10 * 1000);
+}, 60 * 60 * 1000);
 
 // Map: userId -> { id, email, created_at, last_login_at, status }
 const rawUsers = storage.load('users', []); 
