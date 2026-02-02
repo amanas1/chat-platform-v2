@@ -41,7 +41,9 @@ const activeUsers = new Map();
 const activeSessions = new Map(Object.entries(storage.load('sessions', {})));
 
 // Map: sessionId -> Message[]
-const messages = new Map();
+// Load persistent messages
+const rawMessages = storage.load('messages', {});
+const messages = new Map(Object.entries(rawMessages));
 
 // Map: userId -> Set<knockRequestId>
 const knockRequests = new Map();
@@ -51,6 +53,49 @@ const knockRequests = new Map();
 // Load persistent auth codes
 const rawAuthCodes = storage.load('authCodes', {});
 const authCodes = new Map(Object.entries(rawAuthCodes));
+
+// ... (skipping unchanged code)
+
+// Clean expired messages every 10 seconds
+setInterval(() => {
+  const now = Date.now();
+  let hasChanges = false;
+  
+  for (const [sessionId, messageList] of messages.entries()) {
+    const freshMessages = messageList.filter(msg => {
+      const age = now - msg.timestamp;
+      const ttl = (msg.messageType === 'image' || msg.messageType === 'audio' || msg.messageType === 'video') ? MEDIA_TTL : TEXT_TTL;
+      return age < ttl;
+    });
+    
+    if (freshMessages.length !== messageList.length) {
+      hasChanges = true;
+      if (freshMessages.length === 0) {
+        messages.delete(sessionId);
+      } else {
+        messages.set(sessionId, freshMessages);
+      }
+      
+      // Notify session participants that messages expired
+      const session = activeSessions.get(sessionId);
+      if (session) {
+        session.participants.forEach(userId => {
+          const user = activeUsers.get(userId);
+          if (user?.socketId) {
+            io.to(user.socketId).emit('messages:deleted', {
+              sessionId,
+              remainingCount: freshMessages.length
+            });
+          }
+        });
+      }
+    }
+  }
+
+  if (hasChanges) {
+    saveMessages(); // Persist changes after cleanup
+  }
+}, 10 * 1000);
 
 // Map: userId -> { id, email, created_at, last_login_at, status }
 const rawUsers = storage.load('users', []); 
@@ -67,6 +112,12 @@ function saveAuthCodes() {
 
 function savePersistentUsers() {
   storage.save('users', Array.from(persistentUsers.values()));
+}
+
+function saveMessages() {
+  // Convert Message Map to object for JSON storage
+  // Map<sessionId, Message[]> -> Object<sessionId, Message[]>
+  storage.save('messages', Object.fromEntries(messages));
 }
 
 // Map: token -> { email, expiresAt }
