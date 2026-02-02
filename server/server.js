@@ -26,8 +26,8 @@ const io = new Server(server, {
 // ============================================
 
 const USER_TTL = 60 * 24 * 60 * 60 * 1000; // 60 days
-const MEDIA_TTL = 30 * 1000; // 30 seconds
-const TEXT_TTL = 60 * 1000; // 60 seconds
+const MEDIA_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (Persistent)
+const TEXT_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (Persistent History)
 const VOICE_INTRO_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_MESSAGES_PER_SESSION = 50;
 
