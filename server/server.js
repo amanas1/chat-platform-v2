@@ -461,13 +461,17 @@ io.on('connection', (socket) => {
     let userRecord = persistentUsers.get(boundUserId);
     if (userRecord) {
         const now = Date.now();
-        userRecord.deletionRequestedAt = now;
-        persistentUsers.set(boundUserId, userRecord);
-        savePersistentUsers();
+        // Only set if not already present (preserve original date)
+        if (!userRecord.deletionRequestedAt) {
+            userRecord.deletionRequestedAt = now;
+            persistentUsers.set(boundUserId, userRecord);
+            savePersistentUsers();
+            console.log(`[USER] Deletion requested for ${boundUserId}. Scheduled for ${new Date(now + 30*24*60*60*1000).toLocaleDateString()}`);
+        } else {
+            console.log(`[USER] Deletion status checked for ${boundUserId}. Original request was at ${new Date(userRecord.deletionRequestedAt).toLocaleDateString()}`);
+        }
         
-        console.log(`[USER] Deletion requested for ${boundUserId}. Scheduled for ${new Date(now + 30*24*60*60*1000).toLocaleDateString()}`);
-        
-        socket.emit('user:delete_requested', { success: true, deletionRequestedAt: now });
+        socket.emit('user:delete_requested', { success: true, deletionRequestedAt: userRecord.deletionRequestedAt });
         
         // Sync back to client
         socket.emit('user:registered', {

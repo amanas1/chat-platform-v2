@@ -254,6 +254,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     volume, onVolumeChange, visualMode
 }) => {
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update current time every second for live countdowns
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Format Last Seen Time
   const formatLastSeen = (timestamp?: number) => {
@@ -335,13 +342,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const deletionDaysRemaining = useMemo(() => {
     if (!currentUser.deletionRequestedAt) return null;
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-    const remaining = thirtyDaysMs - (Date.now() - currentUser.deletionRequestedAt);
-    if (remaining <= 0) return 0;
+    const remaining = thirtyDaysMs - (currentTime - currentUser.deletionRequestedAt);
+    if (remaining <= 0) return { days: 0, hours: 0, mins: 0, secs: 0 };
     
     const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
     const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    return { days, hours };
-  }, [currentUser.deletionRequestedAt]);
+    const mins = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((remaining % (1000 * 60)) / 1000);
+    return { days, hours, mins, secs };
+  }, [currentUser.deletionRequestedAt, currentTime]);
 
   // Sync registration state with currentUser (especially after login)
   useEffect(() => {
@@ -1227,6 +1236,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   };
 
   const handleDeleteAccount = () => {
+    if (currentUser.deletionRequestedAt && deletionDaysRemaining) {
+        const { days, hours, mins, secs } = deletionDaysRemaining;
+        alert(language === 'ru' 
+            ? `Удаление уже запланировано. Осталось: ${days}д ${hours}ч ${mins}м ${secs}с`
+            : `Deletion already planned. Remaining: ${days}d ${hours}h ${mins}m ${secs}s`
+        );
+        return;
+    }
+
     const confirmMsg = language === 'ru' 
       ? 'Удаление аккаунта после истечения 30 дней. Согласны?' 
       : 'Account deletion will be processed after 30 days. Proceed?';
@@ -2368,8 +2386,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                             </p>
                                             <p className="text-[11px] text-slate-300 leading-tight">
                                                 {language === 'ru' 
-                                                  ? `Профиль будет удален через: ${deletionDaysRemaining.days} дн. и ${deletionDaysRemaining.hours} ч.`
-                                                  : `Profile will be deleted in: ${deletionDaysRemaining.days}d and ${deletionDaysRemaining.hours}h.`}
+                                                  ? `Профиль будет удален через: ${deletionDaysRemaining.days}д ${deletionDaysRemaining.hours}ч ${deletionDaysRemaining.mins}м ${deletionDaysRemaining.secs}с`
+                                                  : `Profile will be deleted in: ${deletionDaysRemaining.days}d ${deletionDaysRemaining.hours}h ${deletionDaysRemaining.mins}m ${deletionDaysRemaining.secs}s`}
                                             </p>
                                         </div>
                                     </div>
@@ -2386,7 +2404,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 >
                                     <UsersIcon className="w-3 h-3" />
                                     {currentUser.deletionRequestedAt 
-                                        ? (language === 'ru' ? 'ПЕРЕСЧИТАТЬ ТАЙМЕР УДАЛЕНИЯ' : 'RECALCULATE DELETION TIMER')
+                                        ? (language === 'ru' ? 'ПРОВЕРИТЬ ВРЕМЯ УДАЛЕНИЯ' : 'CHECK DELETION TIME')
                                         : (language === 'ru' ? 'УДАЛИТЬ АККАУНТ И ДАННЫЕ' : 'DELETE ACCOUNT & DATA')}
                                 </button>
                             </>
