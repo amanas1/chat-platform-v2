@@ -1,3 +1,5 @@
+console.log("🚀 Starting StreamFlow Server...");
+const fs = require('fs');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -8,6 +10,17 @@ const crypto = require('crypto');
 const path = require('path');
 
 require('dotenv').config({ path: path.resolve(__dirname, '../.env.local') });
+
+// ENSURE DATA DIRECTORY EXISTS
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) {
+    console.log(`[INIT] Creating data directory: ${DATA_DIR}`);
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+if (!process.env.RESEND_API_KEY) {
+    console.warn("⚠️  RESEND_API_KEY missing, running in limited mode (Email auth will fail)");
+}
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
@@ -884,6 +897,13 @@ const rateLimiter = new RateLimitService();
       const appUrl = process.env.VITE_APP_URL || 'http://localhost:5173';
 
       if (!resend) {
+        const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
+        
+        if (isProduction) {
+            console.error('[AUTH] Registration ATTEMPTED in PROD without RESEND_API_KEY!');
+            return socket.emit('auth:error', { message: 'Registration is currently unavailable.' });
+        }
+
         console.warn('[AUTH] Resend API Key missing. Switching to MOCK MODE.');
         console.log(`[MOCK AUTH] OTP for ${normalizedEmail}: ${otp}`);
         console.log(`[MOCK AUTH] Magic Link: ${appUrl}?token=${magicToken}`);
@@ -1145,7 +1165,8 @@ app.post('/api/moderation/ban', (req, res) => {
 // START SERVER
 // ============================================
 
-const PORT = process.env.PORT || 3001;
+// Railway / Heroku / Generic PORT binding
+const PORT = process.env.PORT || 8080;
 
 // Cleanup registration log every hour
 setInterval(() => {
