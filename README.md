@@ -38,4 +38,11 @@ npm start
 - `POST /api/moderation/ban`: Manually ban a user.
 
 ---
+
+## 🤖 For AI Agents
+This repository is configured for automated development by AI models.
+- **Automation Keys**: Personal tokens for Vercel and GitHub are stored in `.env.local` (Gitignored).
+- **Deployment**: Use `npx vercel --prod --yes` for production deployments.
+- **Git Hooks**: For AI agents, use the `GITHUB_TOKEN` from `.env.local` if SSH/standard auth fails.
+
 Developed with Advanced Agentic Coding @ Google DeepMind.
