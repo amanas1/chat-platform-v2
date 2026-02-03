@@ -104,8 +104,8 @@ const processChatImage = (file: File): Promise<string> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                // Limit max dimension to 1024px for reasonable bandwidth usage
-                const MAX_SIZE = 1024;
+                // Limit max dimension to 1280px for better quality on modern phones
+                const MAX_SIZE = 1280;
                 let width = img.width;
                 let height = img.height;
                 
@@ -129,8 +129,8 @@ const processChatImage = (file: File): Promise<string> => {
                 // Standard draw without filters
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Compress to WebP 0.8 quality
-                resolve(canvas.toDataURL('image/webp', 0.8));
+                // Use JPEG for maximum compatibility and smaller file size
+                resolve(canvas.toDataURL('image/jpeg', 0.7));
             };
             img.onerror = (err) => reject(err);
         };
@@ -379,6 +379,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [authOtp, setAuthOtp] = useState('');
   const [otpStep, setOtpStep] = useState<'email' | 'otp'>('email');
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isFileUploading, setIsFileUploading] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [authCooldown, setAuthCooldown] = useState(0);
   const [mockOtp, setMockOtp] = useState<string | null>(null);
@@ -396,6 +397,12 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     setIsVerifyingOtp(true);
     setOtpError(null);
     setMockOtp(null); // Clear previous
+    if (!socketService.isConnected) {
+      setOtpError(language === 'ru' ? 'Нет связи с сервером. Проверьте интернет.' : 'No server connection. Check your internet.');
+      setIsVerifyingOtp(false);
+      return;
+    }
+
     socketService.requestAuthCode(authEmail, (data: any) => {
       setIsVerifyingOtp(false);
       if (data.email) {
@@ -403,7 +410,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         setAuthCooldown(60);
         if (data.mock && data.otp) {
           console.log('%c[AUTH] MOCK MODE: Check server console for OTP', 'color: #bc6ff1; font-weight: bold;');
-          setMockOtp(data.otp); // Store OTP for debug display
+          setMockOtp(data.otp);
         }
       } else if (data.message) {
         setOtpError(data.message);
@@ -416,6 +423,12 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     if (authOtp.length < 6) return;
     setIsVerifyingOtp(true);
     setOtpError(null);
+    if (!socketService.isConnected) {
+      setOtpError(language === 'ru' ? 'Нет связи с сервером. Проверьте интернет.' : 'No server connection. Check your internet.');
+      setIsVerifyingOtp(false);
+      return;
+    }
+
     socketService.verifyAuthCode(authEmail, authOtp, (data) => {
       setIsVerifyingOtp(false);
       if (data.success && data.userId) {
@@ -441,7 +454,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           setView('register');
         }
       } else {
-        setOtpError(data.message || 'Invalid code');
+        setOtpError(data.message || (language === 'ru' ? 'Неверный код' : 'Invalid code'));
       }
     });
   };
@@ -1248,22 +1261,17 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         return;
     }
 
-    const confirmMsg = language === 'ru' 
-      ? 'Удаление аккаунта только после 30 дней. Согласны?' 
-      : 'Account deletion only after 30 days. Proceed?';
-    
-    if (window.confirm(confirmMsg)) {
-      socketService.requestDeletion((data) => {
-          if (data.success) {
-              const updatedUser = { 
-                  ...currentUser, 
-                  deletionRequestedAt: data.deletionRequestedAt 
-              };
-              onUpdateCurrentUser(updatedUser);
-              localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
-          }
-      });
-    }
+    // Proceed with server call immediately (UI hint already shown above)
+    socketService.requestDeletion((data) => {
+      if (data.success) {
+          const updatedUser = { 
+              ...currentUser, 
+              deletionRequestedAt: data.deletionRequestedAt 
+          };
+          onUpdateCurrentUser(updatedUser);
+          localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
+      }
+    });
   };
 
   const handleRegistrationComplete = () => {
@@ -1475,28 +1483,16 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     const file = e.target.files?.[0];
     if (!file || !activeSession) return;
     
-    if (file.size > 2 * 1024 * 1024) {
-      alert(language === 'ru' ? 'Фото не больше 2 МБ' : 'Photo must be under 2MB');
+    if (file.size > 5 * 1024 * 1024) { // Increased to 5MB for better user experience
+      alert(language === 'ru' ? 'Фото не больше 5 МБ' : 'Photo must be under 5MB');
       return;
     }
     
     try {
+      setIsFileUploading(true);
       // FIX: Use simple compression for chat, NOT stylizeAvatar (filters)
       const compressedBase64 = await processChatImage(file);
       
-      /* Optimistic UI removed to prevent duplication
-      const tempId = `temp_img_${Date.now()}`;
-      const optimisticMessage: any = {
-          id: tempId,
-          sessionId: activeSession.sessionId,
-          senderId: currentUser.id,
-          messageType: 'image',
-          image: compressedBase64, 
-          timestamp: Date.now()
-      };
-      setMessages(prev => [...prev, optimisticMessage]); 
-      */
-
       const encrypted = encryptionService.encryptBinary(compressedBase64, activeSession.sessionId);
       
       socketService.sendMessage(
@@ -1510,6 +1506,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       if (cameraInputRef.current) cameraInputRef.current.value = '';
     } catch (error) {
       console.error("Image compression failed", error);
+    } finally {
+      setIsFileUploading(false);
     }
     
   };
@@ -2150,45 +2148,33 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                     {regAvatar ? (
                                         <img src={regAvatar} className="w-full h-full object-cover" />
                                     ) : (
-                                        <div key={regGender} className="w-full h-full flex items-center justify-center">
-                                            {/* Gender-based default avatar */}
+                                        <div key={regGender} className="w-full h-full flex items-center justify-center animate-in fade-in zoom-in-95 duration-300">
+                                            {/* Final Verified Gender-based default avatar */}
                                             {regGender === 'female' ? (
-                                                <svg viewBox="0 0 100 100" className="w-28 h-28 opacity-80">
-                                                    {/* Female avatar - brown hair, light blouse */}
-                                                    {/* Hair - long brown */}
-                                                    <ellipse cx="50" cy="38" rx="35" ry="30" fill="#92400e" />
-                                                    <ellipse cx="25" cy="55" rx="12" ry="20" fill="#78350f" />
-                                                    <ellipse cx="75" cy="55" rx="12" ry="20" fill="#78350f" />
-                                                    {/* Face */}
-                                                    <circle cx="50" cy="45" r="25" fill="#fbbf24" />
-                                                    {/* Eyes */}
-                                                    <ellipse cx="42" cy="42" rx="3" ry="4" fill="#1e293b" />
-                                                    <ellipse cx="58" cy="42" rx="3" ry="4" fill="#1e293b" />
-                                                    {/* Smile */}
-                                                    <path d="M42,52 Q50,58 58,52" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" />
-                                                    {/* Blush */}
-                                                    <circle cx="35" cy="48" r="4" fill="#fca5a5" opacity="0.5" />
-                                                    <circle cx="65" cy="48" r="4" fill="#fca5a5" opacity="0.5" />
-                                                    {/* Body/Shirt - light */}
-                                                    <ellipse cx="50" cy="90" rx="30" ry="20" fill="#fef3c7" />
+                                                <svg viewBox="0 0 100 100" className="w-28 h-28 opacity-90 drop-shadow-lg">
+                                                    {/* Female avatar - slightly refined for premium look */}
+                                                    <ellipse cx="50" cy="38" rx="35" ry="32" fill="#92400e" />
+                                                    <ellipse cx="22" cy="58" rx="14" ry="22" fill="#78350f" />
+                                                    <ellipse cx="78" cy="58" rx="14" ry="22" fill="#78350f" />
+                                                    <circle cx="50" cy="45" r="26" fill="#fbbf24" />
+                                                    <ellipse cx="41" cy="42" rx="3.5" ry="4.5" fill="#1e293b" />
+                                                    <ellipse cx="59" cy="42" rx="3.5" ry="4.5" fill="#1e293b" />
+                                                    <path d="M41,53 Q50,60 59,53" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" />
+                                                    <circle cx="34" cy="49" r="4.5" fill="#fca5a5" opacity="0.6" />
+                                                    <circle cx="66" cy="49" r="4.5" fill="#fca5a5" opacity="0.6" />
+                                                    <ellipse cx="50" cy="94" rx="32" ry="22" fill="#fef3c7" />
                                                 </svg>
                                             ) : (
-                                                <svg viewBox="0 0 100 100" className="w-28 h-28 opacity-80">
-                                                    {/* Male avatar - dark short hair, blue shirt */}
-                                                    {/* Hair - short dark */}
-                                                    <ellipse cx="50" cy="30" rx="28" ry="18" fill="#334155" />
-                                                    {/* Face */}
-                                                    <circle cx="50" cy="45" r="25" fill="#f59e0b" />
-                                                    {/* Eyebrows - thick */}
-                                                    <path d="M36,36 L46,38" fill="none" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
-                                                    <path d="M54,38 L64,36" fill="none" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
-                                                    {/* Eyes */}
-                                                    <ellipse cx="42" cy="44" rx="3" ry="3" fill="#1e293b" />
-                                                    <ellipse cx="58" cy="44" rx="3" ry="3" fill="#1e293b" />
-                                                    {/* Smile */}
-                                                    <path d="M42,54 Q50,60 58,54" fill="none" stroke="#92400e" strokeWidth="2" strokeLinecap="round" />
-                                                    {/* Body/Shirt - blue */}
-                                                    <ellipse cx="50" cy="90" rx="30" ry="20" fill="#3b82f6" />
+                                                <svg viewBox="0 0 100 100" className="w-28 h-28 opacity-90 drop-shadow-lg">
+                                                    {/* Male avatar - refined details */}
+                                                    <ellipse cx="50" cy="32" rx="30" ry="20" fill="#334155" />
+                                                    <circle cx="50" cy="46" r="26" fill="#f59e0b" />
+                                                    <path d="M35,35 L47,38" fill="none" stroke="#1e293b" strokeWidth="3.5" strokeLinecap="round" />
+                                                    <path d="M53,38 L65,35" fill="none" stroke="#1e293b" strokeWidth="3.5" strokeLinecap="round" />
+                                                    <ellipse cx="41" cy="45" rx="3.5" ry="3.5" fill="#1e293b" />
+                                                    <ellipse cx="59" cy="45" rx="3.5" ry="3.5" fill="#1e293b" />
+                                                    <path d="M41,56 Q50,63 59,56" fill="none" stroke="#92400e" strokeWidth="2.5" strokeLinecap="round" />
+                                                    <ellipse cx="50" cy="94" rx="32" ry="22" fill="#3b82f6" />
                                                 </svg>
                                             )}
                                         </div>
@@ -2260,10 +2246,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         <button 
                                             key={g} 
                                             disabled={isProfileLocked}
-                                            onClick={() => setRegGender(g)} 
+                                            onClick={() => {
+                                                setRegGender(g);
+                                                // Reset proxy avatar if it was using a default, to trigger SVG refresh logic
+                                                if (regAvatar && regAvatar.startsWith('data:image/svg+xml')) setRegAvatar(null);
+                                            }} 
                                             className={`flex-1 rounded-lg text-[10px] font-black transition-all uppercase tracking-tighter ${regGender === g ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-slate-400 hover:text-white'} ${isProfileLocked && regGender !== g ? 'opacity-30' : ''}`}
                                         >
-                                            {language === 'ru' ? (g === 'male' ? 'Мужской' : 'Женский') : g}
+                                            {language === 'ru' ? (g === 'male' ? 'МУЖСКОЙ' : 'ЖЕНСКИЙ') : g.toUpperCase()}
                                         </button>
                                     ))}
                                 </div>
@@ -2780,6 +2770,17 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     )}
                 </div>
                 <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} /><input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
+                
+                {isFileUploading && (
+                    <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                            <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                                {language === 'ru' ? 'Отправка...' : 'Sending...'}
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
         )}
 

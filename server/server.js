@@ -664,6 +664,9 @@ io.on('connection', (socket) => {
     if (list.length > MAX_MESSAGES_PER_SESSION) {
       messages.set(sessionId, list.slice(-MAX_MESSAGES_PER_SESSION));
     }
+
+    // PERSIST IMMEDIATELY
+    saveMessages();
     
     console.log(`[MSG] 📤 Broadcasting message ${messageId} to session ${sessionId}`);
     console.log(`[MSG] Session participants: [${session.participants.join(', ')}]`);

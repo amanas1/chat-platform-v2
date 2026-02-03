@@ -27,7 +27,7 @@ const SERVER_URL = getSocketURL();
 class SocketService {
   private socket: Socket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  private maxReconnectAttempts = Infinity;
   private currentProfile: UserProfile | null = null;
   
   // Expose URL for debugging
@@ -100,23 +100,59 @@ class SocketService {
 
   // Authentication
   requestAuthCode(email: string, callback: (data: { email: string; mock?: boolean; retryIn?: number; message?: string }) => void) {
-    if (!this.socket) return;
+    if (!this.socket) {
+        callback({ email, message: 'Socket not connected' });
+        return;
+    }
+
+    const timeout = setTimeout(() => {
+        this.socket?.off('auth:code_sent', successHandler);
+        this.socket?.off('auth:error', errorHandler);
+        callback({ email, message: 'Request timed out. Please try again.' });
+    }, 15000);
+
+    const successHandler = (data: any) => {
+        clearTimeout(timeout);
+        this.socket?.off('auth:error', errorHandler);
+        callback(data);
+    };
+
+    const errorHandler = (data: any) => {
+        clearTimeout(timeout);
+        this.socket?.off('auth:code_sent', successHandler);
+        callback(data);
+    };
+
     this.socket.emit('auth:request_code', { email });
-    this.socket.once('auth:code_sent', (data) => callback(data));
-    this.socket.once('auth:error', (data) => callback(data));
+    this.socket.once('auth:code_sent', successHandler);
+    this.socket.once('auth:error', errorHandler);
   }
 
   verifyAuthCode(email: string, otp: string, callback: (data: { success: boolean; userId?: string; email?: string; message?: string; attemptsRemaining?: number }) => void) {
-    if (!this.socket) return;
-    this.socket.emit('auth:verify_code', { email, otp });
+    if (!this.socket) {
+        callback({ success: false, message: 'Socket not connected' });
+        return;
+    }
+
+    const timeout = setTimeout(() => {
+        this.socket?.off('auth:success', successHandler);
+        this.socket?.off('auth:error', errorHandler);
+        callback({ success: false, message: 'Verification timed out. Please try again.' });
+    }, 15000);
+
     const successHandler = (data: { userId: string; email: string }) => {
+      clearTimeout(timeout);
       this.socket?.off('auth:error', errorHandler);
       callback({ success: true, ...data });
     };
+
     const errorHandler = (data: { message: string; attemptsRemaining?: number }) => {
+      clearTimeout(timeout);
       this.socket?.off('auth:success', successHandler);
       callback({ success: false, ...data });
     };
+
+    this.socket.emit('auth:verify_code', { email, otp });
     this.socket.once('auth:success', successHandler);
     this.socket.once('auth:error', errorHandler);
   }
