@@ -1,4 +1,13 @@
 console.log("🚀 Starting StreamFlow Server...");
+
+// GLOBAL ERROR CATCHERS FOR PRODUCTION STABILITY
+process.on('uncaughtException', (err) => {
+    console.error('[CRITICAL] Uncaught Exception:', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const fs = require('fs');
 const express = require('express');
 const http = require('http');
@@ -1168,7 +1177,8 @@ app.post('/api/moderation/ban', (req, res) => {
 // ============================================
 
 // Railway / Heroku / Generic PORT binding
-const PORT = process.env.PORT || 8080;
+// Note: Railway usually provides process.env.PORT. 3000 is the standard fallback.
+const PORT = process.env.PORT || 3000;
 
 // Cleanup registration log every hour
 setInterval(() => {
