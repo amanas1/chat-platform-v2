@@ -177,6 +177,33 @@ setInterval(() => {
   if (expiredUsers.length > 0) {
     syncGlobalPresence();
   }
+
+  // 3. Permanent Account Deletion (30-day grace period)
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  let persistentModified = false;
+
+  for (const [userId, user] of persistentUsers.entries()) {
+      if (user.deletionRequestedAt && (now - user.deletionRequestedAt) > thirtyDaysMs) {
+          console.log(`[USER] PERMANENTLY DELETING account: ${userId} (Grace period expired)`);
+          persistentUsers.delete(userId);
+          persistentModified = true;
+          
+          // cleanup associated sessions and messages
+          for (const [sessionId, session] of activeSessions.entries()) {
+              if (session.participants.includes(userId)) {
+                  activeSessions.delete(sessionId);
+                  messages.delete(sessionId);
+              }
+          }
+          persistentModified = true;
+      }
+  }
+
+  if (persistentModified) {
+      savePersistentUsers();
+      saveSessions();
+      saveMessages();
+  }
 }, 5 * 60 * 1000);
 
 // Clean expired voice intros every hour
@@ -425,6 +452,31 @@ io.on('connection', (socket) => {
     });
 
     socket.emit('users:search:results', results);
+  });
+
+  // ACCOUNT DELETION REQUEST (30-day grace period)
+  socket.on('user:delete_request', () => {
+    if (!boundUserId) return;
+    
+    let userRecord = persistentUsers.get(boundUserId);
+    if (userRecord) {
+        const now = Date.now();
+        userRecord.deletionRequestedAt = now;
+        persistentUsers.set(boundUserId, userRecord);
+        savePersistentUsers();
+        
+        console.log(`[USER] Deletion requested for ${boundUserId}. Scheduled for ${new Date(now + 30*24*60*60*1000).toLocaleDateString()}`);
+        
+        socket.emit('user:delete_requested', { success: true, deletionRequestedAt: now });
+        
+        // Sync back to client
+        socket.emit('user:registered', {
+            userId: boundUserId,
+            profile: userRecord,
+            expiresAt: activeUsers.get(boundUserId)?.expiresAt || (now + USER_TTL),
+            ttl: USER_TTL
+        });
+    }
   });
 
   // KNOCK (Request to chat)

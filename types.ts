@@ -108,8 +108,7 @@ export interface UserProfile {
   free_until?: number | null;
   accountStatus?: 'active' | 'warning' | 'blocked';
   email?: string;
-  credits?: number;
-  isAnonymous?: boolean; 
+  deletionRequestedAt?: number;
   filters: {
     minAge: number;
     maxAge: number;

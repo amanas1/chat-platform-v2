@@ -326,12 +326,22 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   }, [currentUser.registrationTimestamp, currentUser.name, currentUser.age]);
 
   const lockDaysRemaining = useMemo(() => {
-    if (!currentUser.registrationTimestamp) return 30;
+    if (!currentUser.registrationTimestamp) return 0;
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-    const elapsed = Date.now() - currentUser.registrationTimestamp;
-    const remainingMs = Math.max(0, thirtyDaysMs - elapsed);
-    return Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+    const remaining = thirtyDaysMs - (Date.now() - currentUser.registrationTimestamp);
+    return Math.max(0, Math.ceil(remaining / (1000 * 60 * 60 * 24)));
   }, [currentUser.registrationTimestamp]);
+
+  const deletionDaysRemaining = useMemo(() => {
+    if (!currentUser.deletionRequestedAt) return null;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const remaining = thirtyDaysMs - (Date.now() - currentUser.deletionRequestedAt);
+    if (remaining <= 0) return 0;
+    
+    const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return { days, hours };
+  }, [currentUser.deletionRequestedAt]);
 
   // Sync registration state with currentUser (especially after login)
   useEffect(() => {
@@ -1218,24 +1228,21 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
   const handleDeleteAccount = () => {
     const confirmMsg = language === 'ru' 
-      ? 'Вы уверены, что хотите удалить свой профиль и все данные? Это действие необратимо.' 
-      : 'Are you sure you want to delete your profile and all data? This action is irreversible.';
+      ? 'Удаление аккаунта после истечения 30 дней. Согласны?' 
+      : 'Account deletion will be processed after 30 days. Proceed?';
     
     if (window.confirm(confirmMsg)) {
-      // 1. Clear Local Storage
-      localStorage.removeItem('streamflow_user_profile');
-      
-      // 2. Clear Server State (Optional: Emit event)
-      if (currentUser.id) {
-         // socketService.emit('user:delete', { userId: currentUser.id }); // Future impl
-      }
-
-      // 3. Update State to Trigger Redirect Effect
-      const resetUser = { ...currentUser, isAuthenticated: false, id: '', name: '' };
-      onUpdateCurrentUser(resetUser);
-      setActiveSession(null);
-      
-      // No reload needed - effect handles redirect
+      socketService.requestDeletion((data) => {
+          if (data.success) {
+              const updatedUser = { 
+                  ...currentUser, 
+                  deletionRequestedAt: data.deletionRequestedAt 
+              };
+              onUpdateCurrentUser(updatedUser);
+              localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
+              alert(language === 'ru' ? 'Заявка на удаление принята. Профиль будет удален через 30 дней.' : 'Deletion request accepted. Profile will be removed in 30 days.');
+          }
+      });
     }
   };
 
@@ -2349,13 +2356,38 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                     {language === 'ru' ? 'ВЫЙТИ (LOGOUT)' : 'LOG OUT'}
                                 </button>
 
+                                {/* Deletion Status Banner */}
+                                {currentUser.deletionRequestedAt && deletionDaysRemaining && (
+                                    <div className="mt-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-red-500/20 flex items-center justify-center shrink-0">
+                                            <span className="text-xl">⏳</span>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-[10px] text-red-400 font-black uppercase tracking-widest mb-1">
+                                                {language === 'ru' ? 'Удаление аккаунта' : 'Deletion Pending'}
+                                            </p>
+                                            <p className="text-[11px] text-slate-300 leading-tight">
+                                                {language === 'ru' 
+                                                  ? `Профиль будет удален через: ${deletionDaysRemaining.days} дн. и ${deletionDaysRemaining.hours} ч.`
+                                                  : `Profile will be deleted in: ${deletionDaysRemaining.days}d and ${deletionDaysRemaining.hours}h.`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Delete Account Button */}
                                 <button
                                     onClick={handleDeleteAccount}
-                                    className="w-full mt-2 py-3 bg-red-600/10 border border-red-500/30 text-red-500 rounded-xl font-bold uppercase text-[10px] tracking-widest hover:bg-red-600/20 transition-all flex items-center justify-center gap-2"
+                                    className={`w-full mt-4 py-3 border rounded-xl font-bold uppercase text-[10px] tracking-widest transition-all flex items-center justify-center gap-2 ${
+                                        currentUser.deletionRequestedAt 
+                                        ? 'bg-amber-600/10 border-amber-500/30 text-amber-500 hover:bg-amber-600/20' 
+                                        : 'bg-red-600/10 border-red-500/30 text-red-500 hover:bg-red-600/20'
+                                    }`}
                                 >
                                     <UsersIcon className="w-3 h-3" />
-                                    {language === 'ru' ? 'УДАЛИТЬ АККАУНТ И ДАННЫЕ' : 'DELETE ACCOUNT & DATA'}
+                                    {currentUser.deletionRequestedAt 
+                                        ? (language === 'ru' ? 'ПЕРЕСЧИТАТЬ ТАЙМЕР УДАЛЕНИЯ' : 'RECALCULATE DELETION TIMER')
+                                        : (language === 'ru' ? 'УДАЛИТЬ АККАУНТ И ДАННЫЕ' : 'DELETE ACCOUNT & DATA')}
                                 </button>
                             </>
                         )}

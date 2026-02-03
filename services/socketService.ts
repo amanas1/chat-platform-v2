@@ -135,6 +135,12 @@ class SocketService {
     this.socket.once('auth:success', successHandler);
     this.socket.once('auth:error', errorHandler);
   }
+
+  requestDeletion(callback: (data: { success: boolean; deletionRequestedAt?: number }) => void) {
+    if (!this.socket) return;
+    this.socket.emit('user:delete_request');
+    this.socket.once('user:delete_requested', (data) => callback(data));
+  }
   
   private emit(event: string, data: any) {
     if (this.socket && this.socket.connected) {
