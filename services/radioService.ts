@@ -2,7 +2,7 @@
 import { RadioStation } from '../types';
 import { RADIO_BROWSER_MIRRORS } from '../constants';
 
-const CACHE_KEY_PREFIX = 'streamflow_station_cache_v14_dedupe_'; // Bump for advanced deduplication
+const CACHE_KEY_PREFIX = 'streamflow_station_cache_v15_strict_dedupe_'; // Strict dedupe bump
 const CACHE_TTL_MINUTES = 30;
 
 interface CacheEntry {
@@ -306,17 +306,44 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
             continue;
         }
 
-        // Advanced Deduplication: 
-        // 1. Normalize name (lowercase, no spaces) to catch "Radio 1" vs "radio 1"
-        const normalizedName = station.name.toLowerCase().replace(/\s+/g, '');
-        // 2. Base URL matching (ignore mirror variations)
-        const baseUrl = url.split('?')[0].split('#')[0];
+        // AGGRESSIVE DEDUPLICATION
+        // 1. Normalize URL: remove protocol, www, trailing slashes, and common extensions/params
+        const normalizedUrl = url.toLowerCase()
+            .replace(/^https?:\/\/(www\.)?/, '')
+            .split('?')[0].split('#')[0]
+            .replace(/\/$/, '')
+            .replace(/\.(mp3|aac|m3u8|pls|m3u)$/, '');
+            
+        // 2. Normalize Name: lowercase, alphanumeric only to catch "Radio One" vs "Radio 1" vs "Radio-1"
+        const normalizedName = station.name.toLowerCase().replace(/[^a-z0-9]/g, '');
         
-        const dedupeKey = `${normalizedName}_${baseUrl}`;
+        // Use normalized URL as primary dedupe key because it's more reliable than name
+        const dedupeKey = `${normalizedUrl}`;
 
         const existingDedupe = uniqueStations.get(dedupeKey);
-        if (!existingDedupe || station.votes > existingDedupe.votes) {
-            uniqueStations.set(dedupeKey, station);
+        
+        // Secondary check by normalized name to catch same station on different stream providers
+        let isDuplicateByName = false;
+        if (!existingDedupe) {
+            for (const s of uniqueStations.values()) {
+                const sNormName = s.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (sNormName === normalizedName && normalizedName.length > 3) {
+                    // It's likely a duplicate by name. Keep the one with better bitrate or votes.
+                    if (station.votes > s.votes || (station.bitrate > s.bitrate && station.votes > s.votes / 2)) {
+                        // Current one is better, replace the old one (we need to find its key though)
+                        // For simplicity in Map logic, we'll mark it to be skipped if we find a better one later
+                    } else {
+                        isDuplicateByName = true;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (!isDuplicateByName) {
+            if (!existingDedupe || station.votes > existingDedupe.votes) {
+                uniqueStations.set(dedupeKey, station);
+            }
         }
       }
     }

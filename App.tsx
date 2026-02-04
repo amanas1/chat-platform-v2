@@ -625,6 +625,16 @@ export default function App(): React.JSX.Element {
         localStorage.setItem('streamflow_user_profile', JSON.stringify(currentUser));
     }
   }, [currentUser]);
+  
+  const dedupeStations = (data: RadioStation[]) => {
+    const seen = new Set();
+    return data.filter(s => {
+      const key = s.url_resolved.toLowerCase().replace(/^https?:\/\/(www\.)?/, '').split('?')[0].split('#')[0].replace(/\/$/, '');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
 
   useEffect(() => {
     if ('mediaSession' in navigator) {
@@ -680,14 +690,17 @@ export default function App(): React.JSX.Element {
         const savedFavs = localStorage.getItem('streamflow_favorites');
         const favUuids = savedFavs ? JSON.parse(savedFavs) : [];
         const data = favUuids.length ? await fetchStationsByUuids(favUuids) : [];
-        if (loadRequestIdRef.current === requestId) { setStations(data); setIsLoading(false); if (data.length > 0 && autoPlay) handlePlayStation(data[0]); }
+        const dedupedPrev = dedupeStations(data);
+        if (loadRequestIdRef.current === requestId) { setStations(dedupedPrev); setIsLoading(false); if (dedupedPrev.length > 0 && autoPlay) handlePlayStation(dedupedPrev[0]); }
       } else if (category) {
         const fastData = await fetchStationsByTag(category.id, 10);
-        if (loadRequestIdRef.current === requestId) { setStations(fastData); setIsLoading(false); if (fastData.length > 0 && autoPlay) handlePlayStation(fastData[0]); }
+        const dedupedFast = dedupeStations(fastData);
+        if (loadRequestIdRef.current === requestId) { setStations(dedupedFast); setIsLoading(false); if (dedupedFast.length > 0 && autoPlay) handlePlayStation(dedupedFast[0]); }
         let fetchLimit = 50; 
         if (category.id === 'classical') { fetchLimit = 100; } else if (category.id === 'islamic' || category.id === 'muslim') { fetchLimit = 3; }
         fetchStationsByTag(category.id, fetchLimit).then(fullData => { 
-            if (loadRequestIdRef.current === requestId && fullData.length > 0) setStations(fullData); 
+            const dedupedFull = dedupeStations(fullData);
+            if (loadRequestIdRef.current === requestId && dedupedFull.length > 0) setStations(dedupedFull); 
         }).catch(() => {});
       }
     } catch (e) { if (loadRequestIdRef.current === requestId) setIsLoading(false); }
