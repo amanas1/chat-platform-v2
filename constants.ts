@@ -670,8 +670,8 @@ export const TRANSLATIONS: Record<string, any> = {
         showWhere: "Show location",
         helpImprove: "Help us improve StreamFlow.",
         // New
-        fpsLimit: 'Save Battery (30 FPS)',
-        fpsLimitDesc: 'Reduces smoothness to save battery on weak devices.',
+        randomMode: 'Random Mode (Shuffle)',
+        randomModeDesc: 'Plays random stations from all styles when pressing Next.',
         ecoMode: 'Eco Mode (Stars Only)',
         // Mastering
         mastering: "Mastering & Dynamics",
@@ -724,8 +724,8 @@ export const TRANSLATIONS: Record<string, any> = {
         showWhere: "Показать где",
         helpImprove: "Помогите нам улучшить StreamFlow.",
         // New
-        fpsLimit: 'Экономия (30 FPS)',
-        fpsLimitDesc: 'Снижает плавность для слабых устройств.',
+        randomMode: 'Случайный режим (Mix)',
+        randomModeDesc: 'При нажатии «Вперед» будут играть случайные станции всех стилей.',
         ecoMode: 'Эко Режим (Звезды)',
         // Mastering
         mastering: "Мастеринг и Динамика",

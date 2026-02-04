@@ -44,6 +44,8 @@ interface ToolsPanelProps {
   setFxSettings: (val: React.SetStateAction<FxSettings>) => void;
   audioEnhancements: AudioProcessSettings;
   setAudioEnhancements: (val: React.SetStateAction<AudioProcessSettings>) => void;
+  randomMode: boolean;
+  setRandomMode: (val: boolean) => void;
   onGlobalReset?: () => void; // New Prop
 }
 
@@ -81,6 +83,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
   customCardColor, setCustomCardColor,
   fxSettings, setFxSettings,
   audioEnhancements, setAudioEnhancements,
+  randomMode, setRandomMode,
   onGlobalReset
 }) => {
   const [activeTab, setActiveTab] = useState<'viz' | 'eq' | 'look' | 'ambience' | 'fx' | 'timer'>('viz');
@@ -192,11 +195,14 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                         </div>
                     </div>
 
-                    <div className={`space-y-4 transition-opacity duration-300 ${vizSettings.energySaver ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                    <div className="space-y-4 p-4 bg-white/5 rounded-2xl">
                          <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.fpsLimit}</label>
-                            <button onClick={() => setVizSettings({...vizSettings, fpsLimit: !vizSettings.fpsLimit})} className={`w-12 h-6 rounded-full relative transition-colors ${vizSettings.fpsLimit ? 'bg-primary' : 'bg-slate-700'}`}>
-                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${vizSettings.fpsLimit ? 'left-7' : 'left-1'}`}></div>
+                             <div className="flex flex-col gap-1">
+                                <label className="text-xs font-bold text-[var(--text-base)] uppercase tracking-widest">{t.randomMode}</label>
+                                <p className="text-[9px] text-slate-500 font-medium leading-tight">{t.randomModeDesc}</p>
+                             </div>
+                            <button onClick={() => setRandomMode(!randomMode)} className={`w-12 h-6 rounded-full relative transition-colors ${randomMode ? 'bg-primary shadow-[0_0_12px_rgba(var(--primary-rgb),0.4)]' : 'bg-slate-700'}`}>
+                                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${randomMode ? 'left-7' : 'left-1'}`}></div>
                             </button>
                         </div>
                     </div>

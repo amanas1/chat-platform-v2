@@ -14,7 +14,7 @@ import { geolocationService } from './services/geolocationService';
 import { 
   PauseIcon, VolumeIcon, LoadingIcon, MusicNoteIcon, HeartIcon, MenuIcon, AdjustmentsIcon,
   PlayIcon, ChatBubbleIcon, NextIcon, PreviousIcon, XMarkIcon, DownloadIcon,
-  SwatchIcon, EnvelopeIcon, LifeBuoyIcon 
+  SwatchIcon, EnvelopeIcon, LifeBuoyIcon, ShuffleIcon 
 } from './components/Icons';
 
 const ToolsPanel = React.lazy(() => import('./components/ToolsPanel'));
@@ -151,6 +151,12 @@ export default function App(): React.JSX.Element {
   const [visualizerVariant, setVisualizerVariant] = useState<VisualizerVariant>('galaxy');
   const [vizSettings, setVizSettings] = useState<VisualizerSettings>(DEFAULT_VIZ_SETTINGS);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [isRandomMode, setIsRandomMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('streamflow_random_mode') === 'true';
+    }
+    return false;
+  });
   const [isIdleView, setIsIdleView] = useState(false);
   const [newsIndex, setNewsIndex] = useState(0);
 
@@ -500,12 +506,48 @@ export default function App(): React.JSX.Element {
     }
   };
 
-  const handleNextStation = useCallback(() => {
+    // Persistence and Effects
+    useEffect(() => {
+        localStorage.setItem('streamflow_random_mode', isRandomMode.toString());
+    }, [isRandomMode]);
+
+    const handleNextStation = useCallback(async () => {
+      if (isRandomMode) {
+          // RANDOM MODE LOGIC: Pick a random safe category
+          const safeGenres = GENRES.filter(g => g.id !== 'islamic');
+          const safeMoods = MOODS;
+          const safeEras = ERAS;
+          // Combine all "safe" categories
+          const allSafe = [...safeGenres, ...safeMoods, ...safeEras];
+          const randomCat = allSafe[Math.floor(Math.random() * allSafe.length)];
+          
+          setIsLoading(true);
+          try {
+              const randomStations = await fetchStationsByTag(randomCat.id, 20);
+              if (randomStations.length > 0) {
+                  const randomStation = randomStations[Math.floor(Math.random() * randomStations.length)];
+                  handlePlayStation(randomStation);
+                  // Optionally update categories to reflect where we are
+                  setSelectedCategory(randomCat);
+                  setStations(randomStations);
+                  // Determine mode
+                  if (GENRES.some(g => g.id === randomCat.id)) setViewMode('genres');
+                  else if (MOODS.some(m => m.id === randomCat.id)) setViewMode('moods');
+                  else setViewMode('eras');
+              }
+          } catch (e) {
+              console.error('Failed to fetch random station', e);
+          } finally {
+              setIsLoading(false);
+          }
+          return;
+      }
+
       if (!stations.length) return;
       const currentIndex = currentStation ? stations.findIndex(s => s.stationuuid === currentStation.stationuuid) : -1;
       const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % stations.length;
       handlePlayStation(stations[nextIndex]);
-  }, [stations, currentStation, handlePlayStation]);
+    }, [stations, currentStation, handlePlayStation, isRandomMode]);
 
   const handlePreviousStation = useCallback(() => {
       if (!stations.length) return;
@@ -944,13 +986,12 @@ export default function App(): React.JSX.Element {
                 setBaseTheme={setBaseTheme} 
                 language={language} 
                 setLanguage={setLanguage} 
-                visualizerVariant={visualizerVariant} 
-                setVisualizerVariant={setVisualizerVariant} 
-                vizSettings={vizSettings} 
-                setVizSettings={setVizSettings} 
-                onStartTutorial={() => { setToolsOpen(false); setTutorialOpen(true); }} 
-                onOpenManual={() => { setToolsOpen(false); setManualOpen(true); }} 
-                onOpenProfile={() => { setToolsOpen(false); setChatOpen(true); }} 
+                visualizerVariant={visualizerVariant} setVisualizerVariant={setVisualizerVariant} 
+              vizSettings={vizSettings} setVizSettings={setVizSettings}
+              randomMode={isRandomMode} setRandomMode={setIsRandomMode}
+              onStartTutorial={() => { setToolsOpen(false); setTutorialOpen(true); }} 
+              onOpenManual={() => { setToolsOpen(false); setManualOpen(true); }} 
+              onOpenProfile={() => { setToolsOpen(false); setChatOpen(true); }} 
                 ambience={ambience} 
                 setAmbience={setAmbience} 
                 passport={passport} 
@@ -972,7 +1013,29 @@ export default function App(): React.JSX.Element {
         <Suspense fallback={null}><FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} language={language} currentUserId={currentUser.id} /></Suspense>
 
       </main>
-      <Suspense fallback={null}><ChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} language={language} onLanguageChange={setLanguage} currentUser={currentUser} onUpdateCurrentUser={setCurrentUser} isPlaying={isPlaying} onTogglePlay={togglePlay} onNextStation={handleNextStation} onPrevStation={handlePreviousStation} currentStation={currentStation} analyserNode={analyserNodeRef.current} volume={volume} onVolumeChange={setVolume} visualMode={visualMode} favorites={favorites} onToggleFavorite={toggleFavorite} /></Suspense>
+      <Suspense fallback={null}>
+        <ChatPanel 
+            isOpen={chatOpen} 
+            onClose={() => setChatOpen(false)} 
+            language={language} 
+            onLanguageChange={setLanguage} 
+            currentUser={currentUser} 
+            onUpdateCurrentUser={setCurrentUser} 
+            isPlaying={isPlaying} 
+            onTogglePlay={togglePlay} 
+            onNextStation={handleNextStation} 
+            onPrevStation={handlePreviousStation} 
+            currentStation={currentStation} 
+            analyserNode={analyserNodeRef.current} 
+            volume={volume} 
+            onVolumeChange={setVolume} 
+            visualMode={visualMode} 
+            favorites={favorites} 
+            onToggleFavorite={toggleFavorite}
+            randomMode={isRandomMode}
+            onToggleRandomMode={() => setIsRandomMode(!isRandomMode)}
+        />
+      </Suspense>
     </div>
   );
 }

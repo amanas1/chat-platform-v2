@@ -2306,7 +2306,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                                         {t[g].substring(0, 1)}
                                                     </button>
                                                 ))}
-                                                <button onClick={() => setSearchGender('any')} className={`flex-1 rounded-lg text-[10px] font-black transition-all ${searchGender === 'any' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}>∞</button>
+
                                             </div>
                                         </div>
                                     </div>
