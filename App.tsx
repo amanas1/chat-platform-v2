@@ -1130,5 +1130,6 @@ export default function App(): React.JSX.Element {
         />
       </Suspense>
     </div>
+    </ErrorBoundary>
   );
 }
