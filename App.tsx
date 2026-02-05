@@ -1020,7 +1020,7 @@ export default function App(): React.JSX.Element {
                                 onClick={() => handleApplyPreset(preset.id)}
                                 className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${
                                     activePresetId === preset.id 
-                                    ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.4)] scale-105' 
+                                    ? 'bg-primary text-black shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)] scale-105' 
                                     : 'text-slate-500 hover:text-white hover:bg-white/10'
                                 }`}
                             >
