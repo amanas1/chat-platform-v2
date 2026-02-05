@@ -389,7 +389,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
             // Left Spotlight (Responsive to Bass/Low Mids)
             drawSpotlight(
                 width * 0.1, 
-                Math.PI * 0.22 + Math.sin(time * 0.5) * 0.08, // Angled inward ~40deg + Slow Sway
+                -Math.PI * 0.25 + Math.sin(time * 0.5) * 0.08, // Negative = Rotated Anti-Clockwise (Pointing Right/Inward)
                 (time * 40) % 360, 
                 (sLow / 255) 
             );
@@ -397,7 +397,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
             // Right Spotlight (Responsive to High Mids/Treble)
             drawSpotlight(
                 width * 0.9, 
-                -Math.PI * 0.22 + Math.cos(time * 0.6) * 0.08, // Angled inward ~40deg + Slow Sway
+                Math.PI * 0.25 + Math.cos(time * 0.6) * 0.08, // Positive = Rotated Clockwise (Pointing Left/Inward)
                 (time * 40 + 180) % 360, 
                 (sMid / 255) 
             );
