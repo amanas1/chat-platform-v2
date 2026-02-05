@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserIcon, PaperAirplaneIcon, FaceSmileIcon, MicrophoneIcon, PaperClipIcon, CameraIcon, PlayIcon } from './Icons';
 
-const ChatDemoAnimation: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const ChatDemoAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
     const [step, setStep] = useState(0);
     const [cursorPos, setCursorPos] = useState({ x: '50%', y: '110%' });
     const [cursorClick, setCursorClick] = useState(false);
@@ -128,7 +128,7 @@ const ChatDemoAnimation: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
                     <span className="font-bold text-white text-sm">StreamFlow Demo</span>
                 </div>
-                <button onClick={onClose} className="text-slate-400 hover:text-white"><span className="text-lg">×</span></button>
+                <button onClick={onComplete} className="text-slate-400 hover:text-white"><span className="text-lg">×</span></button>
             </div>
 
             {/* Content Area */}
@@ -213,7 +213,7 @@ const ChatDemoAnimation: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                         <div className="text-5xl mb-4">💨</div>
                         <h3 className="text-white font-bold text-xl mb-2">Все исчезло!</h3>
                         <p className="text-slate-400 text-sm mb-6">Ваша переписка осталась только в вашей памяти.</p>
-                        <button onClick={onClose} className="px-8 py-3 bg-primary hover:bg-primary/80 text-white rounded-full font-bold transition-all transform hover:scale-105 shadow-lg shadow-primary/30">
+                        <button onClick={onComplete} className="px-8 py-3 bg-primary hover:bg-primary/80 text-white rounded-full font-bold transition-all transform hover:scale-105 shadow-lg shadow-primary/30">
                             Закрыть демо
                         </button>
                     </div>

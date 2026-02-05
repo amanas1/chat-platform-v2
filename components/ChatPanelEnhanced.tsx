@@ -12,6 +12,7 @@ import { ChatMessage, UserProfile, Language, RadioStation, ChatSession, VisualMo
 import AudioVisualizer from './AudioVisualizer';
 import DancingAvatar from './DancingAvatar';
 const ChatDemoAnimation = React.lazy(() => import('./ChatDemoAnimation'));
+const RegistrationDemoAnimation = React.lazy(() => import('./RegistrationDemoAnimation'));
 import { socketService } from '../services/socketService';
 import { encryptionService } from '../services/encryptionService';
 import { geolocationService } from '../services/geolocationService';
@@ -267,6 +268,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [showDeleteHint, setShowDeleteHint] = useState(false);
   const [isDemoOpen, setIsDemoOpen] = useState(false);
+  const [isRegDemoOpen, setIsRegDemoOpen] = useState(false);
   const deleteHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update current time every second for live countdowns
@@ -1822,18 +1824,25 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => setIsDemoOpen(true)} 
-                            className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full border border-white/5 hover:bg-white/10"
-                            title={language === 'ru' ? 'Как это работает?' : 'How it works?'}
-                        >
-                            <span className="w-5 h-5 flex items-center justify-center font-bold text-sm">?</span>
-                        </button>
-                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full border border-white/5 hover:bg-white/10"><XMarkIcon className="w-5 h-5" /></button>
-                    </div>
-                </>
-            )}
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => setIsRegDemoOpen(true)}
+                                className="w-8 h-8 rounded-full bg-green-500/10 hover:bg-green-500/20 text-green-400 flex items-center justify-center transition-colors"
+                                title="Показать демо регистрации"
+                            >
+                                <span className="text-xs font-bold">REG</span>
+                            </button>
+                            <button 
+                                onClick={() => setIsDemoOpen(true)}
+                                className="w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center transition-colors"
+                                title="Посмотреть демо чата"
+                            >
+                                <span className="text-lg font-bold">?</span>
+                            </button>
+                            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white">
+                                <XMarkIcon className="w-6 h-6" />
+                            </button>
+                        </div>        
         </header>
 
         {/* VOICE SETTINGS PANEL */}
@@ -2848,15 +2857,20 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
 
 
-        {isDemoOpen && (
+        {isDemoOpen || isRegDemoOpen ? (
             <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
                 <React.Suspense fallback={<div className="text-white">Loading demo...</div>}>
                     <div className="w-full max-w-sm">
-                        <ChatDemoAnimation onClose={() => setIsDemoOpen(false)} />
-                    </div>
+            {isRegDemoOpen && (
+                <RegistrationDemoAnimation onComplete={() => setIsRegDemoOpen(false)} />
+            )}
+            
+            {isDemoOpen && (
+                <ChatDemoAnimation onComplete={() => setIsDemoOpen(false)} />
+            )}        </div>
                 </React.Suspense>
             </div>
-        )}
+        ) : null}
 
     </aside>
   );
