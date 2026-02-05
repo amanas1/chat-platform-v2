@@ -305,6 +305,7 @@ export default function App(): React.JSX.Element {
   const loadRequestIdRef = useRef<number>(0);
   const sleepIntervalRef = useRef<number | null>(null);
   const trickleTimerRef = useRef<number | null>(null);
+  const playButtonRef = useRef<HTMLButtonElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
   const loadTimeoutRef = useRef<number | null>(null);
 
@@ -580,6 +581,59 @@ export default function App(): React.JSX.Element {
       const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % stations.length;
       handlePlayStation(stations[nextIndex]);
     }, [stations, currentStation, handlePlayStation, isRandomMode]);
+
+  // Play Button Visualization Effect
+  useEffect(() => {
+    let animationFrame: number;
+    
+    // Helper to get theme color
+    const getThemeColor = () => {
+        // Map theme names to hex colors
+        const colors: Record<string, string> = {
+            'neon': '#f472b6', // pink-400
+            'ocean': '#38bdf8', // sky-400
+            'forest': '#4ade80', // green-400
+            'sunset': '#fb923c', // orange-400
+            'midnight': '#818cf8', // indigo-400
+            'default': '#fbcfe8'
+        };
+        return colors[currentTheme] || '#ffffff';
+    };
+
+    const animateButton = () => {
+        if (!playButtonRef.current) return;
+        
+        if (isPlaying && !isBuffering) {
+            // Simulate audio reactivity (since we don't have direct access to the main analyser node here without context refactoring)
+            // We use a combination of sine waves to create a "breathing" + "jitter" effect that looks like music
+            const time = Date.now() / 150;
+            const beat = Math.sin(time) * 0.5 + 0.5; // 0 to 1 pulsing
+            const jitter = Math.random() * 0.3; // Random noise
+            
+            const scale = 1 + (beat * 0.1) + (jitter * 0.05); // Scale between 1.0 and 1.2
+            const glowSize = 10 + (beat * 15) + (jitter * 10); // Shadow between 10px and 35px
+            const color = getThemeColor();
+            
+            playButtonRef.current.style.transform = `scale(${scale})`;
+            playButtonRef.current.style.boxShadow = `0 0 ${glowSize}px ${color}`;
+            playButtonRef.current.style.borderColor = color;
+        } else {
+            playButtonRef.current.style.transform = 'scale(1)';
+            playButtonRef.current.style.boxShadow = 'none';
+        }
+        
+        animationFrame = requestAnimationFrame(animateButton);
+    };
+
+    if (isPlaying) {
+        animationFrame = requestAnimationFrame(animateButton);
+    } else if (playButtonRef.current) {
+        playButtonRef.current.style.transform = 'scale(1)';
+        playButtonRef.current.style.boxShadow = 'none';
+    }
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [isPlaying, isBuffering, currentTheme]);
 
   const handlePreviousStation = useCallback(() => {
       if (!stations.length) return;
@@ -897,6 +951,7 @@ export default function App(): React.JSX.Element {
                 </span>
             </div>
 
+
             {/* Action icons moved left on mobile */}
             <div className="flex items-center gap-1.5 sm:gap-4">
               {isAiAvailable() && viewMode !== 'favorites' && !isLoading && (
@@ -999,6 +1054,18 @@ export default function App(): React.JSX.Element {
 
                 {/* ROW 2 (Mobile Only): PRESETS SCROLLABLE ZIPPER */}
                 <div className="flex md:hidden w-full overflow-x-auto no-scrollbar gap-2 pb-3 mb-2 mask-linear-fade">
+                    {/* Reset Button */}
+                    <button
+                        onClick={() => setActivePresetId(null)}
+                        className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
+                            activePresetId === null
+                            ? 'bg-slate-700 text-white border-slate-600' 
+                            : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10'
+                        }`}
+                    >
+                        <XMarkIcon className="w-3 h-3 inline mr-1" />
+                        Reset
+                    </button>
                     {GLOBAL_PRESETS.map(preset => (
                         <button
                             key={preset.id}
@@ -1037,7 +1104,7 @@ export default function App(): React.JSX.Element {
                     <div className="flex items-center gap-3 sm:gap-6">
                         <button onClick={handlePreviousStation} className="p-2 text-slate-400 hover:text-white transition-colors"><PreviousIcon className="w-6 h-6" /></button>
                         
-                        <button onClick={togglePlay} className="w-14 h-14 md:w-14 md:h-14 rounded-full flex items-center justify-center bg-white text-black shadow-xl hover:scale-105 transition-all mx-1">
+                        <button ref={playButtonRef} onClick={togglePlay} className="w-14 h-14 md:w-14 md:h-14 rounded-full flex items-center justify-center bg-white text-black shadow-xl hover:scale-105 transition-all mx-1 duration-75">
                             {isBuffering ? <LoadingIcon className="animate-spin w-6 h-6" /> : isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6 ml-1" />}
                         </button>
                         

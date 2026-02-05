@@ -2359,7 +2359,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                                     setRegGender(g);
                                                     if (regAvatar && regAvatar.startsWith('data:image/svg+xml')) setRegAvatar(null);
                                                 }} 
-                                                className={`flex-1 rounded-lg text-[10px] font-black transition-all uppercase tracking-tighter ${regGender === g ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}
+                                                className={`flex-1 rounded-lg text-sm font-black transition-all uppercase tracking-tighter ${regGender === g ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}
                                             >
                                                 {language === 'ru' ? (g === 'male' ? 'М' : 'Ж') : g.toUpperCase().substring(0, 1)}
                                             </button>
