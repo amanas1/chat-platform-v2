@@ -95,6 +95,13 @@ const knockRequests = new Map();
 // Map: IP -> { timestamp }
 const registrationLog = new Map(Object.entries(storage.load('registrationLog', {})));
 
+// Map: timestamp -> count (Online History)
+const onlineHistory = storage.load('onlineHistory', {});
+
+function saveOnlineHistory() {
+  storage.save('onlineHistory', onlineHistory);
+}
+
 // ... (skipping unchanged code)
 
 // Clean expired messages every 1 hour (Reduced I/O load)
@@ -317,7 +324,30 @@ const broadcastPresenceCount = () => {
     const totalOnline = io.engine.clientsCount;
     const chatOnline = activeUsers.size;
     io.emit('presence:count', { totalOnline, chatOnline });
+
+    // Log to history
+    const now = Date.now();
+    onlineHistory[now] = totalOnline;
+    saveOnlineHistory();
 };
+
+// Clean online history every 24 hours (Keep 30 days)
+setInterval(() => {
+    const now = Date.now();
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    let hasChanges = false;
+
+    for (const timestamp in onlineHistory) {
+        if (now - parseInt(timestamp) > thirtyDaysMs) {
+            delete onlineHistory[timestamp];
+            hasChanges = true;
+        }
+    }
+
+    if (hasChanges) {
+        saveOnlineHistory();
+    }
+}, 24 * 60 * 60 * 1000);
 
 // ============================================
 // SOCKET.IO EVENTS
