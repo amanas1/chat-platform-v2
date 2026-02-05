@@ -751,24 +751,28 @@ export const GLOBAL_PRESETS = [
         id: 'dj', name: 'DJ', ru: 'DJ', 
         eq: [4, 3, 2, 0, -1, -1, 1, 2, 3, 4], // V-shape
         fx: { reverb: 0.05, speed: 1.0 },
-        process: { compressorEnabled: true, compressorThreshold: -20, compressorRatio: 4, bassBoost: 5, loudness: 3 }
+        process: { compressorEnabled: true, compressorThreshold: -20, compressorRatio: 4, bassBoost: 5, loudness: 3 },
+        theme: 'midnight'
     },
     { 
         id: 'stars', name: 'Stars', ru: 'Stars', 
         eq: [1, 1, 0, 0, 0, 1, 2, 4, 6, 8], // Air/Treble boost
         fx: { reverb: 0.4, speed: 1.0 },
-        process: { compressorEnabled: true, compressorThreshold: -15, compressorRatio: 2, bassBoost: 2, loudness: 0 }
+        process: { compressorEnabled: true, compressorThreshold: -15, compressorRatio: 2, bassBoost: 2, loudness: 0 },
+        theme: 'frost'
     },
     { 
         id: 'neon', name: 'Neon', ru: 'Neon', 
         eq: [0, 2, 4, 1, 0, 0, 1, 3, 5, 2], // Punchy Upper-Mid
         fx: { reverb: 0.15, speed: 1.0 },
-        process: { compressorEnabled: true, compressorThreshold: -18, compressorRatio: 8, bassBoost: 3, loudness: 2 }
+        process: { compressorEnabled: true, compressorThreshold: -18, compressorRatio: 8, bassBoost: 3, loudness: 2 },
+        theme: 'cyber'
     },
     { 
         id: 'deep', name: 'Deep', ru: 'Deep', 
         eq: [8, 6, 4, 2, 0, -2, -4, -4, -2, 0], // Sub-bass focus, darker highs
         fx: { reverb: 0.25, speed: 1.0 },
-        process: { compressorEnabled: true, compressorThreshold: -12, compressorRatio: 2, bassBoost: 8, loudness: 2 }
+        process: { compressorEnabled: true, compressorThreshold: -12, compressorRatio: 2, bassBoost: 8, loudness: 2 },
+        theme: 'volcano'
     }
 ];

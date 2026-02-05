@@ -124,6 +124,11 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
         const preset = GLOBAL_PRESETS.find(p => p.id === presetId);
         if (!preset) return;
 
+        // Apply Theme
+        if (preset.theme) {
+            setTheme(preset.theme as ThemeName);
+        }
+
         // Apply EQ
         if (onSetEqValues) onSetEqValues(preset.eq);
         

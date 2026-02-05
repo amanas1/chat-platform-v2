@@ -123,6 +123,11 @@ export default function App(): React.JSX.Element {
       
       setActivePresetId(presetId);
       
+      // Apply Theme
+      if (preset.theme) {
+        setCurrentTheme(preset.theme as ThemeName);
+      }
+      
       // Apply EQ
       setEqGains(preset.eq);
       
