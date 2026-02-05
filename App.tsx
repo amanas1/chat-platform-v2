@@ -954,25 +954,14 @@ export default function App(): React.JSX.Element {
                 </span>
             </div>
 
-            {/* Online Counter moved to left side for visibility */}
-            {onlineStats.totalOnline > 0 && (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-md animate-in fade-in zoom-in duration-500">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)]"></div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                        <span className="whitespace-nowrap">{language === 'ru' ? 'Слушают' : 'Online'}</span> 
-                        <span className="text-white font-mono text-xs">{onlineStats.totalOnline}</span>
-                    </span>
-                </div>
-            )}
 
-
-            {/* Action icons moved left on mobile */}
+            {/* Action icons */}
             <div className="flex items-center gap-1.5 sm:gap-4">
               {isAiAvailable() && viewMode !== 'favorites' && !isLoading && (
                   <button 
                     onClick={handleAiCuration} 
                     disabled={isAiCurating}
-                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${isAiCurating ? 'bg-primary/20 text-primary cursor-wait' : 'bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg hover:scale-105 active:scale-95'}`}
+                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${isAiCurating ? 'bg-primary/20 text-primary cursor-wait' : 'bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg hover:scaling-105 active:scaling-95'}`}
                   >
                       {isAiCurating ? <LoadingIcon className="w-3 h-3 animate-spin" /> : <span className="text-sm">✨</span>}
                       <span className="hidden xs:inline">{isAiCurating ? 'Optimizing...' : 'AI Optimize'}</span>
@@ -981,6 +970,16 @@ export default function App(): React.JSX.Element {
               )}
               <button onClick={() => setManualOpen(true)} className="p-2 text-slate-400 hover:text-white transition-transform hover:scale-110" title={t.manualTooltip}><LifeBuoyIcon className="w-6 h-6" /></button>
               <button onClick={() => setFeedbackOpen(true)} className="p-2 text-slate-400 hover:text-white transition-transform hover:scale-110" title={t.feedbackTitle}><EnvelopeIcon className="w-6 h-6" /></button>
+              
+              {/* Online Counter - Moved here and made always visible for debugging/visibility */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-md animate-in fade-in zoom-in duration-500 shadow-lg ml-2">
+                  <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)] ${onlineStats.totalOnline > 0 ? 'bg-green-500' : 'bg-slate-500 shadow-none'}`}></div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <span className="whitespace-nowrap hidden sm:inline">{language === 'ru' ? 'Сейчас слушают онлайн' : 'Listening Online'}</span> 
+                      <span className="whitespace-nowrap sm:hidden">{language === 'ru' ? 'Онлайн' : 'Online'}</span> 
+                      <span className="text-white font-mono text-xs">{Math.max(onlineStats.totalOnline, 0)}</span>
+                  </span>
+              </div>
             </div>
           </div>
           
