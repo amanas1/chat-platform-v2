@@ -973,17 +973,38 @@ export default function App(): React.JSX.Element {
         {/* Idle View Removed */}
 
         <div className={`absolute bottom-8 left-0 right-0 px-4 md:px-10 transition-all duration-700 ease-in-out z-20 ${chatOpen ? 'md:pr-[420px] lg:pr-[470px]' : ''} ${isIdleView ? 'opacity-0 translate-y-20 scale-95 pointer-events-none' : 'opacity-100 translate-y-0 scale-100 pointer-events-auto'}`}>
-           <div className={`pointer-events-auto max-w-[95%] xl:max-w-7xl mx-auto rounded-[2.5rem] p-4 flex flex-col shadow-2xl border-2 border-[var(--panel-border)] transition-all duration-500 bg-[var(--player-bar-bg)]`}>
-               <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1 min-w-0 z-10">
+           <div className={`pointer-events-auto max-w-[95%] xl:max-w-7xl mx-auto rounded-[2.5rem] p-4 md:px-6 flex flex-col md:flex-row shadow-2xl border-2 border-[var(--panel-border)] transition-all duration-500 bg-[var(--player-bar-bg)]`}>
+               
+                {/* ROW 1: INFO & SECONDARY ACTIONS */}
+                <div className="flex items-center justify-between w-full md:w-auto md:flex-1 min-w-0 z-10 pb-3 md:pb-0 mb-3 md:mb-0 md:border-0 border-b border-white/5">
+                    <div className="flex items-center gap-4 min-w-0">
                         <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-12 h-12" visualMode={visualMode} />
                         <div className="min-w-0">
-                            <h4 className="font-black text-sm md:text-base truncate">{currentStation?.name || 'Radio Stream'}</h4>
+                            <h4 className="font-black text-sm md:text-base truncate pr-2">{currentStation?.name || 'Radio Stream'}</h4>
                             <p className="text-[10px] text-primary font-black uppercase tracking-widest">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3 md:gap-6 z-10 mx-4">
-                        {/* EQ Button (Left of Previous) */}
+
+                    {/* Mobile Only: Top Right Tools */}
+                    <div className="flex md:hidden items-center gap-1">
+                        <button 
+                             onClick={() => setShareOpen(true)}
+                             className="p-2 text-slate-400 hover:text-white transition-colors"
+                        >
+                            <ShareIcon className="w-5 h-5" />
+                        </button>
+                        <button onClick={() => setToolsOpen(!toolsOpen)} className={`p-2 text-slate-400 hover:text-white transition-colors`}>
+                            <AdjustmentsIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* ROW 2: CONTROLS */}
+                <div className="flex items-center justify-between w-full md:w-auto md:gap-6 z-10 px-1 md:px-0 md:mx-4">
+                    
+                    {/* LEFT GROUP: Viz & Heart */}
+                    <div className="flex items-center gap-2 md:gap-6">
+                        {/* Viz Toggle */}
                         <button 
                             onClick={() => setToolsOpen(!toolsOpen)} 
                             className="p-2 transition-all hover:scale-110 active:scale-95 group"
@@ -996,15 +1017,7 @@ export default function App(): React.JSX.Element {
                             </div>
                         </button>
 
-                        <button onClick={handlePreviousStation} className="p-2 text-slate-400 hover:text-white transition-colors"><PreviousIcon className="w-6 h-6" /></button>
-                        
-                        <button onClick={togglePlay} className="w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center bg-white text-black shadow-xl hover:scale-105 transition-all">
-                            {isBuffering ? <LoadingIcon className="animate-spin w-6 h-6" /> : isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6 ml-1" />}
-                        </button>
-                        
-                        <button onClick={handleNextStation} className="p-2 text-slate-400 hover:text-white transition-colors"><NextIcon className="w-6 h-6" /></button>
-
-                        {/* Favorite Button (Right of Next) */}
+                        {/* Favorite */}
                         <button 
                              onClick={(e) => { e.stopPropagation(); if(currentStation) toggleFavorite(currentStation.stationuuid); }}
                              className={`p-2 transition-all duration-300 hover:scale-110 ${currentStation && favorites.includes(currentStation.stationuuid) ? 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'text-slate-400 hover:text-white'}`}
@@ -1012,8 +1025,21 @@ export default function App(): React.JSX.Element {
                         >
                             <HeartIcon className={`w-6 h-6 ${currentStation && favorites.includes(currentStation.stationuuid) ? 'fill-current' : ''}`} />
                         </button>
+                    </div>
 
-                        {/* Shuffle Button (Right of Heart) */}
+                    {/* CENTER GROUP: Transport */}
+                    <div className="flex items-center gap-3 sm:gap-6">
+                        <button onClick={handlePreviousStation} className="p-2 text-slate-400 hover:text-white transition-colors"><PreviousIcon className="w-6 h-6" /></button>
+                        
+                        <button onClick={togglePlay} className="w-14 h-14 md:w-14 md:h-14 rounded-full flex items-center justify-center bg-white text-black shadow-xl hover:scale-105 transition-all mx-1">
+                            {isBuffering ? <LoadingIcon className="animate-spin w-6 h-6" /> : isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6 ml-1" />}
+                        </button>
+                        
+                        <button onClick={handleNextStation} className="p-2 text-slate-400 hover:text-white transition-colors"><NextIcon className="w-6 h-6" /></button>
+                    </div>
+
+                    {/* RIGHT GROUP: Shuffle & More */}
+                    <div className="flex items-center gap-2 md:gap-6">
                         <button 
                             onClick={() => setIsRandomMode(!isRandomMode)} 
                             className={`p-2 transition-all hover:scale-110 active:scale-95 ${isRandomMode ? 'text-primary drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : 'text-slate-400 hover:text-white'}`}
@@ -1021,26 +1047,28 @@ export default function App(): React.JSX.Element {
                         >
                             <ShuffleIcon className="w-5 h-5" />
                         </button>
+                        
+                        {/* Presets (Desktop Only) */}
+                        <div className="hidden 2xl:flex items-center gap-1.5 bg-black/20 p-1.5 rounded-xl border border-white/5">
+                            {GLOBAL_PRESETS.map(preset => (
+                                <button
+                                    key={preset.id}
+                                    onClick={() => handleApplyPreset(preset.id)}
+                                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${
+                                        activePresetId === preset.id 
+                                        ? 'bg-primary text-black shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)] scale-105' 
+                                        : 'text-slate-500 hover:text-white hover:bg-white/10'
+                                    }`}
+                                >
+                                    {preset.name}
+                                </button>
+                            ))}
+                        </div>
                     </div>
-                    
-                    {/* Inline Presets (Desktop Only) */}
-                    <div className="hidden 2xl:flex items-center gap-1.5 mx-4 bg-black/20 p-1.5 rounded-xl border border-white/5">
-                        {GLOBAL_PRESETS.map(preset => (
-                            <button
-                                key={preset.id}
-                                onClick={() => handleApplyPreset(preset.id)}
-                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${
-                                    activePresetId === preset.id 
-                                    ? 'bg-primary text-black shadow-[0_0_15px_rgba(var(--primary-rgb),0.5)] scale-105' 
-                                    : 'text-slate-500 hover:text-white hover:bg-white/10'
-                                }`}
-                            >
-                                {preset.name}
-                            </button>
-                        ))}
-                    </div>
+                </div>
 
-                    {/* Share Button (Right of Presets) */}
+                {/* ROW 3: DESKTOP EXTRAS (Volume, etc) */}
+                <div className="hidden md:flex flex-1 justify-end items-center gap-2 md:gap-5 z-10">
                     <button 
                          onClick={() => setShareOpen(true)}
                          className="p-2 text-slate-400 hover:text-primary transition-colors hover:scale-110"
@@ -1048,12 +1076,9 @@ export default function App(): React.JSX.Element {
                     >
                         <ShareIcon className="w-5 h-5" />
                     </button>
-
-                    <div className="flex-1 flex justify-end items-center gap-2 md:gap-5 z-10">
-                        <button onClick={() => setToolsOpen(!toolsOpen)} className={`p-2.5 text-[var(--text-base)] hover:text-primary transition-colors ${isIdleView ? 'hidden' : ''}`}><AdjustmentsIcon className="w-6 h-6" /></button>
-                        <div className="hidden md:flex items-center gap-3"><VolumeIcon className="w-5 h-5 text-slate-400" /><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} className="w-24 accent-primary cursor-pointer h-1.5 bg-slate-400/30 rounded-full" /></div>
-                    </div>
-               </div>
+                    <button onClick={() => setToolsOpen(!toolsOpen)} className={`p-2.5 text-[var(--text-base)] hover:text-primary transition-colors ${isIdleView ? 'hidden' : ''}`}><AdjustmentsIcon className="w-6 h-6" /></button>
+                    <div className="flex items-center gap-3"><VolumeIcon className="w-5 h-5 text-slate-400" /><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} className="w-24 accent-primary cursor-pointer h-1.5 bg-slate-400/30 rounded-full" /></div>
+                </div>
            </div>
         </div>
 
