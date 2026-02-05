@@ -97,9 +97,9 @@ const ChatDemoAnimation: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             await wait(1500); // Selecting file
             addMessage({ sender: 'Me', image: 'https://images.unsplash.com/photo-1598103442097-8b74394b95c6?w=400&h=300&fit=crop', type: 'image' });
 
-            // 6. Him: Я сейчас на собрание...
+            // 6. Him: Недавно приехал...
             await wait(3000);
-            addMessage({ sender: 'Max', text: 'Я сейчас на собрании, как закончится приеду', type: 'text' });
+            addMessage({ sender: 'Max', text: 'Недавно приехал с работы ,высплюсь и вечером к тебе заеду 😘', type: 'text' });
             
             // 7. Me: возьми с собой вино красное ок?
             await wait(2000);
