@@ -1017,9 +1017,9 @@ export default function App(): React.JSX.Element {
                 </div>
 
                 {/* ROW 3: CONTROLS */}
-                <div className="flex items-center justify-between w-full md:w-auto md:gap-6 z-10 px-4 md:px-0 md:mx-4">
+                <div className="flex items-center justify-between w-full md:w-auto md:gap-6 z-10 px-6 md:px-0 md:mx-4">
                     
-                    {/* LEFT GROUP: Viz & Heart */}
+                    {/* LEFT GROUP: Viz Only */}
                     <div className="flex items-center gap-2 md:gap-6">
                         {/* Viz Toggle */}
                         <button 
@@ -1032,15 +1032,6 @@ export default function App(): React.JSX.Element {
                                 <div className="w-1 h-5 bg-gradient-to-t from-purple-400 to-pink-500 rounded-full animate-[bounce_1.2s_infinite]"></div>
                                 <div className="w-1 h-2 bg-gradient-to-t from-yellow-400 to-red-500 rounded-full animate-[bounce_0.8s_infinite]"></div>
                             </div>
-                        </button>
-
-                        {/* Favorite */}
-                        <button 
-                             onClick={(e) => { e.stopPropagation(); if(currentStation) toggleFavorite(currentStation.stationuuid); }}
-                             className={`p-2 transition-all duration-300 hover:scale-110 ${currentStation && favorites.includes(currentStation.stationuuid) ? 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'text-slate-400 hover:text-white'}`}
-                             disabled={!currentStation}
-                        >
-                            <HeartIcon className={`w-6 h-6 ${currentStation && favorites.includes(currentStation.stationuuid) ? 'fill-current' : ''}`} />
                         </button>
                     </div>
 
@@ -1055,8 +1046,17 @@ export default function App(): React.JSX.Element {
                         <button onClick={handleNextStation} className="p-2 text-slate-400 hover:text-white transition-colors"><NextIcon className="w-6 h-6" /></button>
                     </div>
 
-                    {/* RIGHT GROUP: Shuffle & More */}
+                    {/* RIGHT GROUP: Heart & Shuffle & More */}
                     <div className="flex items-center gap-2 md:gap-6">
+                        {/* Favorite (Moved here) */}
+                        <button 
+                             onClick={(e) => { e.stopPropagation(); if(currentStation) toggleFavorite(currentStation.stationuuid); }}
+                             className={`p-2 transition-all duration-300 hover:scale-110 ${currentStation && favorites.includes(currentStation.stationuuid) ? 'text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'text-slate-400 hover:text-white'}`}
+                             disabled={!currentStation}
+                        >
+                            <HeartIcon className={`w-6 h-6 ${currentStation && favorites.includes(currentStation.stationuuid) ? 'fill-current' : ''}`} />
+                        </button>
+
                         <button 
                             onClick={() => setIsRandomMode(!isRandomMode)} 
                             className={`p-2 transition-all hover:scale-110 active:scale-95 ${isRandomMode ? 'text-primary drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : 'text-slate-400 hover:text-white'}`}
