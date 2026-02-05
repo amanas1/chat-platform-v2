@@ -1088,7 +1088,7 @@ export default function App(): React.JSX.Element {
                         }`}
                     >
                         <XMarkIcon className="w-3 h-3" />
-                        <span>Reset</span>
+                        <span>{t.reset || 'Reset'}</span>
                     </button>
                     {GLOBAL_PRESETS.filter(p => p.id !== 'reset').map(preset => (
                         <button
