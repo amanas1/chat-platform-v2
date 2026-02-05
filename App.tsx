@@ -1028,58 +1028,66 @@ export default function App(): React.JSX.Element {
         <div className={`absolute bottom-2 md:bottom-8 left-0 right-0 px-2 md:px-10 transition-all duration-700 ease-in-out z-20 ${chatOpen ? 'md:pr-[420px] lg:pr-[470px]' : ''} ${isIdleView ? 'opacity-0 translate-y-20 scale-95 pointer-events-none' : 'opacity-100 translate-y-0 scale-100 pointer-events-auto'}`}>
            <div className={`pointer-events-auto w-full md:w-auto md:max-w-7xl mx-auto rounded-[2rem] md:rounded-[2.5rem] p-3 md:p-6 flex flex-col md:flex-row shadow-2xl border-2 border-[var(--panel-border)] transition-all duration-500 bg-[var(--player-bar-bg)]`}>
                
-                {/* ROW 1: STATION INFO (Mobile Only - Logo Restored) */}
-                <div className="flex md:hidden items-center gap-3 mb-2 relative z-10 w-full pr-16">
-                    {/* Album Art / Logo */}
-                    <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 shadow-lg border border-white/10 bg-black/40">
+                {/* ROW 1: STATION INFO (Mobile Only - Logo Restored with Avatar Fallback) */}
+                <div className="flex md:hidden items-center gap-3 mb-2 relative z-10 w-full pr-16 bg-black/20 p-1.5 rounded-xl border border-white/5 backdrop-blur-sm">
+                    {/* Album Art / Logo / Dancing Avatar */}
+                    <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 shadow-lg border border-white/10 bg-black/50 relative">
                         {currentStation?.favicon ? (
-                            <img src={currentStation.favicon} alt={currentStation.name} className="w-full h-full object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-slate-800">
-                                <PlayIcon className="w-4 h-4 text-slate-500" />
-                            </div>
-                        )}
+                            <img 
+                                src={currentStation.favicon} 
+                                alt={currentStation.name} 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement?.classList.add('fallback-active');
+                                }}
+                            />
+                        ) : null}
+                        {/* Fallback (absolute positioned to show underneath or when img hidden) */}
+                        <div className={`absolute inset-0 flex items-center justify-center bg-slate-900 ${currentStation?.favicon ? '-z-10' : ''}`}>
+                            <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-full h-full p-1" visualMode={visualMode} />
+                        </div>
                     </div>
                 
                     {/* Info - Left Aligned */}
                     <div className="min-w-0 flex-1 flex flex-col justify-center">
-                            <h4 className="font-black text-sm leading-tight truncate">{currentStation?.name || 'Radio Stream'}</h4>
-                            <p className="text-[9px] text-primary font-black uppercase tracking-widest leading-tight">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
+                            <h4 className="font-black text-sm leading-tight truncate text-slate-100">{currentStation?.name || 'Radio Stream'}</h4>
+                            <p className="text-[9px] text-primary font-black uppercase tracking-widest leading-tight mt-0.5">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
                     </div>
 
                     {/* Mobile Only: Top Right Tools */}
-                    <div className="flex md:hidden items-center gap-1 absolute right-0 top-1/2 -translate-y-1/2">
+                    <div className="flex md:hidden items-center gap-1 absolute right-1.5 top-1/2 -translate-y-1/2">
                         <button 
                              onClick={() => setShareOpen(true)}
-                             className="p-2 text-slate-400 hover:text-white transition-colors"
+                             className="p-2 text-slate-400 hover:text-white transition-colors hover:bg-white/10 rounded-full"
                         >
-                            <ShareIcon className="w-5 h-5" />
+                            <ShareIcon className="w-4 h-4" />
                         </button>
-                        <button onClick={() => setToolsOpen(!toolsOpen)} className={`p-2 text-slate-400 hover:text-white transition-colors`}>
-                            <AdjustmentsIcon className="w-5 h-5" />
+                        <button onClick={() => setToolsOpen(!toolsOpen)} className={`p-2 text-slate-400 hover:text-white transition-colors hover:bg-white/10 rounded-full`}>
+                            <AdjustmentsIcon className="w-4 h-4" />
                         </button>
                     </div>
                 </div>
 
                 {/* ROW 2 (Mobile Only): PRESETS SCROLLABLE */}
-                <div className="flex md:hidden w-full overflow-x-auto no-scrollbar gap-1.5 pb-2 mb-1 mask-linear-fade">
-                    {/* Reset Button */}
+                <div className="flex md:hidden w-full overflow-x-auto no-scrollbar gap-1 pb-2 mb-1 mask-linear-fade pr-12">
+                    {/* Reset Button (Compact) */}
                     <button
                         onClick={() => setActivePresetId(null)}
-                        className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
+                        className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border flex items-center gap-1 ${
                             activePresetId === null
                             ? 'bg-slate-700 text-white border-slate-600' 
                             : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10'
                         }`}
                     >
-                        <XMarkIcon className="w-3 h-3 inline mr-1" />
-                        Reset
+                        <XMarkIcon className="w-3 h-3" />
+                        <span>Reset</span>
                     </button>
                     {GLOBAL_PRESETS.map(preset => (
                         <button
                             key={preset.id}
                             onClick={() => handleApplyPreset(preset.id)}
-                            className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
+                            className={`px-3 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
                                 activePresetId === preset.id 
                                 ? 'bg-primary text-black border-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]' 
                                 : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:border-white/10'
@@ -1091,7 +1099,7 @@ export default function App(): React.JSX.Element {
                 </div>
 
                 {/* ROW 3: CONTROLS */}
-                <div className="flex items-center justify-between w-full md:w-auto md:gap-6 z-10 px-4 md:px-0 md:mx-4">
+                <div className="flex items-center justify-between w-full md:w-auto md:gap-6 z-10 px-2 md:px-0 md:mx-4">
                     
                     {/* LEFT GROUP: Viz Only */}
                     <div className="flex items-center gap-2 md:gap-6">
