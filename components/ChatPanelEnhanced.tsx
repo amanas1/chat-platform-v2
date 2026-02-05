@@ -269,6 +269,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [showDeleteHint, setShowDeleteHint] = useState(false);
   const [isDemoOpen, setIsDemoOpen] = useState(false);
   const [isRegDemoOpen, setIsRegDemoOpen] = useState(false);
+  const [showDemoMenu, setShowDemoMenu] = useState(false);
   const deleteHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update current time every second for live countdowns
@@ -1824,21 +1825,63 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </span>
                         </div>
                     </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 relative">
+                             {/* Help/Demo Menu Button */}
                             <button 
-                                onClick={() => setIsRegDemoOpen(true)}
-                                className="w-8 h-8 rounded-full bg-green-500/10 hover:bg-green-500/20 text-green-400 flex items-center justify-center transition-colors"
-                                title="Показать демо регистрации"
-                            >
-                                <span className="text-xs font-bold">REG</span>
-                            </button>
-                            <button 
-                                onClick={() => setIsDemoOpen(true)}
-                                className="w-8 h-8 rounded-full bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center transition-colors"
-                                title="Посмотреть демо чата"
+                                onClick={() => setShowDemoMenu(!showDemoMenu)}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showDemoMenu ? 'bg-primary text-black' : 'bg-primary/10 hover:bg-primary/20 text-primary'}`}
+                                title={language === 'ru' ? 'Помощь и демо' : 'Help & Demos'}
                             >
                                 <span className="text-lg font-bold">?</span>
                             </button>
+
+                            {/* Dropdown Menu */}
+                            {showDemoMenu && (
+                                <div className="absolute top-10 right-0 w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in slide-in-from-top-2 fade-in duration-200">
+                                    <div className="p-2 space-y-1">
+                                        <button 
+                                            onClick={() => {
+                                                setIsDemoOpen(true);
+                                                setShowDemoMenu(false);
+                                            }}
+                                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 text-left transition-colors group"
+                                        >
+                                            <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                                                <span className="text-sm">🎬</span>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-white leading-tight">{language === 'ru' ? 'Сценарий Чата' : 'Chat Scenario'}</div>
+                                                <div className="text-[9px] text-slate-400">Romantic Story</div>
+                                            </div>
+                                        </button>
+
+                                        <button 
+                                            onClick={() => {
+                                                setIsRegDemoOpen(true);
+                                                setShowDemoMenu(false);
+                                            }}
+                                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 text-left transition-colors group"
+                                        >
+                                            <div className="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center group-hover:bg-green-500 group-hover:text-white transition-colors">
+                                                <span className="text-sm">📝</span>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-white leading-tight">{language === 'ru' ? 'Регистрация' : 'Registration'}</div>
+                                                <div className="text-[9px] text-slate-400">Step-by-step</div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                    <div className="bg-white/5 p-2 text-center">
+                                        <p className="text-[9px] text-slate-500">v1.2 Demo Mode</p>
+                                    </div>
+                                </div>
+                            )}
+
+                             {/* Backdrop to close menu */}
+                            {showDemoMenu && (
+                                <div className="fixed inset-0 z-[90]" onClick={() => setShowDemoMenu(false)} />
+                            )}
+
                             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white">
                                 <XMarkIcon className="w-6 h-6" />
                             </button>
