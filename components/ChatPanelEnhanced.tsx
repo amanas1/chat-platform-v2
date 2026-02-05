@@ -11,6 +11,7 @@ import {
 import { ChatMessage, UserProfile, Language, RadioStation, ChatSession, VisualMode } from '../types';
 import AudioVisualizer from './AudioVisualizer';
 import DancingAvatar from './DancingAvatar';
+const ChatDemoAnimation = React.lazy(() => import('./ChatDemoAnimation'));
 import { socketService } from '../services/socketService';
 import { encryptionService } from '../services/encryptionService';
 import { geolocationService } from '../services/geolocationService';
@@ -264,7 +265,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 }) => {
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
   const [currentTime, setCurrentTime] = useState(Date.now());
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const [showDeleteHint, setShowDeleteHint] = useState(false);
+  const [isDemoOpen, setIsDemoOpen] = useState(false);
   const deleteHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update current time every second for live countdowns
@@ -2832,6 +2835,19 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 
                 {/* Fallback Audio Element (just in case) */}
                 <audio id="remote-audio" autoPlay playsInline className="hidden" />
+            </div>
+        )}
+
+            </div>
+        )}
+
+        {isDemoOpen && (
+            <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+                <React.Suspense fallback={<div className="text-white">Loading demo...</div>}>
+                    <div className="w-full max-w-sm">
+                        <ChatDemoAnimation onClose={() => setIsDemoOpen(false)} />
+                    </div>
+                </React.Suspense>
             </div>
         )}
 
