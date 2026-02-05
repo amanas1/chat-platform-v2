@@ -115,6 +115,7 @@ export default function App(): React.JSX.Element {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false); 
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
 
   const handleApplyPreset = (presetId: string) => {
@@ -1035,6 +1036,15 @@ export default function App(): React.JSX.Element {
                             </button>
                         ))}
                     </div>
+
+                    {/* Share Button (Right of Presets) */}
+                    <button 
+                         onClick={() => setShareOpen(true)}
+                         className="p-2 text-slate-400 hover:text-primary transition-colors hover:scale-110"
+                         title="Share"
+                    >
+                        <ShareIcon className="w-5 h-5" />
+                    </button>
 
                     <div className="flex-1 flex justify-end items-center gap-2 md:gap-5 z-10">
                         <button onClick={() => setToolsOpen(!toolsOpen)} className={`p-2.5 text-[var(--text-base)] hover:text-primary transition-colors ${isIdleView ? 'hidden' : ''}`}><AdjustmentsIcon className="w-6 h-6" /></button>
