@@ -1028,16 +1028,27 @@ export default function App(): React.JSX.Element {
         <div className={`absolute bottom-2 md:bottom-8 left-0 right-0 px-2 md:px-10 transition-all duration-700 ease-in-out z-20 ${chatOpen ? 'md:pr-[420px] lg:pr-[470px]' : ''} ${isIdleView ? 'opacity-0 translate-y-20 scale-95 pointer-events-none' : 'opacity-100 translate-y-0 scale-100 pointer-events-auto'}`}>
            <div className={`pointer-events-auto w-full md:w-auto md:max-w-7xl mx-auto rounded-[2rem] md:rounded-[2.5rem] p-3 md:p-6 flex flex-col md:flex-row shadow-2xl border-2 border-[var(--panel-border)] transition-all duration-500 bg-[var(--player-bar-bg)]`}>
                
-                {/* ROW 1: STATION INFO (Mobile Only - Logo Hidden for Space) */}
-                <div className="flex md:hidden items-center justify-between gap-3 mb-2 relative z-10 w-full">
-                    {/* Info - Stretched */}
-                    <div className="min-w-0 flex-1 text-center">
-                            <h4 className="font-black text-sm md:text-base truncate">{currentStation?.name || 'Radio Stream'}</h4>
-                            <p className="text-[9px] text-primary font-black uppercase tracking-widest">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
+                {/* ROW 1: STATION INFO (Mobile Only - Logo Restored) */}
+                <div className="flex md:hidden items-center gap-3 mb-2 relative z-10 w-full pr-16">
+                    {/* Album Art / Logo */}
+                    <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 shadow-lg border border-white/10 bg-black/40">
+                        {currentStation?.favicon ? (
+                            <img src={currentStation.favicon} alt={currentStation.name} className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-slate-800">
+                                <MusicNoteIcon className="w-4 h-4 text-slate-500" />
+                            </div>
+                        )}
+                    </div>
+                
+                    {/* Info - Left Aligned */}
+                    <div className="min-w-0 flex-1 flex flex-col justify-center">
+                            <h4 className="font-black text-sm leading-tight truncate">{currentStation?.name || 'Radio Stream'}</h4>
+                            <p className="text-[9px] text-primary font-black uppercase tracking-widest leading-tight">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
                     </div>
 
                     {/* Mobile Only: Top Right Tools */}
-                    <div className="flex md:hidden items-center gap-1 absolute right-0 top-0 h-full">
+                    <div className="flex md:hidden items-center gap-1 absolute right-0 top-1/2 -translate-y-1/2">
                         <button 
                              onClick={() => setShareOpen(true)}
                              className="p-2 text-slate-400 hover:text-white transition-colors"
