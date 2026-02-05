@@ -325,10 +325,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
             ctx.fill();
         }
 
-        ctx.beginPath();
-        ctx.moveTo(shoulderX + headWobble - 5*dancerScale, headY + 8*dancerScale);
-        ctx.lineTo(shoulderX + headWobble + 5*dancerScale, headY + 8*dancerScale);
-        ctx.stroke();
+
       };
 
         // Human-like Blink Logic (Global for all dancers)
