@@ -388,23 +388,23 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
         if (isPlaying && visualMode !== 'low') {
             // Left Spotlight (Responsive to Bass/Low Mids)
             drawSpotlight(
-                width * 0.2, 
-                Math.PI * 0.15 + Math.sin(time * 0.8) * 0.1, // Swaying
-                (time * 50) % 360, // Cycling Colors
-                (sLow / 255) // Intensity by Bass
+                width * 0.1, 
+                Math.PI * 0.22 + Math.sin(time * 0.5) * 0.08, // Angled inward ~40deg + Slow Sway
+                (time * 40) % 360, 
+                (sLow / 255) 
             );
             
             // Right Spotlight (Responsive to High Mids/Treble)
             drawSpotlight(
-                width * 0.8, 
-                -Math.PI * 0.15 + Math.sin(time * 1.2) * 0.1, 
-                (time * 50 + 180) % 360, // Opposite Color
-                (sMid / 255) // Intensity by Mids
+                width * 0.9, 
+                -Math.PI * 0.22 + Math.cos(time * 0.6) * 0.08, // Angled inward ~40deg + Slow Sway
+                (time * 40 + 180) % 360, 
+                (sMid / 255) 
             );
 
             // Center Strobe (Fast flashing on beat)
             if (beatVal > 0.6) {
-                 drawSpotlight(width * 0.5, 0, 0, Math.pow(beatVal, 4) * 0.5); // White flash
+                 drawSpotlight(width * 0.5, 0, 0, Math.pow(beatVal, 4) * 0.6); 
             }
         }
 

@@ -780,13 +780,15 @@ export const GLOBAL_PRESETS = [
         eq: [2, 1, 0, -1, -2, -1, 0, 1, 2, 3], // Soft V-shape, gentle highs
         fx: { reverb: 0.3, speed: 1.0 },
         process: { compressorEnabled: true, compressorThreshold: -20, compressorRatio: 2, bassBoost: 2, loudness: 1 },
-        theme: 'emerald' // Calming green
+        theme: 'emerald', // Calming green
+        ambience: { rainVolume: 0.25, fireVolume: 0.65, rainVariant: 'soft' } 
     },
     { 
         id: 'reset', name: 'Reset', ru: 'Сброс', 
         eq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
         fx: { reverb: 0, speed: 1.0 },
         process: { compressorEnabled: false, compressorThreshold: -20, compressorRatio: 2, bassBoost: 0, loudness: 0 },
-        theme: 'default'
+        theme: 'default',
+        ambience: { rainVolume: 0, fireVolume: 0, cityVolume: 0, vinylVolume: 0 } // Clear all
     }
 ];

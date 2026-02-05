@@ -136,6 +136,13 @@ export default function App(): React.JSX.Element {
       
       // Apply Dynamics
       setAudioEnhancements(prev => ({ ...prev, ...preset.process }));
+
+      // Apply Ambience
+      // @ts-ignore - Validating existence of property on runtime object
+      if (preset.ambience) {
+          // @ts-ignore
+          setAmbience(prev => ({ ...prev, ...preset.ambience }));
+      }
   };
 
   const [highlightFeature, setHighlightFeature] = useState<string | null>(null);
