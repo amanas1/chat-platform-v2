@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from './types';
-import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST } from './constants';
+import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, GLOBAL_PRESETS } from './constants';
 import { fetchStationsByTag, fetchStationsByUuids } from './services/radioService';
 import { curateStationList, isAiAvailable } from './services/geminiService';
 import { socketService } from './services/socketService';
@@ -115,6 +115,24 @@ export default function App(): React.JSX.Element {
   const [tutorialOpen, setTutorialOpen] = useState(false);
   const [downloadModalOpen, setDownloadModalOpen] = useState(false); 
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [activePresetId, setActivePresetId] = useState<string | null>(null);
+
+  const handleApplyPreset = (presetId: string) => {
+      const preset = GLOBAL_PRESETS.find(p => p.id === presetId);
+      if (!preset) return;
+      
+      setActivePresetId(presetId);
+      
+      // Apply EQ
+      setEqGains(preset.eq);
+      
+      // Apply FX
+      setFxSettings(prev => ({ ...prev, ...preset.fx }));
+      
+      // Apply Dynamics
+      setAudioEnhancements(prev => ({ ...prev, ...preset.process }));
+  };
+
   const [highlightFeature, setHighlightFeature] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
 
@@ -988,6 +1006,24 @@ export default function App(): React.JSX.Element {
                             <ShuffleIcon className="w-5 h-5" />
                         </button>
                     </div>
+                    
+                    {/* Inline Presets (Desktop Only) */}
+                    <div className="hidden 2xl:flex items-center gap-1.5 mx-4 bg-black/20 p-1.5 rounded-xl border border-white/5">
+                        {GLOBAL_PRESETS.map(preset => (
+                            <button
+                                key={preset.id}
+                                onClick={() => handleApplyPreset(preset.id)}
+                                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${
+                                    activePresetId === preset.id 
+                                    ? 'bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.4)] scale-105' 
+                                    : 'text-slate-500 hover:text-white hover:bg-white/10'
+                                }`}
+                            >
+                                {preset.name}
+                            </button>
+                        ))}
+                    </div>
+
                     <div className="flex-1 flex justify-end items-center gap-2 md:gap-5 z-10">
                         <button onClick={() => setToolsOpen(!toolsOpen)} className={`p-2.5 text-[var(--text-base)] hover:text-primary transition-colors ${isIdleView ? 'hidden' : ''}`}><AdjustmentsIcon className="w-6 h-6" /></button>
                         <div className="hidden md:flex items-center gap-3"><VolumeIcon className="w-5 h-5 text-slate-400" /><input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} className="w-24 accent-primary cursor-pointer h-1.5 bg-slate-400/30 rounded-full" /></div>
