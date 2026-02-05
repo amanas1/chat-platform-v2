@@ -814,7 +814,7 @@ export default function App(): React.JSX.Element {
   const loadCategory = useCallback(async (category: CategoryInfo | null, mode: ViewMode, autoPlay: boolean = false) => { 
     const requestId = Date.now();
     loadRequestIdRef.current = requestId;
-    setViewMode(mode); setSelectedCategory(category); setIsLoading(true); if (window.innerWidth < 768) setSidebarOpen(false); setVisibleCount(INITIAL_CHUNK); setStations([]);
+    setViewMode(mode); setSelectedCategory(category); setIsLoading(true); setVisibleCount(INITIAL_CHUNK); setStations([]);
     setIsAiCurating(false); 
     try {
       if (mode === 'favorites') {
