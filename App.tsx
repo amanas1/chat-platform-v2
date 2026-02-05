@@ -325,15 +325,13 @@ export default function App(): React.JSX.Element {
 
     let hideTimer: number;
 
-    const resetHideTimer = () => {
+        const resetHideTimer = () => {
         clearTimeout(hideTimer);
-        // Check for mobile landscape (orientation landscape and height < 600px typical for phones)
-        const isMobileLandscape = window.matchMedia("(orientation: landscape) and (max-height: 600px)").matches;
-        
-        if (isMobileLandscape) {
+        // Auto-hide on mobile after 3 seconds of inactivity
+        if (window.innerWidth < 768) {
             hideTimer = window.setTimeout(() => {
                 setSidebarOpen(false);
-            }, 5000);
+            }, 3000);
         }
     };
 
