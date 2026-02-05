@@ -76,6 +76,7 @@ export default function RegistrationDemoAnimation({ onComplete }: RegistrationDe
         setCursorPos({ x: '50%', y: '45%' });
         await wait(800);
         await click();
+        setStep(1); // Update text to "Step 1"
         await typeText("Alex", setName);
         
         await wait(500);
@@ -88,6 +89,7 @@ export default function RegistrationDemoAnimation({ onComplete }: RegistrationDe
         // --- PHASE 3: VOICE INTRO ---
         await wait(1000);
         // Move to Mic
+        setStep(2); // Update text to "Voice Intro"
         setCursorPos({ x: '50%', y: '68%' });
         await wait(1000);
         await click();
@@ -175,7 +177,7 @@ export default function RegistrationDemoAnimation({ onComplete }: RegistrationDe
             <h2 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
                 Регистрация (Demo)
             </h2>
-            <button className="p-2 text-slate-400"><XMarkIcon className="w-6 h-6" /></button>
+            <button onClick={onComplete} className="p-2 text-slate-400 hover:text-white pointer-events-auto transition-colors"><XMarkIcon className="w-6 h-6" /></button>
         </div>
 
         {/* Scrollable Content */}
