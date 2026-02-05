@@ -781,7 +781,7 @@ export const GLOBAL_PRESETS = [
         fx: { reverb: 0.3, speed: 1.0 },
         process: { compressorEnabled: true, compressorThreshold: -20, compressorRatio: 2, bassBoost: 2, loudness: 1 },
         theme: 'emerald', // Calming green
-        ambience: { rainVolume: 0.25, fireVolume: 0.65, rainVariant: 'soft' } 
+        ambience: { rainVolume: 0.50, fireVolume: 0.30, rainVariant: 'soft' } 
     },
     { 
         id: 'reset', name: 'Reset', ru: 'Сброс', 
