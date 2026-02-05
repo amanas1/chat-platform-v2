@@ -265,7 +265,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 }) => {
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
   const [currentTime, setCurrentTime] = useState(Date.now());
-  const [currentTime, setCurrentTime] = useState(Date.now());
   const [showDeleteHint, setShowDeleteHint] = useState(false);
   const [isDemoOpen, setIsDemoOpen] = useState(false);
   const deleteHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -1823,7 +1822,16 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full border border-white/5"><XMarkIcon className="w-5 h-5" /></button>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={() => setIsDemoOpen(true)} 
+                            className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full border border-white/5 hover:bg-white/10"
+                            title={language === 'ru' ? 'Как это работает?' : 'How it works?'}
+                        >
+                            <span className="w-5 h-5 flex items-center justify-center font-bold text-sm">?</span>
+                        </button>
+                        <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors bg-white/5 rounded-full border border-white/5 hover:bg-white/10"><XMarkIcon className="w-5 h-5" /></button>
+                    </div>
                 </>
             )}
         </header>
@@ -2838,8 +2846,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             </div>
         )}
 
-            </div>
-        )}
+
 
         {isDemoOpen && (
             <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
