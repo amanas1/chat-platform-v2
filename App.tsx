@@ -67,7 +67,7 @@ const StationCard = React.memo(({
   return (
     <div 
       onClick={() => onPlay(station)} 
-      className={`group relative rounded-[2rem] p-5 cursor-pointer transition-all border-2 animate-in fade-in slide-in-from-bottom-3 duration-500 ${isSelected ? 'bg-[var(--selected-item-bg)] border-primary shadow-2xl shadow-primary/20 scale-[1.02]' : 'glass-card border-[var(--panel-border)] hover:border-white/20 hover:bg-white/5'}`}
+      className={`group relative rounded-[2rem] p-5 cursor-pointer transition-all border-2 animate-in fade-in slide-in-from-bottom-3 duration-500 ${isSelected ? 'bg-[var(--selected-item-bg)] border-primary shadow-2xl shadow-primary/20 scale-[1.02]' : 'bg-black/60 backdrop-blur-md border-[var(--panel-border)] hover:border-white/20 hover:bg-black/80'}`}
       style={{ animationDelay: `${(index % 5) * 50}ms` }}
     >
       <div className="flex justify-between mb-4">

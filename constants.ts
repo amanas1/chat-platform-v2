@@ -774,5 +774,19 @@ export const GLOBAL_PRESETS = [
         fx: { reverb: 0.25, speed: 1.0 },
         process: { compressorEnabled: true, compressorThreshold: -12, compressorRatio: 2, bassBoost: 8, loudness: 2 },
         theme: 'volcano'
+    },
+    { 
+        id: 'relax', name: 'Relax', ru: 'Relax', 
+        eq: [2, 1, 0, -1, -2, -1, 0, 1, 2, 3], // Soft V-shape, gentle highs
+        fx: { reverb: 0.3, speed: 1.0 },
+        process: { compressorEnabled: true, compressorThreshold: -20, compressorRatio: 2, bassBoost: 2, loudness: 1 },
+        theme: 'emerald' // Calming green
+    },
+    { 
+        id: 'reset', name: 'Reset', ru: 'Сброс', 
+        eq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
+        fx: { reverb: 0, speed: 1.0 },
+        process: { compressorEnabled: false, compressorThreshold: -20, compressorRatio: 2, bassBoost: 0, loudness: 0 },
+        theme: 'default'
     }
 ];
