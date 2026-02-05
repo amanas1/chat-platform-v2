@@ -1028,18 +1028,16 @@ export default function App(): React.JSX.Element {
         <div className={`absolute bottom-2 md:bottom-8 left-0 right-0 px-2 md:px-10 transition-all duration-700 ease-in-out z-20 ${chatOpen ? 'md:pr-[420px] lg:pr-[470px]' : ''} ${isIdleView ? 'opacity-0 translate-y-20 scale-95 pointer-events-none' : 'opacity-100 translate-y-0 scale-100 pointer-events-auto'}`}>
            <div className={`pointer-events-auto w-full md:w-auto md:max-w-7xl mx-auto rounded-[2rem] md:rounded-[2.5rem] p-3 md:p-6 flex flex-col md:flex-row shadow-2xl border-2 border-[var(--panel-border)] transition-all duration-500 bg-[var(--player-bar-bg)]`}>
                
-                {/* ROW 1: INFO & SECONDARY ACTIONS */}
-                <div className="flex items-center justify-between w-full md:w-auto md:flex-1 min-w-0 z-10 pb-2 md:pb-0 mb-2 md:mb-0 md:border-0 border-b border-white/5">
-                    <div className="flex items-center gap-4 min-w-0">
-                        <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-12 h-12" visualMode={visualMode} />
-                        <div className="min-w-0">
-                            <h4 className="font-black text-sm md:text-base truncate pr-2">{currentStation?.name || 'Radio Stream'}</h4>
-                            <p className="text-[10px] text-primary font-black uppercase tracking-widest">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
-                        </div>
+                {/* ROW 1: STATION INFO (Mobile Only - Logo Hidden for Space) */}
+                <div className="flex md:hidden items-center justify-between gap-3 mb-2 relative z-10 w-full">
+                    {/* Info - Stretched */}
+                    <div className="min-w-0 flex-1 text-center">
+                            <h4 className="font-black text-sm md:text-base truncate">{currentStation?.name || 'Radio Stream'}</h4>
+                            <p className="text-[9px] text-primary font-black uppercase tracking-widest">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
                     </div>
 
                     {/* Mobile Only: Top Right Tools */}
-                    <div className="flex md:hidden items-center gap-1">
+                    <div className="flex md:hidden items-center gap-1 absolute right-0 top-0 h-full">
                         <button 
                              onClick={() => setShareOpen(true)}
                              className="p-2 text-slate-400 hover:text-white transition-colors"
@@ -1052,12 +1050,12 @@ export default function App(): React.JSX.Element {
                     </div>
                 </div>
 
-                {/* ROW 2 (Mobile Only): PRESETS SCROLLABLE ZIPPER */}
-                <div className="flex md:hidden w-full overflow-x-auto no-scrollbar gap-2 pb-3 mb-2 mask-linear-fade">
+                {/* ROW 2 (Mobile Only): PRESETS SCROLLABLE */}
+                <div className="flex md:hidden w-full overflow-x-auto no-scrollbar gap-1.5 pb-2 mb-1 mask-linear-fade">
                     {/* Reset Button */}
                     <button
                         onClick={() => setActivePresetId(null)}
-                        className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
+                        className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
                             activePresetId === null
                             ? 'bg-slate-700 text-white border-slate-600' 
                             : 'bg-white/5 text-slate-500 border-white/5 hover:bg-white/10'
@@ -1070,7 +1068,7 @@ export default function App(): React.JSX.Element {
                         <button
                             key={preset.id}
                             onClick={() => handleApplyPreset(preset.id)}
-                            className={`px-4 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
+                            className={`px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
                                 activePresetId === preset.id 
                                 ? 'bg-primary text-black border-primary shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]' 
                                 : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:border-white/10'
@@ -1082,7 +1080,7 @@ export default function App(): React.JSX.Element {
                 </div>
 
                 {/* ROW 3: CONTROLS */}
-                <div className="flex items-center justify-between w-full md:w-auto md:gap-6 z-10 px-6 md:px-0 md:mx-4">
+                <div className="flex items-center justify-between w-full md:w-auto md:gap-6 z-10 px-4 md:px-0 md:mx-4">
                     
                     {/* LEFT GROUP: Viz Only */}
                     <div className="flex items-center gap-2 md:gap-6">
