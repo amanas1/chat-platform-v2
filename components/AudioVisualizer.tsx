@@ -654,22 +654,26 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       } else {
         const baseBarCount = visualMode === 'low' ? 50 : (visualMode === 'medium' ? 80 : 120);
         const barCount = Math.floor(baseBarCount * (settings.barDensity || 1.2));
-        const barWidth = effectiveWidth / barCount;
+        const effectiveWidthFill = width * 0.98;
+        const offsetXFill = (width - effectiveWidthFill) / 2;
+        const barWidth = effectiveWidthFill / barCount;
         const timeShift = Date.now() / 100 * animationSpeed;
         const glowMult = settings.glowIntensity ?? 1.2;
         
         for (let i = 0; i < barCount; i++) {
           const t = i / barCount;
-          // Improved frequency mapping: logarithmic at start, linear at end
-          const freqIndex = Math.floor(Math.pow(t, 0.6) * (bufferLength * 0.95));
+          // Stretch more of the active spectrum (bass-mids-highs up to ~14kHz)
+          // index 0.6 of 1024 is ~13.2kHz, where most radio energy ends.
+          const freqIndex = Math.floor(Math.pow(t, 0.85) * (bufferLength * 0.65));
           
           const rawVal = (dataArray[freqIndex] || 0) / 255;
-          // Boost high frequencies slightly to ensure they are visible even with lower energy
-          const sensitivity = 1 + t * 0.4;
-          const intensityVal = Math.min(1, rawVal * sensitivity);
+          // High frequency boost + small noise floor to keep it alive
+          const sensitivity = 1 + t * 0.8;
+          const noise = isPlaying ? (Math.random() * 0.02 * t) : 0;
+          const intensityVal = Math.min(1, rawVal * sensitivity + noise);
           
           const barHeight = intensityVal * effectiveHeight;
-          const x = offsetX + (i * barWidth);
+          const x = offsetXFill + (i * barWidth);
           const hue = (i / barCount) * 360 + (isPlaying ? timeShift : 0);
           
           if (variant === 'segmented') {
