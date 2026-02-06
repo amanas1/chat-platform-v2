@@ -40,7 +40,17 @@ const THEME_COLORS: Record<ThemeName, { primary: string; secondary: string }> = 
 };
 
 const DEFAULT_VIZ_SETTINGS: VisualizerSettings = {
-  scaleX: 1.0, scaleY: 1.0, brightness: 100, contrast: 100, saturation: 100, hue: 0, opacity: 1.0, speed: 1.0, autoIdle: true, performanceMode: true, energySaver: false
+  scaleX: 1,
+  scaleY: 1,
+  brightness: 110,
+  contrast: 120,
+  saturation: 110,
+  hue: 0,
+  opacity: 1,
+  speed: 1,
+  autoIdle: true,
+  performanceMode: true,
+  energySaver: false
 };
 
 const INITIAL_CHUNK = 5; 
@@ -182,8 +192,8 @@ export default function App(): React.JSX.Element {
     return 'ru';
   });
   const [visualizerVariant, setVisualizerVariant] = useState<VisualizerVariant>(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) return 'stage-dancer';
-    return 'galaxy';
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) return 'stage-dancer';
+    return 'segmented';
   });
   const [vizSettings, setVizSettings] = useState<VisualizerSettings>(DEFAULT_VIZ_SETTINGS);
   const [danceStyle, setDanceStyle] = useState<number>(1);

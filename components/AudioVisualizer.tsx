@@ -652,27 +652,53 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
           ctx.fill();
         });
       } else {
-        const barCount = visualMode === 'low' ? 40 : (visualMode === 'medium' ? 80 : 120);
+        const barCount = visualMode === 'low' ? 60 : (visualMode === 'medium' ? 100 : 160);
         const barWidth = effectiveWidth / barCount;
         const timeShift = Date.now() / 100 * animationSpeed;
+        
         for (let i = 0; i < barCount; i++) {
-          const freqIndex = Math.floor((i / barCount) * bufferLength * 0.8);
+          const freqIndex = Math.floor((i / barCount) * (bufferLength * 0.9)); // Reach further into frequencies
           const intensityVal = (dataArray[freqIndex] || 0) / 255;
           const barHeight = intensityVal * effectiveHeight;
           const x = offsetX + (i * barWidth);
           const hue = (i / barCount) * 360 + (isPlaying ? timeShift : 0);
+          
           if (variant === 'segmented') {
             const centerY = height / 2;
             const segH = 4;
-            const segG = 1;
+            const segG = 2;
             const count = Math.floor(barHeight / (segH + segG));
-            ctx.fillStyle = `hsla(${hue}, 80%, 60%, 1)`;
-            for(let s=0; s<count; s++) {
-              ctx.fillRect(x, centerY - s*(segH+segG) - segH, barWidth - 1, segH);
-              ctx.fillRect(x, centerY + s*(segH+segG), barWidth - 1, segH);
+            
+            // Premium Gradient & Glow
+            const barGrd = ctx.createLinearGradient(x, centerY - barHeight, x, centerY + barHeight);
+            barGrd.addColorStop(0, `hsla(${hue}, 100%, 70%, 1)`);
+            barGrd.addColorStop(0.5, `hsla(${hue}, 80%, 50%, 0.8)`);
+            barGrd.addColorStop(1, `hsla(${hue}, 100%, 70%, 1)`);
+            
+            ctx.fillStyle = barGrd;
+            
+            if (visualMode === 'high' && intensityVal > 0.2) {
+              ctx.shadowBlur = 12 * intensityVal;
+              ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.8)`;
             }
+
+            for(let s=0; s<count; s++) {
+              const rectYTop = centerY - s*(segH+segG) - segH;
+              const rectYBottom = centerY + s*(segH+segG);
+              
+              // Draw top segment
+              ctx.fillRect(x, rectYTop, barWidth - 1, segH);
+              // Draw bottom segment mirrored
+              ctx.fillRect(x, rectYBottom, barWidth - 1, segH);
+            }
+            
+            ctx.shadowBlur = 0;
           } else {
-            ctx.fillStyle = `hsla(${hue}, 80%, 60%, 0.8)`;
+            const barGrd = ctx.createLinearGradient(x, height, x, height - barHeight);
+            barGrd.addColorStop(0, `hsla(${hue}, 80%, 50%, 0.8)`);
+            barGrd.addColorStop(1, `hsla(${hue}, 100%, 70%, 1)`);
+            
+            ctx.fillStyle = barGrd;
             ctx.fillRect(x, height - barHeight - (height - effectiveHeight)/2, barWidth - 1, barHeight);
           }
         }
