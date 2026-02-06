@@ -18,5 +18,21 @@
       "sizes": "512x512",
       "type": "image/png"
     }
+  ],
+  "screenshots": [
+    {
+      "src": "/player_view.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "StreamFlow Player View"
+    },
+    {
+      "src": "/acoustic_waves_visualizer.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Visualizer Display"
+    }
   ]
 }
