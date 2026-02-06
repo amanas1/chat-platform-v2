@@ -122,6 +122,25 @@ const COUNTRY_FLAGS: Record<string, string> = {
   'Global': '🌍'
 };
 
+const COUNTRY_NAMES: Record<string, Record<string, string>> = {
+  'KZ': { en: 'Kazakhstan', ru: 'Казахстан' },
+  'Kazakhstan': { en: 'Kazakhstan', ru: 'Казахстан' },
+  'RU': { en: 'Russia', ru: 'Россия' },
+  'Russia': { en: 'Russia', ru: 'Россия' },
+  'US': { en: 'USA', ru: 'США' },
+  'USA': { en: 'USA', ru: 'США' },
+  'UZ': { en: 'Uzbekistan', ru: 'Узбекистан' },
+  'UA': { en: 'Ukraine', ru: 'Украина' },
+  'DE': { en: 'Germany', ru: 'Германия' },
+  'TR': { en: 'Turkey', ru: 'Турция' },
+  'Global': { en: 'Global', ru: 'Весь мир' }
+};
+
+function getCountryName(code: string, lang: 'en' | 'ru'): string {
+    const map = COUNTRY_NAMES[code] || COUNTRY_NAMES[code.toUpperCase()];
+    return map ? map[lang] : code;
+}
+
 function getCountryFlag(country: string): string {
     return COUNTRY_FLAGS[country] || COUNTRY_FLAGS[country.toUpperCase()] || '🌍';
 }
@@ -1028,7 +1047,9 @@ export default function App(): React.JSX.Element {
               {/* Online Counter - Smart Ticker Mode */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-md animate-in fade-in zoom-in duration-500 shadow-lg ml-1">
                   <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)] ${onlineStats.totalOnline > 0 ? 'bg-green-500' : 'bg-slate-500 shadow-none'}`}></div>
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  
+                  {/* MOBILE VERSION (Compact) */}
+                  <span className="md:hidden text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                       {Object.keys(countryStats).length > 0 ? (
                           <>
                             <span>{getCountryFlag(Object.keys(countryStats)[0])}</span>
@@ -1039,6 +1060,29 @@ export default function App(): React.JSX.Element {
                              {/* Fallback to KZ for user request if no country data yet */}
                             <span>🇰🇿</span> 
                             <span className="text-white">KZ - {Number(onlineStats.totalOnline) || 1}</span>
+                          </>
+                      )}
+                  </span>
+                  
+                  {/* DESKTOP VERSION (Verbose) */}
+                  <span className="hidden md:flex text-[10px] font-black uppercase tracking-wider text-slate-400 items-center gap-1.5">
+                      {Object.keys(countryStats).length > 0 ? (
+                          <>
+                            <span className="text-slate-500">{language === 'ru' ? 'Сейчас слушает' : 'Listening now'}</span>
+                            <span>{getCountryFlag(Object.keys(countryStats)[0])}</span>
+                            <span className="text-primary">"{getCountryName(Object.keys(countryStats)[0], language)}"</span>
+                            <span className="text-slate-500">-</span>
+                            <span className="text-slate-500">{language === 'ru' ? 'онлайн' : 'online'}</span>
+                            <span className="text-white">{countryStats[Object.keys(countryStats)[0]]}</span>
+                          </>
+                      ) : (
+                          <>
+                             <span className="text-slate-500">{language === 'ru' ? 'Сейчас слушает' : 'Listening now'}</span>
+                             <span>🇰🇿</span> 
+                             <span className="text-primary">"{getCountryName('KZ', language)}"</span>
+                             <span className="text-slate-500">-</span>
+                             <span className="text-slate-500">{language === 'ru' ? 'онлайн' : 'online'}</span>
+                             <span className="text-white">{Number(onlineStats.totalOnline) || 1}</span>
                           </>
                       )}
                   </span>
