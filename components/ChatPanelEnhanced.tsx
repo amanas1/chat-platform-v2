@@ -1919,7 +1919,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 >
                                     <div className="relative">
                                         <ChatBubbleIcon className="w-5 h-5" />
-                                        {pendingKnocks.length > 0 && (
+                                        {pendingKnocks?.length > 0 && (
                                             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse border border-[#1e293b]"></span>
                                         )}
                                     </div>
@@ -2727,7 +2727,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
             {view === 'inbox' && (
                 <div className="flex-1 overflow-y-auto no-scrollbar p-4 space-y-4 animate-in slide-in-from-right duration-300">
-                    {pendingKnocks.length > 0 && (
+                    {pendingKnocks?.length > 0 && (
                         <div className="space-y-3 mb-4">
                             <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-secondary pl-2 mb-2">{t.knocking} ({pendingKnocks.length})</h4>
                             {pendingKnocks.map(knock => {
