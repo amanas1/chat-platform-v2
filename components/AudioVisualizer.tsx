@@ -657,7 +657,11 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
         const timeShift = Date.now() / 100 * animationSpeed;
         
         for (let i = 0; i < barCount; i++) {
-          const freqIndex = Math.floor((i / barCount) * (bufferLength * 0.9)); // Reach further into frequencies
+          // Use a non-linear mapping to emphasize bass/mids and stretch the highs to fill the width
+          // Most energy is in first 40% of bufferLength, so we stretch it
+          const t = i / barCount;
+          const freqIndex = Math.floor(Math.pow(t, 0.7) * (bufferLength * 0.8));
+          
           const intensityVal = (dataArray[freqIndex] || 0) / 255;
           const barHeight = intensityVal * effectiveHeight;
           const x = offsetX + (i * barWidth);
@@ -669,33 +673,32 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
             const segG = 2;
             const count = Math.floor(barHeight / (segH + segG));
             
-            // Premium Gradient & Glow
-            const barGrd = ctx.createLinearGradient(x, centerY - barHeight, x, centerY + barHeight);
-            barGrd.addColorStop(0, `hsla(${hue}, 100%, 70%, 1)`);
-            barGrd.addColorStop(0.5, `hsla(${hue}, 80%, 50%, 0.8)`);
-            barGrd.addColorStop(1, `hsla(${hue}, 100%, 70%, 1)`);
+            // Vibrant Neon Gradient
+            const barGrd = ctx.createLinearGradient(x, centerY - barHeight - 20, x, centerY + barHeight + 20);
+            barGrd.addColorStop(0, `hsla(${hue}, 100%, 75%, 1)`); // Brightest top
+            barGrd.addColorStop(0.5, `hsla(${hue}, 90%, 55%, 0.9)`); // Saturated middle
+            barGrd.addColorStop(1, `hsla(${hue}, 100%, 75%, 1)`); // Brightest bottom
             
             ctx.fillStyle = barGrd;
             
-            if (visualMode === 'high' && intensityVal > 0.2) {
-              ctx.shadowBlur = 12 * intensityVal;
-              ctx.shadowColor = `hsla(${hue}, 100%, 60%, 0.8)`;
+            if (visualMode !== 'low' && intensityVal > 0.15) {
+              ctx.shadowBlur = 15 * intensityVal;
+              ctx.shadowColor = `hsla(${hue}, 100%, 65%, 0.9)`;
             }
 
             for(let s=0; s<count; s++) {
               const rectYTop = centerY - s*(segH+segG) - segH;
               const rectYBottom = centerY + s*(segH+segG);
               
-              // Draw top segment
+              // Draw with slight rounding effect or just clean blocks
               ctx.fillRect(x, rectYTop, barWidth - 1, segH);
-              // Draw bottom segment mirrored
               ctx.fillRect(x, rectYBottom, barWidth - 1, segH);
             }
             
             ctx.shadowBlur = 0;
           } else {
             const barGrd = ctx.createLinearGradient(x, height, x, height - barHeight);
-            barGrd.addColorStop(0, `hsla(${hue}, 80%, 50%, 0.8)`);
+            barGrd.addColorStop(0, `hsla(${hue}, 90%, 50%, 0.8)`);
             barGrd.addColorStop(1, `hsla(${hue}, 100%, 70%, 1)`);
             
             ctx.fillStyle = barGrd;
