@@ -14,7 +14,8 @@ import { geolocationService } from './services/geolocationService';
 import { 
   PauseIcon, VolumeIcon, LoadingIcon, MusicNoteIcon, HeartIcon, MenuIcon, AdjustmentsIcon,
   PlayIcon, ChatBubbleIcon, NextIcon, PreviousIcon, XMarkIcon, DownloadIcon,
-  SwatchIcon, EnvelopeIcon, LifeBuoyIcon, ShuffleIcon, PlusIcon, ShareIcon // Using PlusIcon as placeholder for EQ if needed, or AdjustmentsIcon
+  SwatchIcon, EnvelopeIcon, LifeBuoyIcon, ShuffleIcon, PlusIcon, ShareIcon, // Using PlusIcon as placeholder for EQ if needed, or AdjustmentsIcon
+  QuestionMarkCircleIcon
 } from './components/Icons';
 
 const ToolsPanel = React.lazy(() => import('./components/ToolsPanel'));
@@ -942,6 +943,14 @@ export default function App(): React.JSX.Element {
         ))}
         </div>
         <div className="p-4 pt-2 border-t border-[var(--panel-border)]">
+                <div className="flex gap-2 mb-2">
+                    <button onClick={() => setManualOpen(true)} className="flex-1 py-3 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 transition-all flex items-center justify-center gap-2 group" title={t.manualTooltip}>
+                       <QuestionMarkCircleIcon className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
+                    </button>
+                    <button onClick={() => setFeedbackOpen(true)} className="flex-1 py-3 px-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 transition-all flex items-center justify-center gap-2 group" title={t.feedbackTitle}>
+                       <EnvelopeIcon className="w-6 h-6 text-slate-400 group-hover:text-white transition-colors" />
+                    </button>
+                </div>
              <button onClick={() => setDownloadModalOpen(true)} className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-primary/20 to-secondary/20 border border-white/5 hover:border-white/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 group">
                 <DownloadIcon className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
                 <div className="text-left"><p className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-white transition-colors">Mobile App</p><p className="text-xs font-black text-white">Download</p></div>
@@ -982,33 +991,31 @@ export default function App(): React.JSX.Element {
                       {!isAiCurating && <span className="xs:hidden font-bold">AI</span>}
                   </button>
               )}
-              <button onClick={() => setManualOpen(true)} className="p-2 text-slate-400 hover:text-white transition-transform hover:scale-110" title={t.manualTooltip}><LifeBuoyIcon className="w-6 h-6" /></button>
-              <button onClick={() => setFeedbackOpen(true)} className="p-2 text-slate-400 hover:text-white transition-transform hover:scale-110" title={t.feedbackTitle}><EnvelopeIcon className="w-6 h-6" /></button>
+              {/* Help/Feedback moved to sidebar */}
               
               {/* Online Counter - Moved here and made always visible for debugging/visibility */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-md animate-in fade-in zoom-in duration-500 shadow-lg ml-2">
                   <div className={`w-2 h-2 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)] ${onlineStats.totalOnline > 0 ? 'bg-green-500' : 'bg-slate-500 shadow-none'}`}></div>
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <span className="whitespace-nowrap hidden sm:inline">{language === 'ru' ? 'Сейчас слушают онлайн' : 'Listening Online'}</span> 
-                      <span className="whitespace-nowrap sm:hidden">{language === 'ru' ? 'Онлайн' : 'Online'}</span> 
-                      {/* Show at least 1 if we are the one viewing and the stats are loading/0 */}
+                      <span className="whitespace-nowrap hidden sm:inline">{language === 'ru' ? 'Слушают' : 'Listening'}</span> 
+                      {/* <span className="whitespace-nowrap sm:hidden">{language === 'ru' ? 'Онлайн' : 'Online'}</span>  */}
                       <span className="text-white font-mono text-xs">{Number(onlineStats.totalOnline) || 1}</span>
                   </span>
               </div>
             </div>
           </div>
           
-          <div className="flex items-center shrink-0 gap-4">
+          <div className="flex items-center shrink-0 gap-1 md:gap-4">
             {/* Online Counter moved elsewhere */}
 
             {/* Super-chat label with arrow */}
             {!chatOpen && (
-                <div className="flex items-center gap-1 animate-pulse mr-1 md:mr-2">
+                <div className="hidden xs:flex items-center gap-1 animate-pulse mr-1 md:mr-2">
                     <span className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest whitespace-nowrap">Super-chat</span>
                     <div className="text-primary text-xs">→</div> 
                 </div>
             )}
-            <button onClick={() => setChatOpen(!chatOpen)} className="p-2 rounded-full relative text-primary hover:scale-110 transition-transform">
+            <button onClick={() => setChatOpen(!chatOpen)} className="p-2 rounded-full relative text-primary hover:scale-110 transition-transform shrink-0 z-50">
                 <ChatBubbleIcon className="w-6 h-6" />
                 {onlineStats.chatOnline > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-[#1e293b]">
