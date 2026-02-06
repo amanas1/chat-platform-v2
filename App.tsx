@@ -235,6 +235,7 @@ export default function App(): React.JSX.Element {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [fxSettings, setFxSettings] = useState<FxSettings>({ reverb: 0, speed: 1.0 });
   const [onlineStats, setOnlineStats] = useState({ totalOnline: 0, chatOnline: 0 });
+  const [countryStats, setCountryStats] = useState<Record<string, number>>({});
   
   const [audioEnhancements, setAudioEnhancements] = useState<AudioProcessSettings>({
       compressorEnabled: false,
