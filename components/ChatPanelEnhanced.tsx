@@ -2106,21 +2106,23 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
         <div className="flex-1 overflow-hidden relative flex flex-col bg-transparent">
             {/* Notification Banner for Pending Knocks */}
-            {pendingKnocks.length > 0 && view !== 'inbox' && (
-                <div className="px-4 py-3 bg-gradient-to-r from-secondary/90 to-primary/90 backdrop-blur-md flex items-center justify-between animate-in slide-in-from-top duration-300 relative z-[9999] cursor-pointer shadow-2xl border-b border-white/20" onClick={() => setView('inbox')}>
-                    <div className="flex items-center gap-2 text-white">
-                        <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                        <span className="text-xs font-bold font-mono tracking-tight">
+            {pendingKnocks?.length > 0 && view !== 'inbox' && (
+                <button
+                    onClick={() => setView('inbox')}
+                    className="mb-4 w-full py-3 px-4 bg-gradient-to-r from-secondary/20 to-primary/20 hover:from-secondary/30 hover:to-primary/30 border border-secondary/30 rounded-2xl transition-all flex items-center justify-between group animate-in fade-in zoom-in duration-300"
+                >
+                    <div className="flex items-center gap-3">
+                        <BellIcon className="w-5 h-5 text-secondary animate-wiggle" />
+                        <span className="text-sm font-bold text-white">
                             {language === 'ru' 
-                                ? `Новое приглашение от ${pendingKnocks[pendingKnocks.length - 1].fromUser?.name || 'пользователя'}` 
-                                : `New invite from ${pendingKnocks[pendingKnocks.length - 1].fromUser?.name || 'User'}`
-                            }
+                                ? `Новое приглашение от ${pendingKnocks[pendingKnocks.length - 1]?.fromUser?.name || 'пользователя'}` 
+                                : `New invite from ${pendingKnocks[pendingKnocks.length - 1]?.fromUser?.name || 'User'}`}
                         </span>
                     </div>
                     <div className="bg-white/20 px-2 py-0.5 rounded text-[10px] font-black text-white uppercase tracking-widest">
                         {language === 'ru' ? 'ОТКРЫТЬ' : 'OPEN'}
                     </div>
-                </div>
+                </button>
             )}
 
             {/* In-App Toast Notification with Animated Border */}
@@ -2630,7 +2632,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </div>
                             </div>
                         <div className="space-y-3">
-                            {(searchResults.length > 0 ? searchResults : onlineUsers).map(user => (
+                            {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).map(user => (
                                 <div key={user.id} className={`p-4 rounded-3xl flex flex-col gap-3 transition-all animate-in slide-in-from-bottom-2 duration-300 border ${user.status === 'online' ? 'bg-white/5 border-white/5 hover:bg-white/[0.08]' : 'bg-white/[0.02] border-white/[0.02] opacity-80'}`}>
                                     
                                     {/* Header: Identity & Status */}
