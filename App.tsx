@@ -26,6 +26,7 @@ const DownloadAppModal = React.lazy(() => import('./components/DownloadAppModal'
 const FeedbackModal = React.lazy(() => import('./components/FeedbackModal'));
 const ShareModal = React.lazy(() => import('./components/ShareModal'));
 import ErrorBoundary from './components/ErrorBoundary';
+import QuranConfirmationModal from './components/QuranConfirmationModal';
 
 const THEME_COLORS: Record<ThemeName, { primary: string; secondary: string }> = {
   default: { primary: '#bc6ff1', secondary: '#f038ff' },
@@ -153,6 +154,11 @@ export default function App(): React.JSX.Element {
   const [stations, setStations] = useState<RadioStation[]>([]);
   const [visibleCount, setVisibleCount] = useState(INITIAL_CHUNK);
   const [currentStation, setCurrentStation] = useState<RadioStation | null>(null);
+
+  // Quran confirmation modal state
+  const [showQuranConfirmation, setShowQuranConfirmation] = useState(false);
+  const [pendingQuranStation, setPendingQuranStation] = useState<RadioStation | null>(null);
+  const [isQuranStation, setIsQuranStation] = useState(false);
 
   // AI State
   const [isAiCurating, setIsAiCurating] = useState(false);
@@ -515,7 +521,37 @@ export default function App(): React.JSX.Element {
     return () => { if (sleepIntervalRef.current) clearInterval(sleepIntervalRef.current); };
   }, [sleepTimer]);
 
+  // Utility functions for Quran station detection
+  const isQuranRadioStation = useCallback((station: RadioStation): boolean => {
+    const tags = (station.tags || '').toLowerCase();
+    return tags.includes('islamic') && tags.includes('quran');
+  }, []);
+
+  const hasQuranConfirmationBeenShown = useCallback((): boolean => {
+    try {
+      return localStorage.getItem('streamflow_quran_confirmed') === 'true';
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const setQuranConfirmationShown = useCallback(() => {
+    try {
+      localStorage.setItem('streamflow_quran_confirmed', 'true');
+    } catch {}
+  }, []);
+
   const handlePlayStation = useCallback((station: RadioStation) => {
+    // Check if this is a Quran station and confirmation hasn't been shown
+    if (isQuranRadioStation(station) && !hasQuranConfirmationBeenShown()) {
+      setPendingQuranStation(station);
+      setShowQuranConfirmation(true);
+      return; // Don't play yet, wait for confirmation
+    }
+
+    // Update isQuranStation state for equalizer/chat control
+    setIsQuranStation(isQuranRadioStation(station));
+
     initAudioContext();
     if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
     
@@ -557,7 +593,7 @@ export default function App(): React.JSX.Element {
             setIsBuffering(false);
         }, 3000);
     }
-  }, [initAudioContext, fxSettings.speed]);
+  }, [initAudioContext, fxSettings.speed, isQuranRadioStation, hasQuranConfirmationBeenShown]);
   // Removed language from dependency because we no longer use it for notifications here
 
   useEffect(() => {
@@ -699,6 +735,63 @@ export default function App(): React.JSX.Element {
       const prevIndex = currentIndex === -1 ? stations.length - 1 : (currentIndex - 1 + stations.length) % stations.length;
       handlePlayStation(stations[prevIndex]);
   }, [stations, currentStation, handlePlayStation]);
+
+  // Quran Confirmation Modal Handlers
+  const handleQuranConfirmationContinue = useCallback((dontShowAgain: boolean) => {
+    if (dontShowAgain) {
+      setQuranConfirmationShown();
+    }
+    setShowQuranConfirmation(false);
+    
+    if (pendingQuranStation) {
+      setIsQuranStation(true);
+      // Now play the station without showing confirmation again
+      const station = pendingQuranStation;
+      setPendingQuranStation(null);
+      
+      // Directly play without rechecking confirmation
+      initAudioContext();
+      if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
+      
+      if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
+
+      setCurrentStation(station);
+      setIsPlaying(true);
+      setIsBuffering(true);
+      
+      if (audioRef.current) {
+        audioRef.current.src = station.url_resolved;
+        audioRef.current.crossOrigin = "anonymous";
+        audioRef.current.playbackRate = fxSettings.speed;
+        audioRef.current.play().catch(() => {});
+
+        loadTimeoutRef.current = window.setTimeout(() => {
+          console.warn(`[RADIO] Station ${station.name} is too slow. Filtering and skipping.`);
+          setStations(prev => {
+            const currentIndex = prev.findIndex(s => s.stationuuid === station.stationuuid);
+            const newList = prev.filter(s => s.stationuuid !== station.stationuuid);
+            if (newList.length > 0) {
+              const nextIndex = currentIndex % newList.length;
+              setTimeout(() => handlePlayStation(newList[nextIndex]), 10);
+            }
+            return newList;
+          });
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.src = "";
+          }
+          setIsPlaying(false);
+          setIsBuffering(false);
+        }, 3000);
+      }
+    }
+  }, [pendingQuranStation, setQuranConfirmationShown, initAudioContext, fxSettings.speed, handlePlayStation]);
+
+  const handleQuranConfirmationCancel = useCallback(() => {
+    setShowQuranConfirmation(false);
+    setPendingQuranStation(null);
+    // User chose to select another station - no action needed
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -1113,7 +1206,18 @@ export default function App(): React.JSX.Element {
             {selectedCategory && viewMode !== 'favorites' && (
                 <div className="mb-10 p-10 h-56 rounded-[2.5rem] glass-panel relative overflow-hidden flex flex-col justify-end">
                     <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
-                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} danceStyle={danceStyle} /></div>
+                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40">
+                      {!isQuranStation && (
+                        <AudioVisualizer 
+                          analyserNode={analyserNodeRef.current} 
+                          isPlaying={isPlaying} 
+                          variant={visualizerVariant} 
+                          settings={vizSettings} 
+                          visualMode={visualMode} 
+                          danceStyle={danceStyle} 
+                        />
+                      )}
+                    </div>
                     <div className="relative z-10 pointer-events-none hidden"><h2 className="text-5xl md:text-7xl font-extrabold tracking-tighter uppercase">{t[selectedCategory.id] || selectedCategory.name}</h2></div>
                 </div>
             )}
@@ -1359,6 +1463,7 @@ export default function App(): React.JSX.Element {
             randomMode={isRandomMode}
             onToggleRandomMode={() => setIsRandomMode(!isRandomMode)}
             onShare={() => setShareOpen(true)}
+            isQuranPlaying={isQuranStation}
         />
       </Suspense>
 
@@ -1368,6 +1473,14 @@ export default function App(): React.JSX.Element {
             onClose={() => setShareOpen(false)} 
         />
       </Suspense>
+
+      <QuranConfirmationModal
+        isOpen={showQuranConfirmation}
+        stationName={pendingQuranStation?.name || ''}
+        language={language}
+        onContinue={handleQuranConfirmationContinue}
+        onCancel={handleQuranConfirmationCancel}
+      />
     </div>
     </ErrorBoundary>
   );

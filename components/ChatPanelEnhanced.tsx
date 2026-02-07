@@ -40,6 +40,7 @@ interface ChatPanelProps {
   randomMode: boolean;
   onToggleRandomMode: () => void;
   onShare: () => void;
+  isQuranPlaying?: boolean; // NEW: блокировать уведомления чата когда играет Коран
 }
 
 const EMOJIS = [
