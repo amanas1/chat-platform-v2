@@ -1289,29 +1289,47 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const handleRegistrationComplete = () => {
     // 1. Mandatory Fields Validation
     if (!regName.trim()) {
-      alert(language === 'ru' ? 'Пожалуйста, введите ваше имя.' : 'Please enter your name.');
+      alert(language === 'ru' ? '❌ Пожалуйста, введите ваше имя или псевдоним.' : '❌ Please enter your name or alias.');
       return;
     }
     
     if (!regAge) {
-      alert(language === 'ru' ? 'Пожалуйста, укажите ваш возраст.' : 'Please specify your age.');
+      alert(language === 'ru' ? '❌ Пожалуйста, укажите ваш возраст.' : '❌ Please specify your age.');
       return;
     }
 
     if (!regGender) {
-      alert(language === 'ru' ? 'Пожалуйста, укажите ваш пол.' : 'Please specify your gender.');
+      alert(language === 'ru' ? '❌ Пожалуйста, выберите ваш пол.' : '❌ Please select your gender.');
       return;
     }
 
     if (!regAvatar && !currentUser.avatar) {
-      alert(language === 'ru' ? 'Пожалуйста, загрузите фотографию профиля.' : 'Please upload a profile photo.');
+      alert(language === 'ru' 
+        ? '❌ Пожалуйста, загрузите фотографию профиля.\n\nНажмите на иконку камеры, чтобы выбрать фото.' 
+        : '❌ Please upload a profile photo.\n\nClick the camera icon to select a photo.');
+      return;
+    }
+
+    // NEW: Voice intro validation (mandatory)
+    if (!regVoiceIntro) {
+      alert(language === 'ru' 
+        ? '❌ Пожалуйста, запишите голосовое приветствие.\n\nНажмите на кнопку микрофона и представьтесь (до 7 секунд).' 
+        : '❌ Please record a voice introduction.\n\nClick the microphone button and introduce yourself (up to 7 seconds).');
+      return;
+    }
+
+    // NEW: Status validation (mandatory)
+    if (!regIntentStatus) {
+      alert(language === 'ru' 
+        ? '❌ Пожалуйста, выберите ваш статус.' 
+        : '❌ Please select your status.');
       return;
     }
 
     // 2. Pre-save Confirmation
     const confirmMessage = language === 'ru' 
-        ? "Проверьте свои данные - после регистрации изменения недоступны до истечения 30 дней. Сохранить?" 
-        : "Check your details - core changes will be locked for 30 days after saving. Proceed?";
+        ? "✅ Все поля заполнены!\n\nПроверьте свои данные - после регистрации изменения недоступны до истечения 30 дней.\n\nСохранить профиль?" 
+        : "✅ All fields completed!\n\nCheck your details - core changes will be locked for 30 days after saving.\n\nProceed?";
     
     if (!window.confirm(confirmMessage)) {
         return;
@@ -2643,15 +2661,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         </div>
                                         
                                         <div className="flex-1 min-w-0 flex flex-col justify-center min-h-[56px]">
-                                            <div className="flex items-center justify-between gap-2 mb-0.5">
-                                                <h5 className="font-black text-sm text-white truncate flex items-center gap-2">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <h5 className="font-black text-sm text-white truncate">
                                                     {user.name}
-                                                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded-md font-bold">{user.age}</span>
                                                 </h5>
+                                                <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded-md font-bold">{user.age}</span>
                                                 {user.country && (
-                                                    <div className="flex items-center gap-1 opacity-70 bg-black/20 px-1.5 py-0.5 rounded-full">
+                                                    <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-full">
                                                         <span className="text-[10px]">📍</span>
-                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter max-w-[80px] truncate">{user.country}</span>
+                                                        <span className="text-[10px] font-bold text-slate-200 uppercase tracking-tighter max-w-[80px] truncate">{user.country}</span>
                                                     </div>
                                                 )}
                                             </div>
