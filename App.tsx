@@ -668,12 +668,12 @@ export default function App(): React.JSX.Element {
             const beat = Math.sin(time) * 0.5 + 0.5; // 0 to 1 pulsing
             const jitter = Math.random() * 0.3; // Random noise
             
-            const scale = 1 + (beat * 0.1) + (jitter * 0.05); // Scale between 1.0 and 1.2
-            const glowSize = 10 + (beat * 15) + (jitter * 10); // Shadow between 10px and 35px
+            const scale = 1 + (beat * 0.05) + (jitter * 0.02); // Scale between 1.0 and 1.1 (уменьшено)
+            const glowSize = 5 + (beat * 8) + (jitter * 5); // Shadow between 5px and 18px (уменьшено)
             const color = getThemeColor();
             
             playButtonRef.current.style.transform = `scale(${scale})`;
-            playButtonRef.current.style.boxShadow = `0 0 ${glowSize}px ${color}`;
+            playButtonRef.current.style.boxShadow = `0 0 ${glowSize}px ${color}80`; // Добавлен 80 для 50% opacity
             playButtonRef.current.style.borderColor = color;
         } else {
             playButtonRef.current.style.transform = 'scale(1)';

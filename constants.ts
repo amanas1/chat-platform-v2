@@ -790,7 +790,7 @@ export const GLOBAL_PRESETS = [
         eq: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 
         fx: { reverb: 0, speed: 1.0 },
         process: { compressorEnabled: false, compressorThreshold: -20, compressorRatio: 2, bassBoost: 0, loudness: 0 },
-        theme: 'default',
+        theme: 'volcano',
         ambience: { rainVolume: 0, fireVolume: 0, cityVolume: 0, vinylVolume: 0 } // Clear all
     }
 ];
