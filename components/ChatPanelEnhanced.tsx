@@ -1897,7 +1897,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 >
                                     <UserIcon className="w-5 h-5" />
                                 </button>
-                                {currentUser.blockedUsers.length > 0 && (
+                                {currentUser.blockedUsers?.length > 0 && (
                                     <button 
                                         onClick={() => {
                                             if (window.confirm(language === 'ru' ? 'Разблокировать всех?' : 'Unblock all users?')) {
