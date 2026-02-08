@@ -15,17 +15,16 @@ export const RADIO_BROWSER_MIRRORS = [
 export const DEFAULT_VOLUME = 0.5;
 
 export const GENRES: CategoryInfo[] = [
-    { id: 'jazz', name: 'Jazz', color: 'from-amber-400 to-orange-600', description: 'Smooth rhythms and improvisations.' },
-    { id: 'blues', name: 'Blues', color: 'from-blue-600 to-indigo-800', description: 'Soulful rhythms and melancholic melodies.' },
-    { id: 'rock', name: 'Rock', color: 'from-red-600 to-purple-900', description: 'Energetic beats and powerful guitars.' },
-    { id: 'classical', name: 'Classical', color: 'from-blue-200 to-slate-400', description: 'Timeless masterpieces and symphonies.' },
-    { id: 'electronic', name: 'Electronic', color: 'from-cyan-400 to-blue-600', description: 'Synthesized sounds and modern beats.' },
-    { id: 'hiphop', name: 'Hip Hop', color: 'from-green-400 to-yellow-600', description: 'Rhythmic speech and street culture.' },
-    { id: 'pop', name: 'Pop', color: 'from-pink-400 to-rose-600', description: 'Catchy melodies and chart-topping hits.' },
+    { id: 'jazz', name: 'Jazz', color: 'from-amber-600 to-orange-900', description: 'Smooth, soulful improvisation.' },
+    { id: 'blues', name: 'Blues', color: 'from-indigo-600 to-purple-900', description: 'Deep emotions, raw vocals.' },
+    { id: 'rock', name: 'Rock', color: 'from-red-600 to-pink-900', description: 'Guitars, drums, energy.' },
+    { id: 'classical', name: 'Classical', color: 'from-violet-600 to-indigo-900', description: 'Timeless symphonies, orchestral masterpieces.' },
+    { id: 'electronic', name: 'Electronic', color: 'from-cyan-600 to-blue-900', description: 'Synthesized beats, futuristic rhythms.' },
+    { id: 'hiphop', name: 'Hip Hop', color: 'from-yellow-600 to-amber-900', description: 'Rhythm, flow, storytelling.' },
+    { id: 'pop', name: 'Pop', color: 'from-pink-600 to-rose-900', description: 'Catchy melodies, modern hits.' },
     { id: 'rnb', name: 'R&B', color: 'from-violet-500 to-fuchsia-600', description: 'Rhythm and Blues, soulful and smooth.' },
     { id: 'reggae', name: 'Reggae', color: 'from-green-500 to-yellow-500', description: 'Relaxed Jamaican rhythms and vibes.' },
-    { id: 'soul', name: 'Soul', color: 'from-rose-400 to-orange-400', description: 'Deeply emotional vocal music.' },
-    { id: 'islamic', name: 'Faith & Religion', color: 'from-emerald-600 to-teal-900', description: 'Spiritual readings, prayers, and religious texts.' }
+    { id: 'soul', name: 'Soul', color: 'from-rose-400 to-orange-400', description: 'Deeply emotional vocal music.' }
 ];
 
 export const ERAS: CategoryInfo[] = [
@@ -646,7 +645,7 @@ export const TRANSLATIONS: Record<string, any> = {
         vizStageDancer: 'Stage Dancer', vizTrioDancers: 'Trio Dancers', vizJourney: 'Journey', vizDigital: 'Digital', vizNeon: 'Neon', vizRings: 'Rings', vizBubbles: 'Bubbles',
         spatialMixer: 'Spatial Mixer',
         // Category Translations
-        jazz: 'Jazz', blues: 'Blues', rock: 'Rock', classical: 'Classical', electronic: 'Electronic', hiphop: 'Hip Hop', pop: 'Pop', islamic: 'Faith & Religion', rnb: 'R&B', reggae: 'Reggae', soul: 'Soul',
+        jazz: 'Jazz', blues: 'Blues', rock: 'Rock', classical: 'Classical', electronic: 'Electronic', hiphop: 'Hip Hop', pop: 'Pop', rnb: 'R&B', reggae: 'Reggae', soul: 'Soul',
         '60s': '60s', '70s': '70s', '80s': '80s', '90s': '90s', '00s': '00s',
         chill: 'Chill', energy: 'Energy', focus: 'Focus', romantic: 'Romantic', dark: 'Club',
         nature: 'Nature', storm: 'Storm', ocean: 'Ocean', forest: 'Forest',
@@ -703,7 +702,7 @@ export const TRANSLATIONS: Record<string, any> = {
         vizStageDancer: 'Танцор', vizTrioDancers: 'Трио', vizJourney: 'Полет', vizDigital: 'Цифра', vizNeon: 'Неон', vizRings: 'Кольца', vizBubbles: 'Пузыри',
         spatialMixer: 'Звуковая Сцена',
         // Category Translations
-        jazz: 'Джаз', blues: 'Блюз', rock: 'Рок', classical: 'Классика', electronic: 'Электроника', hiphop: 'Хип-хоп', pop: 'Поп', islamic: 'Религия', rnb: 'R&B', reggae: 'Регги', soul: 'Соул',
+        jazz: 'Джаз', blues: 'Блюз', rock: 'Рок', classical: 'Классика', electronic: 'Электроника', hiphop: 'Хип-хоп', pop: 'Поп', rnb: 'R&B', reggae: 'Регги', soul: 'Соул',
         '60s': '60-е', '70s': '70-е', '80s': '80-е', '90s': '90-е', '00s': '00-е',
         chill: 'Чилл', energy: 'Энергия', focus: 'Фокус', romantic: 'Романтика', dark: 'Клуб',
         nature: 'Природа', storm: 'Шторм', ocean: 'Океан', forest: 'Лес',
