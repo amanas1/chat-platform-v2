@@ -236,33 +236,26 @@ const filterStations = (data: RadioStation[], currentTag?: string) => {
       // 3. Permanent Blocklist
       if (BLOCKED_NAMES.some(n => station.name.includes(n))) continue;
 
-      // 4. Strict Religious Filtering (Global for all categories except 'islamic'/'muslim')
-      if (currentTag !== 'islamic' && currentTag !== 'muslim') {
-          const t = (station.tags || '').toLowerCase();
-          const n = station.name.toLowerCase();
+      // 4. Strict Religious Filtering (Applied to ALL categories)
+      const t = (station.tags || '').toLowerCase();
+      const n = station.name.toLowerCase();
 
-          // Move MOVED_TO_ISLAMIC_NAMES check here
-          if (MOVED_TO_ISLAMIC_NAMES.some(name => n === name.toLowerCase() || n.includes(name.toLowerCase()))) continue;
+      // Extended Religious Keyword List - blocks all religious content
+      const RELIGIOUS_KEYWORDS = [
+          'islam', 'quran', 'koran', 'muslim', 'sheikh', 'imam', 'allah', 'prophet', 'hadith', 'sunnah', 'mecca', 'medina', // Islamic
+          'religio', 'catholic', 'christian', 'church', 'bible', 'vatican', 'gospel', 'jesus', 'christ', 'pastor', // Christian
+          'worship', 'prayer', 'spirit', 'orthodox', 'chant', 'sermon', 'messianic', 'torah', 'synagogue', 'buddhist', 'hindu', // Other religious
+          'radio maria', 'esperance', 'ewtn', 'благовест', 'радонеж', 'вера', 'православ' // Specific stations
+      ];
 
-          // Extended Religious Keyword List
-          const RELIGIOUS_KEYWORDS = [
-              'islam', 'quran', 'koran', 'muslim', 'sheikh', 'imam', 'allah', 'prophet', // Islamic
-              'religio', 'catholic', 'christian', 'church', 'bible', 'vatican', 'gospel', // Other religious (general cleanup)
-              'worship', 'prayer', 'spirit', 'orthodox', 'chant', 'sermon', 'messianic', 'torah',
-              'radio maria', 'esperance', 'vatican'
-          ];
-
-          if (RELIGIOUS_KEYWORDS.some(kw => t.includes(kw) || n.includes(kw))) {
-              console.log(`[FILTER] Skipping religious station in '${currentTag}': ${station.name}`);
-              continue;
-          }
-
-          // Strict Arabic Character Check for non-Oriental categories
+      if (RELIGIOUS_KEYWORDS.some(kw => t.includes(kw) || n.includes(kw))) {
+          console.log(`[FILTER] Blocking religious content in '${currentTag}': ${station.name}`);
+          continue;
+      }     // Strict Arabic Character Check for non-Oriental categories
           if (currentTag !== 'oriental' && ARABIC_CHAR_REGEX.test(station.name)) {
               console.log(`[FILTER] Skipping Arabic name in musical category '${currentTag}': ${station.name}`);
               continue;
           }
-      }
 
       // WORLD MUSIC CLEANUP (No Talk/News)
       if (isWorldMusic) {
