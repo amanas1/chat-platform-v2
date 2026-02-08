@@ -319,7 +319,11 @@ export default function App(): React.JSX.Element {
           console.log('[AUTH] New user - resetting theme to volcano');
           localStorage.setItem('streamflow_current_theme', 'volcano');
           setCurrentTheme('volcano');
+          
+          // Reset visualizer to default settings (red hue)
+          setVizSettings(DEFAULT_VIZ_SETTINGS);
         }
+
 
 
         console.log(`[AUTH] Identity verified: ${userId}`);
