@@ -931,8 +931,8 @@ app.post('/auth/init', (req, res) => {
         // Set HttpOnly cookie for persistence across browser sessions
         res.cookie('streamflow_uid', existingUserId, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: true, // Always secure (HTTPS required)
+            sameSite: 'none', // Allow cross-site (Vercel→Railway)
             maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
         });
         
@@ -976,8 +976,8 @@ app.post('/auth/init', (req, res) => {
     // Set HttpOnly cookie for new users too
     res.cookie('streamflow_uid', userId, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        secure: true, // Always secure (HTTPS required)
+        sameSite: 'none', // Allow cross-site (Vercel→Railway)
         maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
     });
 
