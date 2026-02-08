@@ -941,6 +941,55 @@ app.post('/api/moderation/ban', (req, res) => {
 });
 
 // ============================================
+// ADMIN ENDPOINTS
+// ============================================
+
+// Cleanup fake users (without avatar or agreement)
+app.post('/admin/cleanup-fake-users', (req, res) => {
+  const { adminPassword } = req.body;
+  
+  // Simple password protection
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'cleanup2026secure';
+  
+  if (adminPassword !== ADMIN_PASSWORD) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const usersBefore = Array.from(persistentUsers.values());
+  const usersBeforeCount = usersBefore.length;
+  
+  // Filter out users without avatar or agreement
+  const removedUsers = [];
+  for (const [userId, user] of persistentUsers.entries()) {
+    if (!user.avatar || !user.hasAgreedToRules) {
+      removedUsers.push({
+        id: userId,
+        name: user.name || 'no name',
+        reason: !user.avatar ? 'no avatar' : 'no agreement'
+      });
+      persistentUsers.delete(userId);
+      
+      // Also remove from active users
+      activeUsers.delete(userId);
+    }
+  }
+  
+  // Save changes
+  savePersistentUsers();
+  syncGlobalPresence();
+  
+  const usersAfterCount = persistentUsers.size;
+  
+  res.json({
+    success: true,
+    usersBefore: usersBeforeCount,
+    usersAfter: usersAfterCount,
+    usersRemoved: removedUsers.length,
+    removedUsers: removedUsers
+  });
+});
+
+// ============================================
 // START SERVER
 // ============================================
 
