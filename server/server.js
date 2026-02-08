@@ -42,9 +42,30 @@ if (!fs.existsSync(DATA_DIR)) {
 // Email auth is being removed in favor of UUID-based identity.
 
 const app = express();
-app.use(cors());
+
+// CORS configuration to allow cookies from Vercel frontend
+const allowedOrigins = [
+  'http://localhost:3001', // Local development
+  'https://stream-flow-main-2.vercel.app', // Production frontend
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true // Enable credentials (cookies)
+}));
+
 app.use(express.json());
 app.use(cookieParser());
+
 
 const server = http.createServer(app);
 const io = new Server(server, {
