@@ -34,17 +34,17 @@ const DrumPicker: React.FC<DrumPickerProps> = ({ options, value, onChange, label
   return (
     <div className="flex flex-col gap-1 w-full">
       <label className="text-[10px] font-bold text-slate-400 uppercase ml-2 tracking-widest">{label}</label>
-      <div className="relative h-[132px] bg-black/40 border border-white/10 rounded-2xl overflow-hidden shadow-inner">
-        <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none"></div>
-        <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none"></div>
-        <div className="absolute inset-x-1 top-1/2 -translate-y-1/2 h-[44px] bg-primary/30 rounded-xl border border-primary/40 pointer-events-none shadow-[0_0_15px_rgba(139,92,246,0.2)]"></div>
-        <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-[44px]" style={{ scrollBehavior: 'smooth' }}>
+      <div className="relative h-[160px] bg-black/60 border border-white/10 rounded-[2rem] overflow-hidden shadow-inner transition-all hover:border-white/20">
+        <div className="absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none opacity-90"></div>
+        <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none opacity-90"></div>
+        <div className="absolute inset-x-3 top-1/2 -translate-y-1/2 h-[56px] bg-primary/20 rounded-2xl border-2 border-white pointer-events-none shadow-[0_0_25px_rgba(139,92,246,0.4)] z-[5]"></div>
+        <div ref={scrollRef} onScroll={handleScroll} className="h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-[52px]" style={{ scrollBehavior: 'smooth' }}>
           {options.map((opt, i) => (
-            <div key={i} className={`h-[44px] flex items-center justify-center snap-center transition-all duration-300 text-lg font-bold ${value === opt ? 'text-primary scale-125' : 'text-slate-500 opacity-30'}`}>
+            <div key={i} className={`h-[44px] flex items-center justify-center snap-center transition-all duration-300 text-lg font-bold ${value === opt ? 'text-white scale-110 drop-shadow-lg' : 'text-slate-500 opacity-20'}`}>
               {opt}
             </div>
           ))}
-          <div className="h-[44px]"></div>
+          <div className="h-[52px]"></div>
         </div>
       </div>
     </div>
@@ -102,8 +102,6 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete, language, initi
       blockedUsers: initialProfile?.blockedUsers || [],
       bio: initialProfile?.bio || `Listening from ${city}, ${country}!`,
       hasAgreedToRules: true,
-      credits: initialProfile?.credits || 0,
-      isAnonymous: initialProfile?.isAnonymous !== undefined ? initialProfile.isAnonymous : true,
       filters: initialProfile?.filters || {
         minAge: 18,
         maxAge: 99,

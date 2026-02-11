@@ -100,7 +100,7 @@ export interface UserProfile {
   approxRegion?: string; // Internal privacy-first region hint
   gender: 'male' | 'female' | 'other';
   status: 'online' | 'offline';
-  intentStatus?: 'Хочу поговорить' | 'Свободен' | 'Просто слушаю' | 'Без флирта';
+  intentStatus?: string;
   voiceIntro?: string; // Base64 encoded voice snippet (5-7s)
   voiceIntroTimestamp?: number;
   lastSeen?: number;
@@ -131,6 +131,7 @@ export interface UserProfile {
   detectedIP?: string;
   deviceId?: string;
   registrationTimestamp?: number;
+  hasRealPhoto?: boolean;
   canDeleteAfter?: number;
   // Trust Score system
   trustScore?: number;
@@ -143,6 +144,8 @@ export interface UserProfile {
     userAgent: string;
     platform: string;
   };
+  facePhoto?: string | null; // High-quality face photo for social recognition
+  fingerprint?: string; // Device fingerprint for security tracking
 }
 
 export interface ChatMessage {
@@ -163,7 +166,9 @@ export interface ChatSession {
   lastMessage: ChatMessage | null;
   createdAt: number;
   updatedAt: number;
-  // ... other fields
+  expiresAt: number; // Mandatory 56s timer
+  isBridge: boolean; // Always true for this model
+  isClosed?: boolean;
 }
 
 export interface ChatRequest {

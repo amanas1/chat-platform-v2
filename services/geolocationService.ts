@@ -3,7 +3,7 @@
  * Handles browser geolocation, IP-based fallback, and location validation
  */
 
-interface LocationData {
+export interface LocationData {
   country: string;
   city: string;
   countryCode?: string;
@@ -60,31 +60,56 @@ class GeolocationService {
    * Uses ipapi.co free service (no API key needed)
    */
   async getIPLocation(): Promise<LocationData> {
-    console.log('[GEO] Using IP-based geolocation fallback...');
-    
-    try {
-      const response = await fetch('https://ipapi.co/json/');
-      if (!response.ok) throw new Error('IP API failed');
-      
-      const data = await response.json();
-      console.log('[GEO] ✅ IP location detected:', data);
+    const apis = [
+      { url: 'https://ipapi.co/json/', type: 'ipapi' },
+      { url: 'https://ip-api.io/api/json', type: 'ip-api-io' },
+      { url: 'https://freeipapi.com/api/json', type: 'freeipapi' }
+    ];
 
-      return {
-        country: data.country_name || 'Unknown',
-        city: data.city || 'Unknown',
-        countryCode: data.country_code,
-        ip: data.ip
-      };
-    } catch (error) {
-      console.error('[GEO] ❌ IP geolocation failed:', error);
-      
-      // Ultimate fallback
-      return {
-        country: 'Unknown',
-        city: 'Unknown',
-        ip: 'Unknown'
-      };
+    for (const api of apis) {
+      try {
+        console.log(`[GEO] Trying IP-based geolocation: ${api.type}...`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const response = await fetch(api.url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) continue;
+
+        const data = await response.json();
+        console.log(`[GEO] ✅ ${api.type} detected location:`, data);
+
+        if (api.type === 'ipapi') {
+          return {
+            country: data.country_name || 'Unknown',
+            city: data.city || 'Unknown',
+            countryCode: data.country_code,
+            ip: data.ip
+          };
+        } else if (api.type === 'ip-api-io') {
+          return {
+            country: data.country || data.country_name || 'Unknown',
+            city: data.city || 'Unknown',
+            countryCode: data.country_code || data.countryCode,
+            ip: data.ip || data.query
+          };
+        } else if (api.type === 'freeipapi') {
+          return {
+            country: data.countryName || 'Unknown',
+            city: data.cityName || 'Unknown',
+            countryCode: data.countryCode,
+            ip: data.ipAddress
+          };
+        }
+      } catch (err) {
+        console.warn(`[GEO] ⚠️ ${api.type} failed, trying next...`, err);
+      }
     }
+
+    // Ultimate fallback
+    return { country: 'Unknown', city: 'Unknown', ip: 'Unknown' };
   }
 
   /**
@@ -215,12 +240,10 @@ class GeolocationService {
    */
   async detectLocation(): Promise<LocationData | null> {
     try {
-      const browserLoc = await this.getBrowserLocation();
-      if (browserLoc) return browserLoc;
-      
+      // Use purely silent IP-based detection to avoid triggering browser prompts
       return await this.getIPLocation();
     } catch (error) {
-      console.error('[GEO] Detect location error:', error);
+      console.error('[GEO] Silent detect location error:', error);
       return null;
     }
   }

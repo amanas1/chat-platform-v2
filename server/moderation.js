@@ -1,4 +1,10 @@
 const storage = require('./storage');
+const vision = require('@google-cloud/vision');
+const exifParser = require('exif-parser');
+require('dotenv').config();
+
+// Initialize Google Vision client
+const client = new vision.ImageAnnotatorClient();
 
 // ============================================
 // CONFIGURATION
@@ -134,14 +140,108 @@ function isUserBanned(userId) {
     return true;
 }
 
+/**
+ * Moderate an image using Google Vision API and heuristic AI detection
+ * @param {Buffer} imageBuffer - Buffer of the image to moderate
+ * @returns {Promise<{approved: boolean, reason?: string}>}
+ */
+async function moderateImage(imageBuffer) {
+    try {
+        const [result] = await client.annotateImage({
+            image: { content: imageBuffer },
+            features: [
+                { type: 'SAFE_SEARCH_DETECTION' },
+                { type: 'FACE_DETECTION' },
+                { type: 'LABEL_DETECTION' },
+                { type: 'TEXT_DETECTION' },
+                { type: 'WEB_DETECTION' }
+            ]
+        });
+
+        const safeSearch = result.safeSearchAnnotation;
+        const faces = result.faceAnnotations || [];
+        const labels = result.labelDetection || [];
+        const textAnnotations = result.textAnnotations || [];
+        const webDetection = result.webDetection || {};
+
+        // 1. NSFW CHECK (Strict)
+        const nsfwLevels = ['LIKELY', 'VERY_LIKELY'];
+        if (nsfwLevels.includes(safeSearch.adult) || nsfwLevels.includes(safeSearch.racy)) {
+            return { approved: false, reason: 'NSFW content detected (Adult/Racy)', errorCode: 'ERR_NSFW' };
+        }
+
+        // 2. TEXT / AD DETECTION
+        if (textAnnotations.length > 0) {
+            const fullText = textAnnotations[0].description || '';
+            if (fullText.length > 50 || fullText.includes('www.') || fullText.includes('.com')) {
+                 return { approved: false, reason: 'Promotional content or banner detected.', errorCode: 'ERR_TEXT' };
+            }
+        }
+
+        // 3. FACE COUNT & IDENTITY
+        if (faces.length === 0) {
+            return { approved: false, reason: 'Please use a real photo of a face.', errorCode: 'ERR_NO_FACE' };
+        }
+        if (faces.length > 1) {
+            return { approved: false, reason: 'The photo should have one person.', errorCode: 'ERR_GROUP_PHOTO' };
+        }
+
+        // 4. MASK & GESTURE DETECTION (via Labels)
+        const blockLabels = {
+            animals: ['dog', 'cat', 'pet', 'animal', 'bird', 'horse', 'kitten', 'puppy'],
+            children: ['child', 'baby', 'infant', 'toddler', 'boy', 'girl'],
+            gestures: ['middle finger', 'offensive gesture']
+        };
+
+        for (const [category, keywords] of Object.entries(blockLabels)) {
+            const match = labels.find(l => keywords.some(k => l.description.toLowerCase().includes(k)) && l.score > 0.85);
+            if (match) {
+                let errorCode = `ERR_${category.toUpperCase()}`;
+                let reason = 'Photo does not meet safety rules.';
+                if (category === 'animals') reason = 'Please use a real photo of a face.';
+                if (category === 'children') reason = 'Photo does not meet safety rules.';
+                
+                return { approved: false, reason, errorCode };
+            }
+        }
+
+        // 5. CELEBRITY & WEB DETECTION (Optional but good for identity theft)
+        if (webDetection.webEntities) {
+            const celebrityMatch = webDetection.webEntities.find(entity => 
+                (entity.description && entity.score > 0.9) && 
+                (entity.description.toLowerCase().includes('actor') || 
+                 entity.description.toLowerCase().includes('singer') ||
+                 entity.description.toLowerCase().includes('celebrity'))
+            );
+            if (celebrityMatch) {
+                return { approved: false, reason: 'Please use your real photo.', errorCode: 'ERR_CELEBRITY' };
+            }
+        }
+
+        // 6. AI / ANIME DETECTION (Strictly for non-human art)
+        const aiLabels = ['Artificial intelligence', 'Anime', 'Manga', 'Avatar', 'CGI', 'Illustration'];
+        const isLikelyArt = labels.some(l => aiLabels.some(ai => l.description.toLowerCase().includes(ai.toLowerCase()) && l.score > 0.95));
+        
+        if (isLikelyArt) {
+            const isHumanLabel = labels.some(l => (l.description.toLowerCase().includes('human') || l.description.toLowerCase().includes('person')) && l.score > 0.9);
+            if (!isHumanLabel) {
+                return { approved: false, reason: 'Please use a real photo of a face.', errorCode: 'ERR_AI_ART' };
+            }
+        }
+
+        return { approved: true };
+    } catch (error) {
+        console.error('[MODERATION] Google Vision API Error:', error);
+        throw error;
+    }
+}
+
 module.exports = {
     getFilterViolation,
     checkRateLimit,
     isUserBanned,
     applyBan,
     logViolation,
-    getMutedUntil: (userId) => muteStats.get(userId)?.expiresAt || 0,
-    getBanReason: (userId) => bans.get(userId)?.reason || '',
-    getViolations: () => violations,
-    getActiveBans: () => Object.fromEntries(bans)
+    getActiveBans: () => Object.fromEntries(bans),
+    moderateImage
 };

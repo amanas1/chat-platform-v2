@@ -9,6 +9,7 @@ import {
   XMarkIcon, AdjustmentsIcon, MoonIcon, PaletteIcon, 
   SwatchIcon, CloudIcon, MusicNoteIcon, ClockIcon, FireIcon, BellIcon, ChatBubbleIcon
 } from './Icons';
+import './ToolsPanel.css';
 
 interface ToolsPanelProps {
   isOpen: boolean;
@@ -162,9 +163,21 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
           </div>
 
           <div className="flex-1 p-6 md:p-8 overflow-y-auto no-scrollbar bg-gradient-to-br from-white/[0.02] to-transparent">
-             <div className="flex justify-between items-center mb-8 md:hidden">
+             <div className="flex justify-between items-center mb-8">
                  <h2 className="text-2xl font-black text-white uppercase tracking-tighter">{tabs.find(t => t.id === activeTab)?.label}</h2>
-                 <button onClick={onClose}><XMarkIcon className="w-6 h-6 text-slate-400" /></button>
+                 <div className="flex items-center gap-4">
+                    <div className="auth-lang-switcher">
+                        <button 
+                        className={`lang-btn ${language === 'ru' ? 'active' : ''}`}
+                        onClick={() => setLanguage('ru')}
+                        >RU</button>
+                        <button 
+                        className={`lang-btn ${language === 'en' ? 'active' : ''}`}
+                        onClick={() => setLanguage('en')}
+                        >EN</button>
+                    </div>
+                    <button onClick={onClose} className="md:hidden"><XMarkIcon className="w-6 h-6 text-slate-400" /></button>
+                 </div>
              </div>
 
              {activeTab === 'viz' && (
@@ -353,19 +366,16 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                      </div>
                      
                      <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.interfaceLanguage}</h4>
+                              <p className="text-[10px] text-slate-500 font-medium">{language.toUpperCase()}</p>
+                          </div>
                          <div className="space-y-2">
-                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.interfaceLanguage}</h4>
-                             <div className="flex bg-white/5 rounded-xl p-1">
-                                 <button onClick={() => setLanguage('en')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${language === 'en' ? 'bg-primary text-white' : 'text-slate-400'}`}>EN</button>
-                                 <button onClick={() => setLanguage('ru')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${language === 'ru' ? 'bg-primary text-white' : 'text-slate-400'}`}>RU</button>
-                             </div>
-                         </div>
-                         <div className="space-y-2">
-                             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Mode</h4>
-                             <div className="flex bg-white/5 rounded-xl p-1">
-                                 <button onClick={() => setBaseTheme('dark')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${baseTheme === 'dark' ? 'bg-slate-700 text-white' : 'text-slate-400'}`}>Dark</button>
-                                 <button onClick={() => setBaseTheme('light')} className={`flex-1 py-2 rounded-lg text-xs font-bold ${baseTheme === 'light' ? 'bg-slate-200 text-black' : 'text-slate-400'}`}>Light</button>
-                             </div>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{t.mode}</h4>
+                              <div className="flex bg-white/5 rounded-xl p-1">
+                                  <button onClick={() => setTheme('midnight')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${currentTheme === 'midnight' ? 'bg-white/10 text-white' : 'text-slate-500 hover:text-slate-300'}`}>{t.themeDark}</button>
+                                  <button onClick={() => setTheme('frost')} className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${currentTheme === 'frost' ? 'bg-white text-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>{t.themeLight}</button>
+                              </div>
                          </div>
                      </div>
                      
@@ -387,10 +397,10 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                      <div className="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
                          <button onClick={onOpenProfile} className="py-3 bg-primary/10 border border-primary/20 rounded-xl text-xs font-bold text-primary hover:bg-primary/20 transition-all flex items-center justify-center gap-2">
                              <ChatBubbleIcon className="w-3.5 h-3.5" />
-                             {t.editProfile}
-                         </button>
-                          <button onClick={onStartTutorial} className="py-3 bg-white/5 rounded-xl text-xs font-bold text-slate-300 hover:bg-white/10 transition-all">Manual</button>
-                     </div>
+                              {t.editProfile}
+                          </button>
+                           <button onClick={onStartTutorial} className="py-3 bg-white/5 rounded-xl text-xs font-bold text-slate-300 hover:bg-white/10 transition-all">{t.manual}</button>
+                      </div>
 
                      {/* GLOBAL RESET BUTTON */}
                      {onGlobalReset && (
@@ -409,10 +419,10 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
              {activeTab === 'ambience' && (
                  <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
                      <div className="space-y-4">
-                         {[
-                             { id: 'rain', label: t.rain, vol: ambience.rainVolume },
-                             { id: 'fire', label: 'Fire', vol: ambience.fireVolume },
-                         ].map(item => (
+                          {[
+                              { id: 'rain', label: t.rain, vol: ambience.rainVolume },
+                              { id: 'fire', label: t.fire, vol: ambience.fireVolume },
+                          ].map(item => (
                              <div key={item.id} className="flex items-center gap-4">
                                  <span className="w-16 text-xs font-bold text-slate-400 uppercase">{item.label}</span>
                                  <input 
@@ -453,12 +463,12 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                       
                       {/* GLOBAL SOUND PROFILES */}
                       <div className="space-y-4 bg-white/5 p-4 rounded-2xl border border-white/10">
-                          <div className="flex items-center justify-between">
-                             <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-                                 <span className="text-lg">🎛️</span> Sound Profiles
-                             </h4>
-                             <span className="text-[9px] font-bold text-slate-500 uppercase">One-Click Setup</span>
-                          </div>
+                           <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                  <span className="text-lg">🎛️</span> {t.soundProfiles}
+                              </h4>
+                              <span className="text-[9px] font-bold text-slate-500 uppercase">{t.oneClickSetup}</span>
+                           </div>
                           
                           <div className="grid grid-cols-4 gap-2">
                               {GLOBAL_PRESETS.map(preset => (
@@ -468,9 +478,9 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
                                     className="relative overflow-hidden group py-3 rounded-xl bg-black/20 border border-white/5 hover:border-primary/50 hover:bg-white/10 transition-all"
                                   >
                                       <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                      <span className="relative z-10 text-[10px] font-black uppercase tracking-wider text-slate-300 group-hover:text-white group-active:scale-95 block">
-                                          {preset.name}
-                                      </span>
+                                       <span className="relative z-10 text-[10px] font-black uppercase tracking-wider text-slate-300 group-hover:text-white group-active:scale-95 block">
+                                           {language === 'ru' ? (preset.ru || preset.name) : preset.name}
+                                       </span>
                                   </button>
                               ))}
                           </div>

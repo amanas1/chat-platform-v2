@@ -10,7 +10,7 @@ import CosmicBackground from './components/CosmicBackground';
 import RainEffect from './components/RainEffect';
 import NewsCarousel from './components/NewsCarousel';
 import FireEffect from './components/FireEffect';
-import { geolocationService } from './services/geolocationService';
+import { geolocationService, LocationData } from './services/geolocationService';
 import { 
   PauseIcon, VolumeIcon, LoadingIcon, MusicNoteIcon, HeartIcon, MenuIcon, AdjustmentsIcon,
   PlayIcon, ChatBubbleIcon, NextIcon, PreviousIcon, XMarkIcon, DownloadIcon,
@@ -26,6 +26,7 @@ const DownloadAppModal = React.lazy(() => import('./components/DownloadAppModal'
 const FeedbackModal = React.lazy(() => import('./components/FeedbackModal'));
 const ShareModal = React.lazy(() => import('./components/ShareModal'));
 import ErrorBoundary from './components/ErrorBoundary';
+import { useAuth } from './AuthProvider';
 
 const THEME_COLORS: Record<ThemeName, { primary: string; secondary: string }> = {
   default: { primary: '#bc6ff1', secondary: '#f038ff' },
@@ -146,6 +147,7 @@ function getCountryFlag(country: string): string {
 }
 
 export default function App(): React.JSX.Element {
+  const { user, isAuthorized } = useAuth();
 
   // Radio State
   const [viewMode, setViewMode] = useState<ViewMode>('genres');
@@ -173,6 +175,7 @@ export default function App(): React.JSX.Element {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
+
 
   const handleApplyPreset = (presetId: string) => {
       const preset = GLOBAL_PRESETS.find(p => p.id === presetId);
@@ -265,6 +268,9 @@ export default function App(): React.JSX.Element {
       loudness: 0
   });
 
+  const [detectedLocation, setDetectedLocation] = useState<LocationData | null>(null);
+  const [locationStatus, setLocationStatus] = useState<'detecting' | 'ready' | 'error'>('detecting');
+
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     const defaultSettings = {
       notificationsEnabled: true,
@@ -284,7 +290,7 @@ export default function App(): React.JSX.Element {
     } catch (e) {}
     
     return {
-      id: localStorage.getItem('streamflow_userId') || '', 
+      id: '', 
       name: '', 
       avatar: null,
       age: 0,
@@ -294,65 +300,12 @@ export default function App(): React.JSX.Element {
       blockedUsers: [],
       bio: '',
       hasAgreedToRules: false,
-      isAuthenticated: !!localStorage.getItem('streamflow_userId'),
+      isAuthenticated: false,
       filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true },
       chatSettings: defaultSettings
     };
   });
 
-  // Silent Identity Initialization (UUID Flow)
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        let userId = localStorage.getItem('streamflow_userId');
-        let canDeleteAfter: number | undefined;
-
-        if (!userId) {
-          console.log('[AUTH] No identity found. Initializing new UUID...');
-          const data = await socketService.initIdentity(); // No userId = create new
-          userId = data.userId;
-          canDeleteAfter = data.canDeleteAfter;
-          localStorage.setItem('streamflow_userId', userId);
-          if (canDeleteAfter) localStorage.setItem('streamflow_canDeleteAfter', canDeleteAfter.toString());
-          
-          // Reset theme to default 'volcano' for new users
-          console.log('[AUTH] New user - resetting theme to volcano');
-          localStorage.setItem('streamflow_current_theme', 'volcano');
-          setCurrentTheme('volcano');
-          
-          // Reset visualizer to default settings (red hue)
-          setVizSettings(DEFAULT_VIZ_SETTINGS);
-        } else {
-          // User has existing userId - re-authenticate (bypass rate limit)
-          console.log('[AUTH] Existing identity found. Re-authenticating...');
-          const data = await socketService.initIdentity(userId);
-          userId = data.userId; // Server confirms the userId
-          canDeleteAfter = data.canDeleteAfter;
-          if (canDeleteAfter) localStorage.setItem('streamflow_canDeleteAfter', canDeleteAfter.toString());
-        }
-
-
-
-        console.log(`[AUTH] Identity verified: ${userId}`);
-        
-        // Update currentUser with the ID
-        setCurrentUser(prev => ({ 
-          ...prev, 
-          id: userId!, 
-          isAuthenticated: true,
-          canDeleteAfter: canDeleteAfter || parseInt(localStorage.getItem('streamflow_canDeleteAfter') || '0') || prev.canDeleteAfter
-        }));
-
-        // Connect socket
-        socketService.connect();
-      } catch (err) {
-        console.error('[AUTH] Failed to initialize identity:', err);
-      }
-    };
-
-    initAuth();
-  }, []);
-  
   const [ambience, setAmbience] = useState<AmbienceState>({ 
       rainVolume: 0, rainVariant: 'soft', fireVolume: 0, cityVolume: 0, vinylVolume: 0, is8DEnabled: false, spatialSpeed: 1 
   });
@@ -386,6 +339,27 @@ export default function App(): React.JSX.Element {
   const loadTimeoutRef = useRef<number | null>(null);
 
   const t = TRANSLATIONS[language];
+
+  useEffect(() => {
+    // Connect socket regardless of auth for presence/bridge sessions
+    socketService.connect();
+
+    if (isAuthorized && user) {
+        setCurrentUser(prev => {
+            const updated = { 
+                ...prev, 
+                id: user.uid, 
+                name: prev.name || user.displayName || '',
+                isAuthenticated: true 
+            };
+            // Persist to localStorage for rapid hydration, but not sensitive token
+            localStorage.setItem('streamflow_user_profile', JSON.stringify(updated));
+            return updated;
+        });
+    } else {
+        setCurrentUser(prev => ({ ...prev, isAuthenticated: false }));
+    }
+  }, [isAuthorized, user]);
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -533,7 +507,38 @@ export default function App(): React.JSX.Element {
     return () => { if (sleepIntervalRef.current) clearInterval(sleepIntervalRef.current); };
   }, [sleepTimer]);
 
+  const triggerLocationDetection = useCallback(async () => {
+    setLocationStatus('detecting');
+    try {
+      const loc = await geolocationService.detectLocation();
+      if (loc && loc.country !== 'Unknown') {
+        setDetectedLocation(loc);
+        setLocationStatus('ready');
+        
+        // Auto-switch language based on country if not set
+        if (!localStorage.getItem('streamflow_language')) {
+          const ruCountries = ['Russia', 'Ukraine', 'Belarus', 'Kazakhstan', 'Uzbekistan', 'Kyrgyzstan', 'Tajikistan', 'Turkmenistan', 'Armenia', 'Azerbaijan', 'Georgia', 'Moldova'];
+          if (ruCountries.includes(loc.country)) setLanguage('ru');
+          else setLanguage('en');
+        }
+      } else {
+        setLocationStatus('error');
+      }
+    } catch (err) {
+      console.error('[GEO] Silent detection error:', err);
+      setLocationStatus('error');
+    }
+  }, []);
+
+  useEffect(() => {
+    triggerLocationDetection();
+  }, [triggerLocationDetection]);
+
   const handlePlayStation = useCallback((station: RadioStation) => {
+    if (locationStatus !== 'ready') {
+        alert(language === 'ru' ? '📍 Определение местоположения необходимо для запуска радио и входа в чат.' : '📍 Location detection is required to start the radio and enter the chat.');
+        return;
+    }
     initAudioContext();
     if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
     
@@ -603,6 +608,10 @@ export default function App(): React.JSX.Element {
 
   const togglePlay = () => {
     if (!audioRef.current) return;
+    if (locationStatus !== 'ready') {
+        alert(language === 'ru' ? '📍 Определение местоположения необходимо для запуска радио.' : '📍 Location detection is required to start the radio.');
+        return;
+    }
     if (!currentStation) {
         if (stations.length) handlePlayStation(stations[0]);
         return;
@@ -875,10 +884,7 @@ export default function App(): React.JSX.Element {
   }, [currentStation, isPlaying, togglePlay, handleNextStation, handlePreviousStation]);
 
   useEffect(() => {
-    // Connect to socket on page load to track all visitors
-    socketService.connect();
-    
-    // Subscribe to presence updates
+    // Subscribe to presence updates (only active if socket is connected via initAuth)
     const cleanupPresence = socketService.onPresenceCount((stats) => {
         setOnlineStats(stats);
     });
@@ -1061,10 +1067,10 @@ export default function App(): React.JSX.Element {
                       {!isAiCurating && <span className="xs:hidden font-bold">AI</span>}
                   </button>
               )}
-              {/* Restored Rocket (App) and Envelope (Feedback) - Visible on Mobile now */}
-              <button onClick={() => setDownloadModalOpen(true)} className="p-1.5 text-slate-400 hover:text-white transition-transform hover:scale-110" title="Download App"><RocketIcon className="w-5 h-5" /></button>
-              <button onClick={() => setFeedbackOpen(true)} className="p-1.5 text-slate-400 hover:text-white transition-transform hover:scale-110" title={t.feedbackTitle}><EnvelopeIcon className="w-5 h-5" /></button>
-              
+            <div className="flex items-center gap-3" style={{ order: 2 }}>
+            <button onClick={() => setToolsOpen(!toolsOpen)} className="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 hover:scale-105 transition-all" title={t.tools} aria-label={t.tools}><AdjustmentsIcon /></button>
+            <button onClick={() => setChatOpen(!chatOpen)} className="p-2.5 rounded-xl bg-gradient-to-r from-purple-500/90 to-pink-500/90 hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:scale-105" title={t.chat} aria-label={t.chat}><ChatBubbleIcon /></button>
+          </div>
               {/* Online Counter - Smart Ticker Mode */}
               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-md animate-in fade-in zoom-in duration-500 shadow-lg ml-1">
                   {/* Green Dot - Desktop Only now */}
@@ -1252,8 +1258,32 @@ export default function App(): React.JSX.Element {
                     <div className="flex items-center gap-3 sm:gap-6">
                         <button onClick={handlePreviousStation} className="p-2 text-slate-400 hover:text-white transition-colors"><PreviousIcon className="w-6 h-6" /></button>
                         
-                        <button ref={playButtonRef} onClick={togglePlay} className="w-14 h-14 md:w-14 md:h-14 rounded-full flex items-center justify-center bg-white text-black shadow-xl hover:scale-105 transition-all mx-1 duration-75">
-                            {isBuffering ? <LoadingIcon className="animate-spin w-6 h-6" /> : isPlaying ? <PauseIcon className="w-6 h-6" /> : <PlayIcon className="w-6 h-6 ml-1" />}
+                        <button 
+                            ref={playButtonRef} 
+                            onClick={locationStatus === 'error' ? triggerLocationDetection : togglePlay} 
+                            className={`w-14 h-14 md:w-14 md:h-14 rounded-full flex flex-col items-center justify-center text-black shadow-xl hover:scale-105 transition-all mx-1 duration-75 relative overflow-hidden group ${locationStatus === 'ready' ? 'bg-white' : 'bg-slate-800 border border-white/10'}`}
+                        >
+                            {locationStatus === 'detecting' ? (
+                                <>
+                                    <LoadingIcon className="animate-spin w-5 h-5 text-primary mb-0.5" />
+                                    <span className="text-[6px] font-black text-slate-400 uppercase tracking-tighter">Loc...</span>
+                                </>
+                            ) : locationStatus === 'error' ? (
+                                <>
+                                    <XMarkIcon className="w-5 h-5 text-red-500 mb-0.5" />
+                                    <span className="text-[6px] font-black text-red-400 uppercase tracking-tighter">Retry</span>
+                                </>
+                            ) : isBuffering ? (
+                                <LoadingIcon className="animate-spin w-6 h-6" />
+                            ) : isPlaying ? (
+                                <PauseIcon className="w-6 h-6" />
+                            ) : (
+                                <PlayIcon className="w-6 h-6 ml-1" />
+                            )}
+                            {/* Visual cue for silent location detection */}
+                            {locationStatus === 'detecting' && (
+                                <div className="absolute top-0 right-1 text-[8px] animate-pulse">🛰️</div>
+                            )}
                         </button>
                         
                         <button onClick={handleNextStation} className="p-2 text-slate-400 hover:text-white transition-colors"><NextIcon className="w-6 h-6" /></button>
@@ -1378,6 +1408,7 @@ export default function App(): React.JSX.Element {
             onToggleRandomMode={() => setIsRandomMode(!isRandomMode)}
             onShare={() => setShareOpen(true)}
             onPendingKnocksChange={setPendingKnocksCount}
+            detectedLocation={detectedLocation}
         />
       </Suspense>
 

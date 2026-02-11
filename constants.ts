@@ -639,9 +639,11 @@ export const TRANSLATIONS: Record<string, any> = {
         vizGalaxy: 'Galaxy', resetFlat: 'Reset Flat', sleepTimer: 'Sleep Timer', turnOffTimer: 'Turn Off', alarm: 'Alarm', on: 'On', off: 'Off', alarm_set: 'Alarm set to', cardColor: 'Card Tint', developerNews: 'App Tips', interfaceLanguage: 'Language',
         findFriends: 'Find Friends', completeProfile: 'Complete Profile', displayName: 'Display Name', gender: 'Gender', male: 'Male', female: 'Female', other: 'Other', age: 'Age', country: 'Country', city: 'City', saveAndEnter: 'Save & Enter', login: 'Login', any: 'Any', search: 'Search', knock: 'Knock',
         tutorialWelcome: 'Welcome to StreamFlow', manualSection2: 'Radio Stream: The Core', manualSection3: 'Sleep Timer: Rest Easy', manualSection5: 'Ambience: Create Atmosphere', manualSection4: 'Chat: Connect Safely',
+        mode: 'Mode', themeDark: 'Dark', themeLight: 'Light',
         tutorialStep1: 'Choose your vibe from Genres, Eras, or Moods.', tutorialStep2: 'Tap any station card to start listening immediately.', tutorialStep3: 'Set a sleep timer or alarm here.', tutorialStep4: 'Mix ambient sounds like rain or fire.', tutorialStep5: 'Chat securely with others listening now.',
         next: 'Next', gotIt: 'Got it', manualTitle: 'User Manual', manualIntro: 'Welcome to StreamFlow, your ultimate radio experience.', whoAreYou: 'Who are you?', createProfile: 'Create your profile to connect.', uploadPhoto: 'Upload Photo', saveProfile: 'Save Profile', joinCommunity: 'Join Community',
-        downloader: 'Music Downloader', rain: 'Rain', spatialAudio: '8D Audio', spatialHint: 'Use headphones for best effect', editProfile: 'Edit Profile',
+        downloader: 'Music Downloader', rain: 'Rain', fire: 'Fire', spatialAudio: '8D Audio', spatialHint: 'Use headphones for best effect', editProfile: 'Edit Profile',
+        manual: 'Manual', soundProfiles: 'Sound Profiles', oneClickSetup: 'One-Click Setup',
         vizStageDancer: 'Stage Dancer', vizTrioDancers: 'Trio Dancers', vizJourney: 'Journey', vizDigital: 'Digital', vizNeon: 'Neon', vizRings: 'Rings', vizBubbles: 'Bubbles',
         spatialMixer: 'Spatial Mixer',
         // Category Translations
@@ -742,8 +744,11 @@ export const TRANSLATIONS: Record<string, any> = {
         // Global Reset
         resetApp: "Сброс настроек (Reset)",
         resetConfirm: "Вы уверены, что хотите сбросить все настройки и данные приложения? Это действие нельзя отменить.",
-        danceMove: "Танцевальное движение",
-        switchMove: "Сменить",
+        mode: 'Режим', themeDark: 'Темный', themeLight: 'Светлый',
+        danceMove: 'Танцевальное движение',
+        switchMove: 'Сменить',
+        manual: 'Инструкция', soundProfiles: 'Профили звука', oneClickSetup: 'Установка в один клик',
+        fire: 'Огонь',
         density: 'Плотность', layout: 'Вид', layoutCenter: 'Центр', layoutBottom: 'Низ', glow: 'Свечение', bgOpacity: 'Фон'
     }
 };

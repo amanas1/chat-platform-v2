@@ -45,11 +45,12 @@ class SocketService {
     this.socket.on('connect', callback);
   }
 
-  connect() {
+  async connect() {
     if (this.socket?.connected) return;
     
     console.log(`🔌 Connecting to Socket.IO server: ${SERVER_URL}`);
     
+    // Create Socket.IO connection
     this.socket = io(SERVER_URL, {
       transports: ['websocket'], // Force WebSocket to avoid polling issues
       reconnection: true,
@@ -98,21 +99,9 @@ class SocketService {
     this.socket.once('user:registered', callback);
   }
 
-  // Identity Initialization
-  async initIdentity(existingUserId?: string): Promise<{ userId: string; canDeleteAfter: number }> {
-    const response = await fetch(`${SERVER_URL}/auth/init`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // Include cookies for persistence
-      body: JSON.stringify({ userId: existingUserId }) // Send existing userId if available
-    });
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to initialize identity');
-    }
-    
-    return response.json();
+  async logout(): Promise<void> {
+    this.disconnect();
+    console.log('[AUTH] ✅ Logged out');
   }
 
   requestDeletion(callback: (data: { success: boolean; deletionRequestedAt?: number }) => void) {
@@ -259,6 +248,17 @@ class SocketService {
     this.socket.on('typing:indicator', callback);
     return () => this.socket?.off('typing:indicator', callback);
   }
+
+  // Bridge Session Controls
+  closeSession(sessionId: string) {
+    if (!this.socket) return;
+    this.socket.emit('session:close', { sessionId });
+  }
+
+  blockSession(sessionId: string) {
+    if (!this.socket) return;
+    this.socket.emit('session:block', { sessionId });
+  }
   
   // Feedback
   sendFeedback(rating: number, message: string) {
@@ -280,11 +280,30 @@ class SocketService {
 
   // Reporting
   sendReport(targetUserId: string, reason: string, messageId?: string) {
-    if (!this.socket) return;
-    this.socket.emit('user:report', { targetUserId, reason, messageId });
+    if (this.socket) {
+      this.socket.emit('user:report', { targetUserId, reason, messageId });
+    }
   }
 
   // Generic listener
+  onEvent(event: string, callback: (...args: any[]) => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on(event, callback);
+    return () => this.socket?.off(event, callback);
+  }
+
+  // Bridge nomenclature aliases
+  endSession(sessionId: string) {
+    if (!this.socket) return;
+    this.socket.emit('bridge:end', { sessionId });
+  }
+
+  blockPartner(sessionId: string) {
+    if (!this.socket) return;
+    this.socket.emit('bridge:block', { sessionId });
+  }
+
+  // Legacy listener
   addListener(event: string, callback: (...args: any[]) => void): () => void {
     if (!this.socket) return () => {};
     this.socket.on(event, callback);

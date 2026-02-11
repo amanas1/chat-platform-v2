@@ -16,7 +16,7 @@ const RegistrationDemoAnimation = React.lazy(() => import('./RegistrationDemoAni
 const InteractionDemoAnimation = React.lazy(() => import('./InteractionDemoAnimation'));
 import { socketService } from '../services/socketService';
 import { encryptionService } from '../services/encryptionService';
-import { geolocationService } from '../services/geolocationService';
+import { geolocationService, LocationData } from '../services/geolocationService';
 import { TRANSLATIONS, COUNTRIES_DATA, PRESET_AVATARS } from '../constants';
 
 interface ChatPanelProps {
@@ -41,6 +41,7 @@ interface ChatPanelProps {
   onToggleRandomMode: () => void;
   onShare: () => void;
   onPendingKnocksChange?: (count: number) => void;
+  detectedLocation: (LocationData) | null;
 }
 
 const EMOJIS = [
@@ -177,17 +178,17 @@ const DrumPicker: React.FC<DrumPickerProps> = ({ options, value, onChange, label
   return (
     <div className="flex flex-col gap-1 w-full">
       <label className="text-[9px] font-bold text-slate-600 uppercase ml-1 tracking-widest">{label}</label>
-      <div className={`relative h-24 bg-slate-800/80 border rounded-xl overflow-hidden shadow-inner transition-opacity ${disabled ? 'border-white/5 opacity-50' : 'border-slate-700/50'}`}>
-        <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none opacity-80"></div>
-        <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none opacity-80"></div>
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-8 bg-primary/10 rounded-lg border border-primary/40 shadow-[0_0_12px_rgba(188,111,241,0.3)] pointer-events-none"></div>
-        <div ref={scrollRef} onScroll={handleScroll} className={`h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-8 ${disabled ? 'pointer-events-none' : ''}`} style={{ scrollBehavior: 'smooth' }}>
+      <div className={`relative h-28 bg-slate-800/90 border rounded-2xl overflow-hidden shadow-inner transition-opacity ${disabled ? 'border-white/5 opacity-50' : 'border-slate-700/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]'}`}>
+        <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-slate-900 to-transparent z-10 pointer-events-none opacity-90"></div>
+        <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-slate-900 to-transparent z-10 pointer-events-none opacity-90"></div>
+        <div className="absolute inset-x-2 top-1/2 -translate-y-1/2 h-11 bg-primary/20 rounded-xl border-2 border-white/90 shadow-[0_0_15px_rgba(188,111,241,0.4)] pointer-events-none z-[5]"></div>
+        <div ref={scrollRef} onScroll={handleScroll} className={`h-full overflow-y-auto snap-y snap-mandatory no-scrollbar py-10 ${disabled ? 'pointer-events-none' : ''}`} style={{ scrollBehavior: 'smooth' }}>
           {options.map((opt, i) => (
-            <div key={i} className={`h-8 flex items-center justify-center snap-center transition-all duration-300 text-sm font-bold ${value === opt ? 'text-primary scale-110' : 'text-slate-600 opacity-30'}`}>
+            <div key={i} className={`h-8 flex items-center justify-center snap-center transition-all duration-300 text-sm font-black ${value === opt ? 'text-white scale-125 drop-shadow-lg' : 'text-slate-600 opacity-20'}`}>
               {opt}
             </div>
           ))}
-          <div className="h-32"></div>
+          <div className="h-40"></div>
         </div>
       </div>
     </div>

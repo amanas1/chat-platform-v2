@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "firebase": "^12.9.0",
     "node-fetch": "^3.3.2",
+    "qrcode": "^1.5.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "socket.io-client": "^4.8.3"

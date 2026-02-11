@@ -18,6 +18,8 @@ const { Server } = require('socket.io');
 console.log('[INIT] ✓ socket.io loaded');
 const cors = require('cors');
 console.log('[INIT] ✓ cors loaded');
+const multer = require('multer');
+console.log('[INIT] ✓ multer loaded');
 const moderation = require('./moderation');
 console.log('[INIT] ✓ moderation loaded');
 const crypto = require('crypto');
@@ -26,6 +28,7 @@ const path = require('path');
 console.log('[INIT] ✓ path loaded');
 const cookieParser = require('cookie-parser');
 console.log('[INIT] ✓ cookie-parser loaded');
+console.log('[INIT] ✓ devices NOT loaded (Legacy)');
 
 // Load environment variables (Railway provides these automatically)
 require('dotenv').config();
@@ -39,13 +42,21 @@ if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
+const AVATARS_DIR = path.join(DATA_DIR, 'avatars');
+if (!fs.existsSync(AVATARS_DIR)) {
+    console.log(`[INIT] Creating avatars directory: ${AVATARS_DIR}`);
+    fs.mkdirSync(AVATARS_DIR, { recursive: true });
+}
+
 // Email auth is being removed in favor of UUID-based identity.
 
 const app = express();
 
 // CORS configuration to allow cookies from Vercel frontend
 const allowedOrigins = [
-  'http://localhost:3001', // Local development
+  'http://localhost:3000', // Local development (Frontend)
+  'http://localhost:3001', // Local development (Backend/Self)
+  'http://localhost:3002', // Local development (Your current port)
   'https://stream-flow-main-2.vercel.app', // Production frontend
 ];
 
@@ -63,8 +74,139 @@ app.use(cors({
   credentials: true // Enable credentials (cookies)
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
+
+// Avatar Upload & Moderation
+const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
+// Serve avatars statically
+app.use('/avatars', express.static(AVATARS_DIR));
+
+app.post('/api/moderate-avatar', upload.single('avatar'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ status: 'rejected', reason: 'No file uploaded' });
+        }
+
+        console.log(`[MODERATION] File details: size=${req.file.size} mimetype=${req.file.mimetype}`);
+
+        // 1. Moderate using Google Vision
+        console.log('[MODERATION] Starting moderation.moderateImage...');
+        const modResult = await moderation.moderateImage(req.file.buffer);
+        console.log('[MODERATION] moderation.moderateImage result:', modResult);
+        
+        if (!modResult.approved) {
+            console.warn(`[MODERATION] REJECTED: ${modResult.reason} (Code: ${modResult.errorCode})`);
+            
+            // Log NSFW violations to suspicious users
+            if (modResult.errorCode === 'ERR_NSFW') {
+                const suspiciousUsers = storage.load('suspicious_users', []);
+                const existing = suspiciousUsers.find(u => u.fingerprint === fingerprint);
+                
+                if (existing) {
+                    existing.violations += 1;
+                    existing.lastSeenAt = Date.now();
+                } else {
+                    suspiciousUsers.push({
+                        fingerprint,
+                        violations: 1,
+                        firstSeenAt: Date.now(),
+                        lastSeenAt: Date.now(),
+                        lastReason: modResult.reason
+                    });
+                }
+                storage.save('suspicious_users', suspiciousUsers);
+                console.log(`[SECURITY] Flagged suspicious user: ${fingerprint}`);
+            }
+
+            return res.status(400).json({ 
+                status: 'rejected', 
+                reason: modResult.reason,
+                errorCode: modResult.errorCode
+            });
+        }
+
+        // 2. Generate unique filename and save approved photo
+        const ext = path.extname(req.file.originalname) || '.jpg';
+        const filename = `${crypto.randomUUID()}${ext}`;
+        const filepath = path.join(AVATARS_DIR, filename);
+
+        // Optional: Post-process with sharp to ensure consistency
+        // await sharp(req.file.buffer).resize(512, 512, { fit: 'cover' }).toFile(filepath);
+        fs.writeFileSync(filepath, req.file.buffer);
+
+        const avatarUrl = `/avatars/${filename}`;
+        console.log(`[MODERATION] APPROVED: ${avatarUrl}`);
+
+        res.json({
+            status: 'approved',
+            url: avatarUrl
+        });
+    } catch (error) {
+        console.error('[MODERATION] Server Error:', error);
+        res.status(500).json({ status: 'error', reason: 'Internal server error during moderation', details: error.message });
+    }
+});
+
+app.post('/api/report-user', async (req, res) => {
+    try {
+        const { targetUserId, reason, reporterId } = req.body;
+        if (!targetUserId) return res.status(400).json({ error: 'Missing target user ID' });
+
+        console.log(`[REPORT] User ${reporterId} reported ${targetUserId}. Reason: ${reason}`);
+
+        // 1. Log the report
+        const reports = storage.load('user_reports', []);
+        reports.push({
+            reporterId,
+            targetUserId,
+            reason,
+            timestamp: Date.now()
+        });
+        storage.save('user_reports', reports);
+
+        // 2. Automated Action Logic
+        const targetUser = persistentUsers.get(targetUserId);
+        const suspiciousUsers = storage.load('suspicious_users', []);
+        
+        // Find if this user's fingerprint is in suspicious list
+        const isSuspicious = suspiciousUsers.some(u => u.fingerprint === targetUser?.fingerprint);
+        
+        // Count total reports for this user
+        const targetReports = reports.filter(r => r.targetUserId === targetUserId);
+
+        if (isSuspicious) {
+            // AUTO-BLOCK suspicious users on first report
+            if (targetUser) {
+                targetUser.accountStatus = 'blocked';
+                targetUser.banReason = 'Community reports following moderation flags';
+                persistentUsers.set(targetUserId, targetUser);
+                savePersistentUsers();
+                console.log(`[SECURITY] AUTO-BLOCKED suspicious user: ${targetUserId} due to report.`);
+            }
+            return res.json({ status: 'action_taken', action: 'blocked' });
+        } else if (targetReports.length >= 3) {
+            // Block normal users after 3 reports
+            if (targetUser) {
+                targetUser.accountStatus = 'blocked';
+                targetUser.banReason = 'Multiple community reports';
+                persistentUsers.set(targetUserId, targetUser);
+                savePersistentUsers();
+                console.log(`[SECURITY] BLOCKED user: ${targetUserId} after 3 reports.`);
+            }
+            return res.json({ status: 'action_taken', action: 'blocked' });
+        }
+
+        res.json({ status: 'reported' });
+    } catch (error) {
+        console.error('[REPORT] Server Error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
 
 
 const server = http.createServer(app);
@@ -127,8 +269,16 @@ const messages = new Map(Object.entries(rawMessages));
 // Map: userId -> Set<knockRequestId>
 const knockRequests = new Map();
 
-// Map: IP -> { timestamp }
-const registrationLog = new Map(Object.entries(storage.load('registrationLog', {})));
+// Map: userId1:userId2 -> timestamp (24h block)
+const reconnectBlocks = new Map(Object.entries(storage.load('reconnectBlocks', {})));
+
+// Map: userId1:userId2 -> true (Indefinite block)
+const permanentBlocks = new Map(Object.entries(storage.load('permanentBlocks', {})));
+
+function saveBlocks() {
+  storage.save('reconnectBlocks', Object.fromEntries(reconnectBlocks));
+  storage.save('permanentBlocks', Object.fromEntries(permanentBlocks));
+}
 
 // Map: timestamp -> count (Online History)
 const onlineHistory = storage.load('onlineHistory', {});
@@ -196,6 +346,8 @@ function saveMessages() {
 
 
 
+
+// Removed legacy device loading
 
 // ============================================
 // TTL CLEANUP JOBS
@@ -349,6 +501,29 @@ function findSession(userId1, userId2) {
   return null;
 }
 
+// Helper to completely destroy a session
+function closeSession(sessionId, reason) {
+  const session = activeSessions.get(sessionId);
+  if (!session) return;
+
+  const participants = session.participants;
+
+  // Notify participants about end
+  participants.forEach(userId => {
+    const user = activeUsers.get(userId);
+    if (user?.socketId) {
+      io.to(user.socketId).emit('session:ended', { sessionId, reason });
+    }
+  });
+
+  messages.delete(sessionId);
+  activeSessions.delete(sessionId);
+  saveSessions();
+  saveMessages();
+
+  console.log(`[SESSION] Session ${sessionId} closed. Reason: ${reason}`);
+}
+
 function saveSessions() {
     storage.save('sessions', Object.fromEntries(activeSessions));
 }
@@ -398,6 +573,12 @@ setInterval(() => {
 // SOCKET.IO EVENTS
 // ============================================
 
+// Removed legacy device authentication middleware
+
+// ============================================
+// SOCKET.IO CONNECTION HANDLER
+// ============================================
+
 io.on('connection', (socket) => {
   console.log(`[SOCKET] New connection: ${socket.id}`);
   broadcastPresenceCount(socket); // Send current count immediately to the new client
@@ -421,43 +602,30 @@ io.on('connection', (socket) => {
         return;
     }
 
-    // 30-Day Lockdown Enforcement
+    // 30-Day Lockdown Enforcement - REMOVED for Reversion
     let userRecord = persistentUsers.get(profile.id);
     if (userRecord) {
         const now = Date.now();
-        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-        const regTime = userRecord.registrationTimestamp || profile.registrationTimestamp || userRecord.created_at;
         
-        const isLocked = (now - regTime) < thirtyDaysMs;
+        // Update/Verify core fields
+        userRecord.name = profile.name || userRecord.name;
+        userRecord.age = profile.age || userRecord.age;
+        userRecord.gender = profile.gender || userRecord.gender;
+        userRecord.avatar = profile.avatar || userRecord.avatar;
         
-        if (isLocked && userRecord.name && userRecord.age) {
-            console.log(`[USER] Profile LOCKED for ${profile.id} (${Math.floor((thirtyDaysMs - (now - regTime))/(1000*60*60*24))} days left)`);
-            // Restore locked fields from persistent record
-            profile.name = userRecord.name;
-            profile.age = userRecord.age;
-            profile.gender = userRecord.gender;
-            profile.avatar = userRecord.avatar;
-            profile.registrationTimestamp = regTime; // Keep original
-        } else {
-            // Update/Verify core fields for the first time or after lock expired
-            userRecord.name = profile.name || userRecord.name;
-            userRecord.age = profile.age || userRecord.age;
-            userRecord.gender = profile.gender || userRecord.gender;
-            userRecord.avatar = profile.avatar || userRecord.avatar;
-            
-            // Fix: Persist location data
-            userRecord.country = profile.country || userRecord.country;
-            userRecord.detectedCountry = profile.detectedCountry || userRecord.detectedCountry;
-            userRecord.detectedCity = profile.detectedCity || userRecord.detectedCity;
+        // Fix: Persist location data
+        userRecord.country = profile.country || userRecord.country;
+        userRecord.detectedCountry = profile.detectedCountry || userRecord.detectedCountry;
+        userRecord.detectedCity = profile.detectedCity || userRecord.detectedCity;
 
-            userRecord.registrationTimestamp = regTime || now;
-            profile.registrationTimestamp = userRecord.registrationTimestamp;
-        }
+        userRecord.registrationTimestamp = userRecord.registrationTimestamp || now;
+        profile.registrationTimestamp = userRecord.registrationTimestamp;
         
         // Always allowed updates
         userRecord.intentStatus = profile.intentStatus;
         userRecord.voiceIntro = profile.voiceIntro;
         userRecord.last_login_at = now;
+        userRecord.fingerprint = profile.fingerprint || userRecord.fingerprint;
         
         persistentUsers.set(profile.id, userRecord);
         savePersistentUsers();
@@ -531,9 +699,18 @@ io.on('connection', (socket) => {
         if (filters.gender && filters.gender !== 'any' && user.gender !== filters.gender) {
           return false;
         }
+
+        if (filters.country && filters.country !== 'any' && user.country !== filters.country) {
+          return false;
+        }
+
+        if (filters.city && filters.city !== 'any' && user.city !== filters.city) {
+          return false;
+        }
         
-        // Ensure only FULLY complete profiles are shown (name, age, avatar, agreed to rules)
-        if (!user.name || !user.age || !user.avatar || !user.hasAgreedToRules) return false;
+        // Ensure only SUFFICIENT profiles are shown (name, age, avatar)
+        // Removed hasAgreedToRules check to allow showing legacy users
+        if (!user.name || !user.age || !user.avatar) return false;
 
         return true;
     });
@@ -590,6 +767,15 @@ io.on('connection', (socket) => {
   socket.on('knock:send', ({ targetUserId }) => {
     if (!boundUserId) return;
     
+    // Blocks - REMOVED for Reversion
+    if (permanentBlocks.has(pairId)) {
+        socket.emit('knock:error', { 
+            message: 'Пользователь вас заблокировал.',
+            reason: 'PERMANENT_BLOCK'
+        });
+        return;
+    }
+
     if (moderation.isUserBanned(boundUserId)) {
         socket.emit('knock:error', { message: 'Action restricted due to account status.' });
         return;
@@ -630,18 +816,29 @@ io.on('connection', (socket) => {
     const existingSessionId = findSession(boundUserId, fromUserId);
     let sessionId;
     
+    // Original Session model: Long-lived
+    const SESSION_DURATION = 24 * 60 * 60 * 1000;
+    const expiresAt = Date.now() + SESSION_DURATION;
+
     if (existingSessionId) {
       sessionId = existingSessionId;
+      const session = activeSessions.get(sessionId);
+      session.updatedAt = Date.now();
+      session.expiresAt = expiresAt;
     } else {
       sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       activeSessions.set(sessionId, {
+        id: sessionId,
         participants: [boundUserId, fromUserId],
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        expiresAt: expiresAt
       });
-      saveSessions();
-      console.log(`[SESSION] Created new session ${sessionId} for [${boundUserId}, ${fromUserId}]`);
       messages.set(sessionId, []);
     }
+    saveSessions();
+
+    console.log(`[CHAT] Started session ${sessionId} for [${boundUserId}, ${fromUserId}]`);
     
     // Remove knock request
     if (knockRequests.has(boundUserId)) {
@@ -652,9 +849,15 @@ io.on('connection', (socket) => {
     const user1 = activeUsers.get(boundUserId);
     const user2 = activeUsers.get(fromUserId);
     
+    const startData = {
+        sessionId,
+        expiresAt,
+        participants: [boundUserId, fromUserId]
+    };
+
     if (user1?.socketId) {
       io.to(user1.socketId).emit('session:created', {
-        sessionId,
+        ...startData,
         partnerId: fromUserId,
         partnerProfile: user2?.profile
       });
@@ -662,7 +865,7 @@ io.on('connection', (socket) => {
     
     if (user2?.socketId) {
       io.to(user2.socketId).emit('session:created', {
-        sessionId,
+        ...startData,
         partnerId: boundUserId,
         partnerProfile: user1?.profile
       });
@@ -706,6 +909,8 @@ io.on('connection', (socket) => {
       socket.emit('message:error', { message: 'Invalid session' });
       return;
     }
+
+    // BRIDGE SESSION RESTRICTION: REMOVED
 
     const flagReason = metadata?.text ? moderation.getFilterViolation(metadata.text) : null;
     const isFlagged = flagReason !== null;
@@ -765,7 +970,77 @@ io.on('connection', (socket) => {
   // USER REPORT
   socket.on('user:report', ({ targetUserId, reason, messageId }) => {
     if (!boundUserId) return;
-    moderation.logViolation(targetUserId, `report:${reason}`, `Reported by ${boundUserId}. Msg: ${messageId || 'none'}`);
+    
+    console.log(`[REPORT] User ${boundUserId} reported ${targetUserId}. Reason: ${reason}`);
+
+    // 1. Log the report
+    const reports = storage.load('user_reports', []);
+    reports.push({
+        reporterId: boundUserId,
+        targetUserId,
+        reason,
+        messageId,
+        timestamp: Date.now()
+    });
+    storage.save('user_reports', reports);
+
+    // 2. Automated Action Logic
+    const targetUser = persistentUsers.get(targetUserId);
+    const suspiciousUsers = storage.load('suspicious_users', []);
+    
+    // Check if target user fingerprint is in suspicious list
+    const isSuspicious = suspiciousUsers.some(u => u.fingerprint === targetUser?.fingerprint);
+    
+    // Count total reports for this target user
+    const targetReports = reports.filter(r => r.targetUserId === targetUserId);
+
+    if (isSuspicious) {
+        // CASE A: User was already flagged for NSFW -> Instant block on first report
+        if (targetUser) {
+            targetUser.accountStatus = 'blocked';
+            const banReason = 'Community reports following high-risk moderation flags';
+            targetUser.banReason = banReason;
+            persistentUsers.set(targetUserId, targetUser);
+            savePersistentUsers();
+            
+            // Centralized ban enforcement
+            moderation.applyBan(targetUserId, 'perm', banReason);
+            
+            console.log(`[SECURITY] AUTO-BLOCKED suspicious user: ${targetUserId} due to community report.`);
+            
+            // Notify target if online
+            const targetSocketData = activeUsers.get(targetUserId);
+            if (targetSocketData?.socketId) {
+                io.to(targetSocketData.socketId).emit('user:error', {
+                    message: 'Your access has been restricted due to community reports.',
+                    reason: banReason
+                });
+            }
+        }
+    } else if (targetReports.length >= 3) {
+        // CASE B: Normal user reached 3 reports -> Automatic block
+        if (targetUser) {
+            targetUser.accountStatus = 'blocked';
+            const banReason = 'Consensus community reports (3+)';
+            targetUser.banReason = banReason;
+            persistentUsers.set(targetUserId, targetUser);
+            savePersistentUsers();
+            
+            // Centralized ban enforcement
+            moderation.applyBan(targetUserId, 'perm', banReason);
+            
+            console.log(`[SECURITY] BLOCKED user: ${targetUserId} after reaching threshold (3 reports).`);
+            
+            const targetSocketData = activeUsers.get(targetUserId);
+            if (targetSocketData?.socketId) {
+                io.to(targetSocketData.socketId).emit('user:error', {
+                    message: 'Your access has been restricted due to multiple reports.',
+                    reason: banReason
+                });
+            }
+        }
+    }
+
     socket.emit('report:acknowledged', { success: true });
   });
 
@@ -789,6 +1064,17 @@ io.on('connection', (socket) => {
     } else {
       console.log(`[SIGNAL] Failed: Target user ${targetUserId} not found or has no socket`);
     }
+  });
+
+  // SESSION CONTROLS
+  socket.on('session:close', ({ sessionId }) => {
+    if (!boundUserId) return;
+    closeSession(sessionId, 'CLOSE');
+  });
+
+  socket.on('session:block', ({ sessionId }) => {
+    if (!boundUserId) return;
+    closeSession(sessionId, 'BLOCK');
   });
 
   // GET MESSAGES for a session
@@ -914,80 +1200,10 @@ app.get('/stats', (req, res) => {
   });
 });
 
-// --- UUID Identity Initialization ---
+// Email auth is handled implicitly by identity from Google (Client-side)
 
-app.post('/auth/init', (req, res) => {
-    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
-    const now = Date.now();
-    const tenMinutesMs = 10 * 60 * 1000;
-    const { userId: existingUserId } = req.body; // Check if user already has ID
-
-    // If user provides existing userId, verify and return it (bypass rate limit)
-    if (existingUserId && persistentUsers.has(existingUserId)) {
-        const user = persistentUsers.get(existingUserId);
-        user.last_login_at = now;
-        savePersistentUsers();
-        
-        // Set HttpOnly cookie for persistence across browser sessions
-        res.cookie('streamflow_uid', existingUserId, {
-            httpOnly: true,
-            secure: true, // Always secure (HTTPS required)
-            sameSite: 'none', // Allow cross-site (Vercel→Railway)
-            maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-        });
-        
-        console.log(`[AUTH] Existing user re-authenticated: ${existingUserId} from IP ${ip}`);
-        return res.json({ userId: existingUserId, canDeleteAfter: user.canDeleteAfter });
-    }
-
-    // Rate limit: 1 registration per 10 mins per IP (for NEW users only)
-    const lastReg = registrationLog.get(ip);
-    if (lastReg && (now - lastReg.timestamp) < tenMinutesMs) {
-        const waitMin = Math.ceil((tenMinutesMs - (now - lastReg.timestamp)) / 60000);
-        return res.status(429).json({ 
-            error: 'Too many requests.', 
-            message: `Please wait ${waitMin} minutes before creating a new identity.`,
-            retryIn: Math.ceil((tenMinutesMs - (now - lastReg.timestamp)) / 1000)
-        });
-    }
-
-    const userId = crypto.randomUUID();
-    const isEarlyAdopter = persistentUsers.size < MAX_EARLY_USERS;
-    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-
-    const userRecord = {
-        id: userId,
-        created_at: now,
-        last_login_at: now,
-        accountStatus: 'active',
-        role: isEarlyAdopter ? 'early_user' : 'regular',
-        early_access: isEarlyAdopter,
-        registrationTimestamp: now,
-        canDeleteAfter: now + thirtyDaysMs,
-        free_until: isEarlyAdopter ? now + (thirtyDaysMs * 6) : null
-    };
-
-    persistentUsers.set(userId, userRecord);
-    registrationLog.set(ip, { userId, timestamp: now });
-    
-    savePersistentUsers();
-    saveRegistrationLog();
-
-    // Set HttpOnly cookie for new users too
-    res.cookie('streamflow_uid', userId, {
-        httpOnly: true,
-        secure: true, // Always secure (HTTPS required)
-        sameSite: 'none', // Allow cross-site (Vercel→Railway)
-        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
-    });
-
-    console.log(`[AUTH] Issued new UUID Identity: ${userId} for IP ${ip}`);
-    res.json({ userId, canDeleteAfter: userRecord.canDeleteAfter });
-});
-
-
-// --- Moderation Admin API ---
-
+// MODERATION
+// ============================================
 app.get('/api/moderation/violations', (req, res) => {
     res.json(moderation.getViolations());
 });
@@ -1106,7 +1322,7 @@ app.post('/admin/nuke-all-users', (req, res) => {
 
 // Railway / Heroku / Generic PORT binding
 // Note: Railway usually provides process.env.PORT. 3000 is the standard fallback.
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Cleanup registration log every hour
 setInterval(() => {
