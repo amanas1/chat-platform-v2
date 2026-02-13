@@ -59,57 +59,59 @@ class GeolocationService {
    * Get user location via IP address (fallback method)
    * Uses ipapi.co free service (no API key needed)
    */
+  /**
+   * Get user location via IP address (fallback method)
+   * Uses our own backend proxy to avoid CORS and Mixed Content issues
+   */
   async getIPLocation(): Promise<LocationData> {
-    const apis = [
-      { url: 'https://ipapi.co/json/', type: 'ipapi' },
-      { url: 'https://ip-api.io/api/json', type: 'ip-api-io' },
-      { url: 'https://freeipapi.com/api/json', type: 'freeipapi' }
-    ];
-
-    for (const api of apis) {
-      try {
-        console.log(`[GEO] Trying IP-based geolocation: ${api.type}...`);
+    try {
+        console.log('[GEO] 🌍 Requesting location from backend proxy...');
+        
+        // Determine backend URL (production or localhost)
+        const backendUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+        // Remove trailing slash if present
+        const cleanUrl = backendUrl.replace(/\/$/, '');
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-        const response = await fetch(api.url, { signal: controller.signal });
+        const response = await fetch(`${cleanUrl}/api/location`, { 
+            signal: controller.signal,
+            headers: { 'Accept': 'application/json' }
+        });
         clearTimeout(timeoutId);
 
-        if (!response.ok) continue;
+        if (!response.ok) throw new Error(`Backend returned ${response.status}`);
 
         const data = await response.json();
-        console.log(`[GEO] ✅ ${api.type} detected location:`, data);
+        console.log('[GEO] ✅ Backend proxy detected location:', data);
 
-        if (api.type === 'ipapi') {
-          return {
-            country: data.country_name || 'Unknown',
+        return {
+            country: data.country || 'Unknown',
             city: data.city || 'Unknown',
-            countryCode: data.country_code,
-            ip: data.ip
-          };
-        } else if (api.type === 'ip-api-io') {
-          return {
-            country: data.country || data.country_name || 'Unknown',
-            city: data.city || 'Unknown',
-            countryCode: data.country_code || data.countryCode,
-            ip: data.ip || data.query
-          };
-        } else if (api.type === 'freeipapi') {
-          return {
-            country: data.countryName || 'Unknown',
-            city: data.cityName || 'Unknown',
             countryCode: data.countryCode,
-            ip: data.ipAddress
-          };
-        }
-      } catch (err) {
-        console.warn(`[GEO] ⚠️ ${api.type} failed, trying next...`, err);
-      }
-    }
+            ip: data.ip
+        };
 
-    // Ultimate fallback
-    return { country: 'Unknown', city: 'Unknown', ip: 'Unknown' };
+    } catch (err) {
+        console.error('[GEO] ❌ Backend proxy failed, trying direct fallback...', err);
+        
+        // Fallback: Try one direct HTTPS API that might work (ipapi.co is often blocked, try ip-api.io)
+        try {
+             const response = await fetch('https://ip-api.io/api/json');
+             const data = await response.json();
+             return {
+                country: data.country_name || 'Unknown',
+                city: data.city || 'Unknown',
+                countryCode: data.country_code,
+                ip: data.ip
+             };
+        } catch (e) {
+             console.warn('[GEO] Direct fallback also failed');
+        }
+
+        return { country: 'Unknown', city: 'Unknown', ip: 'Unknown' };
+    }
   }
 
   /**

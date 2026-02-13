@@ -40,9 +40,10 @@ class SocketService {
     return this.socket?.connected || false;
   }
 
-  onConnect(callback: () => void) {
-    if (!this.socket) return;
+  onConnect(callback: () => void): () => void {
+    if (!this.socket) return () => {};
     this.socket.on('connect', callback);
+    return () => this.socket?.off('connect', callback);
   }
 
   async connect() {

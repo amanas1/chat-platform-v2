@@ -1034,6 +1034,10 @@ io.on('connection', (socket) => {
         moderation.logViolation(boundUserId, flagReason, metadata.text);
     }
     
+    if (messageType === 'image' || messageType === 'audio' || messageType === 'video') {
+         console.log(`[MSG] 📸 Media message (${messageType}) from ${boundUserId}. Payload length: ${encryptedPayload.length}`);
+    }
+    
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     const ttl = (messageType === 'image' || messageType === 'audio' || messageType === 'video') ? MEDIA_TTL : TEXT_TTL;
     

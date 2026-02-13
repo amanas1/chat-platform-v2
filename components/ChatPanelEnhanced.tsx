@@ -353,6 +353,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     return new Map();
   });
   const [activeSession, setActiveSession] = useState<any | null>(null);
+  const activeSessionRef = useRef<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [pendingKnocks, setPendingKnocks] = useState<any[]>([]);
   
@@ -715,6 +716,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
   useEffect(() => { scrollToBottom(); }, [messages, view]);
 
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeSessionRef.current = activeSession;
+  }, [activeSession]);
+
   // Notify parent about pending knocks count changes
   useEffect(() => {
     onPendingKnocksChange?.(pendingKnocks.length);
@@ -728,23 +734,63 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     return cleanup;
   }, []);
 
-  const detectedCountry = detectedLocation?.country || (language === 'ru' ? 'Неизвестно' : 'Unknown');
+  const detectedCountry = passedLocation?.country || detectedLocation?.country || (language === 'ru' ? 'Неизвестно' : 'Unknown');
 
-  // Background Location Detection (Silent)
+  // Background Location Detection (Silent) & Auto-Update Profile
   useEffect(() => {
+    console.log('[Chat] 📍 Passed Location Prop:', passedLocation);
+    
     const detect = async () => {
+      // If we have passedLocation (from App.tsx), use it first
+      if (passedLocation?.country && passedLocation.country !== 'Unknown') {
+          console.log('[Chat] ✅ Using passed location:', passedLocation.country);
+          setDetectedLocation(passedLocation);
+          
+          // Auto-update profile if it's missing country or has default "Russia" but we are elsewhere
+          if (currentUser.id && (!currentUser.country || currentUser.country === 'Russia')) {
+             console.log('[GEO] 🌍 Auto-updating profile location to:', passedLocation.country);
+             onUpdateCurrentUser({
+                 ...currentUser,
+                 country: passedLocation.country,
+                 city: passedLocation.city || currentUser.city,
+                 detectedCountry: passedLocation.country,
+                 detectedCity: passedLocation.city,
+                 detectedIP: passedLocation.ip
+             });
+          }
+          return;
+      } else {
+         console.warn('[Chat] ⚠️ Passed location is missing or Unknown, trying internal detection...');
+      }
+
+      // Otherwise try internal detection
       try {
         const location = await geolocationService.detectLocation();
         if (location) {
+          console.log('[Chat] 🕵️ Internal detection found:', location.country);
           setDetectedLocation(location);
           geolocationService.saveLocationToCache(location);
+          
+           // Auto-update profile here too
+           if (currentUser.id && (!currentUser.country || currentUser.country === 'Russia')) {
+             console.log('[GEO] 🌍 Auto-updating profile location (internal) to:', location.country);
+             onUpdateCurrentUser({
+                 ...currentUser,
+                 country: location.country,
+                 city: location.city || currentUser.city,
+                 detectedCountry: location.country,
+                 detectedCity: location.city,
+                 detectedIP: location.ip
+             });
+          }
         }
       } catch (err) {
         console.error('[GEO] Silent detection error:', err);
       }
     };
-    if (!detectedLocation) detect();
-  }, []);
+    
+    detect();
+  }, [passedLocation]);
   
   // Persist sessions to localStorage whenever they change
   useEffect(() => {
@@ -773,7 +819,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         return filtered;
       });
     }, 1000);
-    return () => clearInterval(pruneInterval);
     return () => clearInterval(pruneInterval);
   }, []);
 
@@ -877,12 +922,36 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         }
     };
     
-    // Listen for incoming knocks
-    cleanups.push(socketService.onKnockReceived((data) =>{
-      if (currentUser.blockedUsers.includes(data.fromUserId)) return;
+    // Listen for incoming knocks - SINGLE ROBUST LISTENER
+    cleanups.push(socketService.onKnockReceived((data) => {
+      console.log("[KNOCK] 🔔 Incoming knock received:", data);
       
+      if (currentUser.blockedUsers.includes(data.fromUserId)) {
+          console.warn("[KNOCK] 🚫 Blocked user tried to knock:", data.fromUserId);
+          return;
+      }
+      
+      // Update UI state
+      setIncomingKnock({
+          knockId: data.knockId,
+          fromUser: data.fromUser
+      });
+      
+      setPendingKnocks(prev => {
+          // Avoid duplicates
+          if (prev.some(k => k.knockId === data.knockId)) return prev;
+          return [...prev, data];
+      });
+
       // Voice notification (sound)
       if (currentUser.chatSettings.voiceNotificationsEnabled) {
+        console.log("[KNOCK] 🔊 Playing voice notification");
+        playNotificationSound('knock');
+        announceNotification(language === 'ru'
+            ? `Вам стучится ${data.fromUser.name}`
+            : `New knock from ${data.fromUser.name}`);
+      } else {
+        console.log("[KNOCK] 🔊 Playing standard sound");
         playNotificationSound('knock');
       }
       
@@ -901,12 +970,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           };
         }
       }
-      
-      setPendingKnocks(prev => [...prev, data]);
     }));
 
-    // RE-REGISTER ON RECONNECT (Fix for server restarts)
-    socketService.onConnect(() => {
+    // RE-REGISTER ON RECONNECT (Fix for server restarts) — with cleanup
+    cleanups.push(socketService.onConnect(() => {
         if (currentUser && currentUser.id && currentUser.isAuthenticated) {
             console.log("🔄 Re-registering user after reconnect...");
             socketService.registerUser(currentUser, (data) => {
@@ -926,7 +993,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 }
             });
         }
-    });
+    }));
 
     // Check immediate connection status (for hydration/initial load)
     if (socketService.isConnected && currentUser && currentUser.id && currentUser.isAuthenticated) {
@@ -1010,14 +1077,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     
     // Listen for new messages
     cleanups.push(socketService.onMessageReceived((message) => {
+      const currentActiveSession = activeSessionRef.current;
       console.log(`[CLIENT] 📥 Message received:`, {
         sessionId: message.sessionId,
         senderId: message.senderId,
         messageType: message.messageType,
-        currentSession: activeSession?.sessionId
+        currentSession: currentActiveSession?.sessionId
       });
       
-      if (!activeSession || message.sessionId !== activeSession.sessionId) {
+      if (!currentActiveSession || message.sessionId !== currentActiveSession.sessionId) {
         console.log(`[CLIENT] ⚠️ Message ignored: session mismatch or no active session`);
         return;
       }
@@ -1070,28 +1138,23 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           
           // Banner Notification
           if (currentUser.chatSettings?.bannerNotificationsEnabled && document.visibilityState === 'hidden') {
-               const senderName = activeSession?.partnerProfile?.name || onlineUsers.find(u => u.id === message.senderId)?.name || (language === 'ru' ? 'Собеседник' : 'Partner');
+               const senderName = currentActiveSession?.partnerProfile?.name || (language === 'ru' ? 'Собеседник' : 'Partner');
                showBannerNotification(
                    language === 'ru' ? 'Новое сообщение' : 'New Message', 
                    `${senderName}: ${decrypted.messageType === 'text' ? (decrypted.text?.substring(0, 30) + '...') : (language === 'ru' ? 'Отправил файл' : 'Sent a file')}`
                );
           }
 
-          // Voice Notification
-          if (currentUser.chatSettings?.voiceNotificationsEnabled) {
-              speakNotification();
-          }
+          // Voice Notification is handled by announceNotification above (line 1117)
+          // speakNotification() REMOVED to prevent double-speaking
 
-          // In-App Toast Notification (New Colorful Animation)
-          // Show if we are NOT in the chat view tailored to this user, OR if we just want to notify always (user request implies visibility).
-          // We'll show it if the user is NOT currently looking at this specific conversation.
-          const isViewingThisChat = view === 'chat' && activeSession?.partnerId === message.senderId;
+          // In-App Toast Notification
+          const isViewingThisChat = view === 'chat' && currentActiveSession?.partnerId === message.senderId;
           
           if (!isViewingThisChat) {
-             const senderName = activeSession?.partnerProfile?.name 
-                || onlineUsers.find(u => u.id === message.senderId)?.name 
+             const senderName = currentActiveSession?.partnerProfile?.name 
                 || (language === 'ru' ? 'Собеседник' : 'Partner');
-             const senderAvatar = activeSession?.partnerProfile?.avatar || onlineUsers.find(u => u.id === message.senderId)?.avatar;
+             const senderAvatar = currentActiveSession?.partnerProfile?.avatar;
              
              if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
              setNotificationToast({
@@ -1107,8 +1170,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           if (decrypted.text && voiceModeRef.current && !currentUser.chatSettings?.voiceNotificationsEnabled) {
               // Get partner gender
               let partnerGender = 'other';
-              if (activeSession) {
-                  const partner = activeSession.partnerProfile || onlineUsers.find(u => u.id === message.senderId);
+              if (currentActiveSession) {
+                  const partner = currentActiveSession.partnerProfile;
                   partnerGender = partner?.gender || 'other';
               }
               speakMessage(decrypted.text, partnerGender);
@@ -1120,7 +1183,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     
     // Listen for message expiration
     cleanups.push(socketService.onMessagesDeleted((data) => {
-      if (activeSession && data.sessionId === activeSession.sessionId) {
+      if (activeSessionRef.current && data.sessionId === activeSessionRef.current.sessionId) {
         setMessages(prev => prev.slice(-data.remainingCount));
       }
     }));
@@ -1309,8 +1372,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             partnerProfile: data.partnerProfile
         });
         
-        // REVERTED AUTO-JOIN: User requested manual confirmation to prevent desync
-        // socketService.joinSession(data.sessionId);
+        // AUTO-JOIN ENABLED: Fix for "stuck" state
+        console.log("[KNOCK] ✅ Auto-joining session:", data.sessionId);
+        socketService.joinSession(data.sessionId);
 
         playNotificationSound('knock'); // Success sound
         announceNotification(language === 'ru' 
@@ -1318,22 +1382,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             : `Knock accepted! ${data.partnerProfile.name} is waiting for you.`);
     }));
 
-    // Listen for incoming knock (Receiver side) - OVERRIDE existing listener
-    cleanups.push(socketService.onKnockReceived((data) => {
-        console.log("Knock received:", data);
-        setIncomingKnock({
-            knockId: data.knockId,
-            fromUser: data.fromUser
-        });
-        playNotificationSound('knock');
-        announceNotification(language === 'ru'
-            ? `Вам стучится ${data.fromUser.name}`
-            : `New knock from ${data.fromUser.name}`);
-    }));    return () => {
+    // Duplicate listener removed - consolidated above
+    
+    return () => {
       // Cleanup all event listeners (NOT disconnect!)
       cleanups.forEach(cleanup => cleanup());
     };
-  }, [currentUser.id, activeSession, currentUser.chatSettings]); // Added chatSettings dependency
+  }, [currentUser.id, currentUser.chatSettings]); // FIXED: Removed activeSession to prevent constant re-binding
 
   useEffect(() => {
     if (currentUser.id && currentUser.name && currentUser.age && !hasRegisteredWithServer) {
@@ -1548,11 +1603,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       lastSeen: Date.now(),
       registrationTimestamp: currentUser.registrationTimestamp || Date.now(),
       
-      // Location Data
-      country: detectedLocation?.country || currentUser.country || (language === 'ru' ? 'Неизвестно' : 'Unknown'),
-      detectedCountry: detectedLocation?.country || currentUser.detectedCountry,
-      detectedCity: detectedLocation?.city || currentUser.detectedCity,
-      detectedIP: detectedLocation?.ip || currentUser.detectedIP,
+      // Location Data — prioritize passedLocation (from App.tsx/radio) over local detection
+      country: passedLocation?.country || detectedLocation?.country || currentUser.country || (language === 'ru' ? 'Неизвестно' : 'Unknown'),
+      detectedCountry: passedLocation?.country || detectedLocation?.country || currentUser.detectedCountry,
+      detectedCity: passedLocation?.city || detectedLocation?.city || currentUser.detectedCity,
+      detectedIP: passedLocation?.ip || detectedLocation?.ip || currentUser.detectedIP,
 
       chatSettings: {
         notificationsEnabled: regNotificationsEnabled,
@@ -1762,7 +1817,12 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !activeSession) return;
+    if (!file) return;
+    
+    if (!activeSession) {
+        alert(language === 'ru' ? 'Ошибка: нет активной сессии' : 'Error: No active session');
+        return;
+    }
     
     if (file.size > 5 * 1024 * 1024) { // Increased to 5MB for better user experience
       alert(language === 'ru' ? 'Фото не больше 5 МБ' : 'Photo must be under 5MB');
@@ -1771,8 +1831,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     
     try {
       setIsFileUploading(true);
+      console.log("[UPLOAD] Processing file:", file.name, file.type, file.size);
+      
       // FIX: Use simple compression for chat, NOT stylizeAvatar (filters)
       const compressedBase64 = await processChatImage(file);
+      console.log("[UPLOAD] Compression success. Length:", compressedBase64.length);
       
       const encrypted = encryptionService.encryptBinary(compressedBase64, activeSession.sessionId);
       
@@ -1782,11 +1845,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         'image'
       );
       
+      console.log("[UPLOAD] Message sent to socket");
+      
       // Clear inputs
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (cameraInputRef.current) cameraInputRef.current.value = '';
-    } catch (error) {
-      console.error("Image compression failed", error);
+    } catch (error: any) {
+      console.error("Image compression/upload failed", error);
+      alert(language === 'ru' ? `Ошибка загрузки: ${error.message || 'Unknown error'}` : `Upload failed: ${error.message || 'Unknown error'}`);
     } finally {
       setIsFileUploading(false);
     }

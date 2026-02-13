@@ -967,12 +967,22 @@ export default function App(): React.JSX.Element {
          users.forEach(u => {
              // Prefer detectedCountry (IP based) or fallback to profile country
              const c = u.detectedCountry || u.country || 'Global';
-             // Normalize: if it looks like a full name, map it? For now just use it.
-             // We can rely on getCountryFlag to handle mapping if needed.
-             // Ideally we want short codes "KZ", "RU"
              stats[c] = (stats[c] || 0) + 1;
          });
          setCountryStats(stats);
+         
+         // FALLBACK: If we still don't have a location, but we see a major country in the stats (which might include us if backend detected us), use it.
+         // Or improved logic: If we are "Unknown", and the backend sends us in the list with a country, GRAFT it.
+         if (currentUser.id) {
+             const myUserParams = users.find(u => u.id === currentUser.id);
+             if (myUserParams && (myUserParams.country !== 'Unknown' || myUserParams.detectedCountry)) {
+                 const bestCountry = myUserParams.detectedCountry || myUserParams.country;
+                 if (bestCountry && bestCountry !== 'Unknown' && (!detectedLocation || detectedLocation.country === 'Unknown')) {
+                     console.log('[GEO] 📡 Grafting location from Socket Presence:', bestCountry);
+                     setDetectedLocation({ country: bestCountry, city: 'Unknown', countryCode: 'Unknown' });
+                 }
+             }
+         }
     });
 
     // Handle incoming knocks
@@ -980,7 +990,7 @@ export default function App(): React.JSX.Element {
       cleanupPresence();
       cleanupPresenceList();
     };
-  }, []);
+  }, [currentUser.id, detectedLocation]);
 
   const loadCategory = useCallback(async (category: CategoryInfo | null, mode: ViewMode, autoPlay: boolean = false) => { 
     const requestId = Date.now();
@@ -1524,7 +1534,11 @@ export default function App(): React.JSX.Element {
             onShare={() => setShareOpen(true)}
             onPendingKnocksChange={setPendingKnocksCount}
             detectedLocation={detectedLocation}
-            onRequireLogin={() => setShowLoginModal(true)}
+            // Debug prop
+            onRequireLogin={() => {
+                console.log('[App] Passing location to ChatPanel:', detectedLocation);
+                setShowLoginModal(true);
+            }}
         />
       </Suspense>
 
