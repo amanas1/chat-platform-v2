@@ -1227,12 +1227,45 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       }
     }));
     
-    // Listen for message errors (Moderation)
+    // Listen for message errors (Moderation & Session Sync)
     cleanups.push(socketService.addListener('message:error', (data) => {
         if (data.mutedUntil) {
             setIsMuted(true);
             setMutedUntil(data.mutedUntil);
             alert(language === 'ru' ? 'Вы временно ограничены за спам.' : 'You are temporarily restricted due to spamming.');
+        } else if (data.message === 'Invalid session') {
+            console.error("[CHAT] ❌ Invalid Session detected. Attempting auto-recovery...");
+            // Force re-registration to sync sessions
+            socketService.registerUser(currentUser, (regData) => {
+                console.log("[CHAT] 🔄 Re-registered successfully. Refreshing sessions...");
+                if (regData.activeSessions && regData.activeSessions.length > 0) {
+                     setActiveSessions(prev => {
+                        const newMap = new Map(prev);
+                        regData.activeSessions.forEach((session: any) => {
+                            if (!newMap.has(session.sessionId)) {
+                                newMap.set(session.sessionId, session);
+                            }
+                        });
+                        return newMap;
+                    });
+                    
+                    // Update current active session if possible
+                    if (activeSession) {
+                        const refreshed = regData.activeSessions.find((s:any) => s.sessionId === activeSession.sessionId);
+                        if (refreshed) {
+                            setActiveSession(refreshed);
+                            console.log("[CHAT] ✅ Active session refreshed!");
+                            // Optional: Retry sending message here if we had a queue, 
+                            // but for now just let user click send again (it will work now)
+                            alert(language === 'ru' ? 'Сессия обновлена. Попробуйте отправить снова.' : 'Session refreshed. Please try sending again.');
+                            return;
+                        }
+                    }
+                    // If we couldn't find the specific session, maybe jump to latest
+                     const latest = regData.activeSessions[regData.activeSessions.length - 1];
+                     if(latest) setActiveSession(latest);
+                }
+            });
         } else {
             alert(data.message || 'Error sending message');
         }
