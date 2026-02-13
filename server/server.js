@@ -685,10 +685,28 @@ io.on('connection', (socket) => {
             detectedCountry: profile.detectedCountry,
             detectedCity: profile.detectedCity
         };
+        
+        // Save to persistence
         persistentUsers.set(profile.id, userRecord);
         savePersistentUsers();
         console.log(`[DB] Created NEW persistent user: ${profile.name} (${profile.id})`);
     }
+
+    // 2. BIND SOCKET & ACTIVATE USER
+    // This runs for BOTH existing and new users
+    boundUserId = profile.id;
+    socket.userId = profile.id; 
+    
+    // Create/Update Active User Record
+    // Explicitly set flags to ensure Guest messaging works
+    activeUsers.set(boundUserId, {
+        ...userRecord,
+        status: 'online',
+        socketId: socket.id,
+        isGuest: !profile.isAuthenticated,
+        isAuthenticated: profile.isAuthenticated || false,
+        isAdmin: profile.isAdmin || false
+    });
 
     boundUserId = profile.id;
     const expiresAt = Date.now() + USER_TTL;

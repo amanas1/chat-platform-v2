@@ -284,16 +284,26 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const announceNotification = (text: string) => {
       if (!currentUser.chatSettings?.voiceNotificationsEnabled) return;
       
+      const isCyrillic = /[а-яА-ЯёЁ]/.test(text);
+      const targetLang = isCyrillic ? 'ru-RU' : 'en-US';
+
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language === 'ru' ? 'ru-RU' : 'en-US';
+      utterance.lang = targetLang;
       
-      // Select voice based on settings
+      // Select voice based on settings AND content language
       const voices = window.speechSynthesis.getVoices();
       const preferredGender = currentUser.chatSettings.notificationVoice || 'female';
-      const selectedVoice = voices.find(v => 
-          v.lang.startsWith(language === 'ru' ? 'ru' : 'en') && 
+      
+      // try to find voice matching both lang and gender
+      let selectedVoice = voices.find(v => 
+          v.lang.startsWith(isCyrillic ? 'ru' : 'en') && 
           v.name.toLowerCase().includes(preferredGender)
       );
+
+      // fallback to just lang
+      if (!selectedVoice) {
+          selectedVoice = voices.find(v => v.lang.startsWith(isCyrillic ? 'ru' : 'en'));
+      }
       
       if (selectedVoice) utterance.voice = selectedVoice;
       window.speechSynthesis.speak(utterance);
@@ -1039,6 +1049,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           const filtered = prev.filter(m => !m.metadata?.optimistic || m.id !== decrypted.id);
           return [...filtered, decrypted];
       });
+
+      // TTS for incoming messages (if enabled and not from self)
+      if (decrypted.senderId !== currentUser.id && decrypted.messageType === 'text' && decrypted.text) {
+          announceNotification(decrypted.text);
+      }
       
       // If our own message was flagged, show warning
       if (decrypted.senderId === currentUser.id && decrypted.flagged) {
