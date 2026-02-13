@@ -1276,20 +1276,16 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             partnerProfile: data.partnerProfile
         });
         
-        // AUTO-JOIN: Immediately join the session without manual click
-        console.log(`[CLIENT] Auto-joining session ${data.sessionId} after knock acceptance`);
-        socketService.joinSession(data.sessionId);
+        // REVERTED AUTO-JOIN: User requested manual confirmation to prevent desync
+        // socketService.joinSession(data.sessionId);
 
         playNotificationSound('knock'); // Success sound
         announceNotification(language === 'ru' 
-            ? `Стук принят! Подключаемся...` 
-            : `Knock accepted! Connecting...`);
+            ? `Стук принят! ${data.partnerProfile.name} ждет вас.` 
+            : `Knock accepted! ${data.partnerProfile.name} is waiting for you.`);
     }));
 
     // Listen for incoming knock (Receiver side) - OVERRIDE existing listener
-    // Note: The original listener in useEffect might conflict. We should consolidate.
-    // However, existing code has `onPendingKnocksChange`. 
-    // We will add a listener here specifically for the banner/voice.
     cleanups.push(socketService.onKnockReceived((data) => {
         console.log("Knock received:", data);
         setIncomingKnock({
@@ -1300,9 +1296,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         announceNotification(language === 'ru'
             ? `Вам стучится ${data.fromUser.name}`
             : `New knock from ${data.fromUser.name}`);
-    }));
-
-    return () => {
+    }));    return () => {
       // Cleanup all event listeners (NOT disconnect!)
       cleanups.forEach(cleanup => cleanup());
     };
@@ -1313,7 +1307,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       console.log(`[AUTH] Registering with server...`);
       socketService.registerUser(currentUser, (data) => {
         setHasRegisteredWithServer(true);
-        // Override server expiration to 30 days as requested
+        // Override server expiration to 30 days as requested.
         const thirtyDaysFromNow = Date.now() + (30 * 24 * 60 * 60 * 1000);
         setProfileExpiresAt(thirtyDaysFromNow);
         console.log(`✅ Profile registered. Expires in 30 days`);
@@ -1330,18 +1324,40 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             return newMap;
           });
           
-          // AUTO-RESUME: If we have sessions but aren't in chat, jump to the most recent one
-          // This fixes the case where user disconnects during "waiting" state
+          // AUTO-RESUME: Keep this for reconnection recovery
           const latestSession = data.activeSessions[data.activeSessions.length - 1];
           if (latestSession) {
               console.log("[SESSION] Auto-resuming latest session:", latestSession.sessionId);
               setActiveSession(latestSession);
-              setView('chat');
+              setView('chat'); 
           }
         }
       });
     }
   }, [currentUser.id, currentUser.name, currentUser.age, hasRegisteredWithServer]);
+
+        {/* Knock Accepted Banner - FIXED POSITION & Z-INDEX */}
+        {knockAcceptedData && (
+            <div className="fixed top-20 left-4 right-4 z-[9999] bg-green-500/20 border border-green-500/50 backdrop-blur-xl rounded-2xl p-6 shadow-[0_0_50px_rgba(34,197,94,0.5)] animate-in zoom-in-95 duration-300 flex flex-col items-center gap-4 text-center">
+                <div className="w-16 h-16 rounded-full border-4 border-green-400 p-1">
+                    <img src={knockAcceptedData.partnerProfile.avatar} className="w-full h-full rounded-full object-cover" />
+                </div>
+                <div>
+                    <h4 className="text-xl font-black text-white uppercase tracking-wider mb-1">{language === 'ru' ? 'Стук принят!' : 'Knock Accepted!'}</h4>
+                    <p className="text-sm text-green-200 font-bold">{knockAcceptedData.partnerProfile.name} {language === 'ru' ? 'ждет вас' : 'is waiting for you'}</p>
+                </div>
+                <button 
+                    onClick={() => {
+                        console.log("🖱️ User clicked JOIN SESSION");
+                        socketService.joinSession(knockAcceptedData.sessionId);
+                        setKnockAcceptedData(null);
+                    }}
+                    className="w-full py-4 bg-green-500 hover:bg-green-400 text-black font-black uppercase tracking-widest rounded-xl text-sm shadow-xl hover:shadow-green-500/40 transition-all transform hover:scale-105 active:scale-95"
+                >
+                    {language === 'ru' ? 'Начать чат' : 'Start Chat'}
+                </button>
+            </div>
+        )}
 
 
   const startIntroRecording = async () => {
