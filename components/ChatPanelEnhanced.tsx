@@ -1708,7 +1708,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
          // Actually, let's just validly filter the new list using current filters
          
          const filtered = allUsers.filter(user => {
-            if (user.id === currentUser.id) return false;
+            // Self is visible in search (shown with 'This is You' label instead of knock button)
             
             // Apply active filters
             if (searchAgeFrom !== 'Any' && user.age && user.age < parseInt(searchAgeFrom)) return false;
@@ -3107,7 +3107,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         )}
 
                                         {user.id === currentUser.id ? (
-                                            <div className="w-28 h-full bg-green-500/10 border border-green-500/20 rounded-xl text-green-500 text-[9px] font-black uppercase tracking-widest flex items-center justify-center">
+                                            <div className="w-28 h-full bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1">
+                                                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
                                                 {language === 'ru' ? 'ЭТО ВЫ' : 'YOU'}
                                             </div>
                                         ) : (
