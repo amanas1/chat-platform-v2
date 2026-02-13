@@ -1218,7 +1218,7 @@ export default function App(): React.JSX.Element {
             </button>
 
             {!chatOpen && (
-                <div className="flex items-center gap-1 animate-pulse mr-1 md:mr-2">
+                <div className="flex items-center gap-1 animate-pulse -mr-2 md:mr-0 z-50 pointer-events-none">
                     <span className="text-[8px] md:text-[10px] font-black text-primary uppercase tracking-widest whitespace-nowrap">Super-chat</span>
                     <div className="text-primary text-xs">→</div> 
                 </div>
