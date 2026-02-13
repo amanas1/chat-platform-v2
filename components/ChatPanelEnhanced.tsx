@@ -1590,7 +1590,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       return;
     }
 
-    if (!regAvatar && !currentUser.avatar) {
+    // Avatar: if no custom photo, generate a default based on gender
+    const effectiveAvatar = regAvatar || currentUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${regName.trim()}&gender=${regGender === 'female' ? 'female' : 'male'}`;
+    if (!effectiveAvatar) {
       alert(language === 'ru' 
         ? '❌ Пожалуйста, загрузите фотографию профиля.\n\nНажмите на иконку камеры, чтобы выбрать фото.' 
         : '❌ Please upload a profile photo.\n\nClick the camera icon to select a photo.');
@@ -1627,7 +1629,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     const updatedUser: UserProfile = { 
       ...currentUser, 
       name: regName.trim() || (language === 'ru' ? 'Гость' : 'Guest'), 
-      avatar: regAvatar,
+      avatar: effectiveAvatar,
       age: parseInt(regAge), 
       gender: regGender, 
       intentStatus: regIntentStatus,
@@ -1751,14 +1753,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   };
 
   const handleKnock = (targetUser: UserProfile) => {
-    // Auth Check: Block if user is not authenticated
-    // Auth Check: Block if user is not authenticated
+    // Auth Check: Block if user is not authenticated (requires Google login)
     if (!currentUser.isAuthenticated) {
        console.log("[Knock] User not authenticated, triggering login modal");
        if (onRequireLogin) {
          onRequireLogin();
        } else {
-         alert(language === 'ru' ? 'Пожалуйста, войдите в систему' : 'Please login first');
+         alert(language === 'ru' 
+           ? '🔐 Для начала общения войдите через Google аккаунт.' 
+           : '🔐 Please sign in with Google to start chatting.');
        }
        return;
     }
