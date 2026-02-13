@@ -1002,11 +1002,15 @@ io.on('connection', (socket) => {
   });
 
   // SEND MESSAGE (E2EE - server just relays encrypted payload)
-  socket.on('message:send', ({ sessionId, encryptedPayload, messageType, metadata }) => {
-    if (!boundUserId) return;
+  socket.on('message:send', ({ sessionId, encryptedPayload, messageType, metadata }, ackCallback) => {
+    if (!boundUserId) {
+      if (typeof ackCallback === 'function') ackCallback({ success: false, error: 'Not registered' });
+      return;
+    }
 
     if (moderation.isUserBanned(boundUserId)) {
         socket.emit('message:error', { message: 'Your messages are temporarily restricted.' });
+        if (typeof ackCallback === 'function') ackCallback({ success: false, error: 'Banned' });
         return;
     }
 
@@ -1016,12 +1020,14 @@ io.on('connection', (socket) => {
             message: 'You are sending messages too fast. Temporarily muted.',
             mutedUntil
         });
+        if (typeof ackCallback === 'function') ackCallback({ success: false, error: 'Rate limited' });
         return;
     }
     
     const session = activeSessions.get(sessionId);
     if (!session || !session.participants.includes(boundUserId)) {
       socket.emit('message:error', { message: 'Invalid session' });
+      if (typeof ackCallback === 'function') ackCallback({ success: false, error: 'Invalid session' });
       return;
     }
 
@@ -1035,7 +1041,14 @@ io.on('connection', (socket) => {
     }
     
     if (messageType === 'image' || messageType === 'audio' || messageType === 'video') {
-         console.log(`[MSG] 📸 Media message (${messageType}) from ${boundUserId}. Payload length: ${encryptedPayload.length}`);
+         console.log(`[MSG] 📸 Media message (${messageType}) from ${boundUserId}. Payload length: ${encryptedPayload?.length || 0}`);
+    }
+
+    // Validate payload exists
+    if (!encryptedPayload) {
+        console.error(`[MSG] ❌ Empty payload from ${boundUserId}`);
+        if (typeof ackCallback === 'function') ackCallback({ success: false, error: 'Empty payload' });
+        return;
     }
     
     const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
@@ -1071,19 +1084,26 @@ io.on('connection', (socket) => {
     // PERSIST IMMEDIATELY
     saveMessages();
     
-    console.log(`[MSG] 📤 Broadcasting message ${messageId} to session ${sessionId}`);
+    console.log(`[MSG] 📤 Broadcasting message ${messageId} (type: ${messageType}) to session ${sessionId}`);
     console.log(`[MSG] Session participants: [${session.participants.join(', ')}]`);
     
+    let deliveredCount = 0;
     session.participants.forEach(userId => {
       const user = activeUsers.get(userId);
       console.log(`[MSG] Checking participant ${userId}: socketId=${user?.socketId || 'NONE'}`);
       if (user?.socketId) {
         console.log(`[MSG] ✅ Sending to ${userId} via socket ${user.socketId}`);
         io.to(user.socketId).emit('message:received', message);
+        deliveredCount++;
       } else {
         console.log(`[MSG] ❌ User ${userId} has no active socket connection`);
       }
     });
+
+    // ACK callback to sender
+    if (typeof ackCallback === 'function') {
+        ackCallback({ success: true, messageId, deliveredTo: deliveredCount });
+    }
   });
 
   // USER REPORT

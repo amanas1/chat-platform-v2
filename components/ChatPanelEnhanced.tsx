@@ -1838,11 +1838,23 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       console.log("[UPLOAD] Compression success. Length:", compressedBase64.length);
       
       const encrypted = encryptionService.encryptBinary(compressedBase64, activeSession.sessionId);
+      console.log("[UPLOAD] Encrypted payload length:", encrypted.length);
       
+      // Send with ACK callback for delivery confirmation
       socketService.sendMessage(
         activeSession.sessionId,
         encrypted,
-        'image'
+        'image',
+        undefined,
+        (ack) => {
+          if (ack && ack.success) {
+            console.log(`[UPLOAD] ✅ Server confirmed: messageId=${ack.messageId}, deliveredTo=${ack.deliveredTo}`);
+          } else {
+            const errorMsg = ack?.error || 'Unknown error';
+            console.error(`[UPLOAD] ❌ Server rejected photo: ${errorMsg}`);
+            alert(language === 'ru' ? `Фото не доставлено: ${errorMsg}` : `Photo not delivered: ${errorMsg}`);
+          }
+        }
       );
       
       console.log("[UPLOAD] Message sent to socket");

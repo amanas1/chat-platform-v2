@@ -214,20 +214,27 @@ class SocketService {
   }
   
   // Messaging
-  sendMessage(sessionId: string, encryptedPayload: string, messageType: 'text' | 'image' | 'audio' | 'video', metadata?: any) {
+  sendMessage(sessionId: string, encryptedPayload: string, messageType: 'text' | 'image' | 'audio' | 'video', metadata?: any, ackCallback?: (response: { success: boolean; messageId?: string; deliveredTo?: number; error?: string }) => void) {
     if (!this.socket) {
         console.error("Socket not initialized in sendMessage");
+        if (ackCallback) ackCallback({ success: false, error: 'Socket not initialized' });
         return;
     }
     
-    console.log(`[SOCKET] Emitting message:send via socket ${this.socket.id} (Connected: ${this.socket.connected})`);
+    if (!this.socket.connected) {
+        console.error("[SOCKET] Socket is disconnected, cannot send");
+        if (ackCallback) ackCallback({ success: false, error: 'Socket disconnected' });
+        return;
+    }
+    
+    console.log(`[SOCKET] Emitting message:send via socket ${this.socket.id} (Connected: ${this.socket.connected}). Type: ${messageType}, Payload length: ${encryptedPayload?.length || 0}`);
     
     this.socket.emit('message:send', {
       sessionId,
       encryptedPayload,
       messageType,
       metadata
-    });
+    }, ackCallback);
   }
   
   onMessageReceived(callback: (message: any) => void): () => void {
