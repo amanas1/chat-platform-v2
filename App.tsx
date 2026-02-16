@@ -208,6 +208,7 @@ export default function App(): React.JSX.Element {
   const [shareOpen, setShareOpen] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const mainContentRef = useRef<HTMLDivElement>(null);
+  const visualizerRef = useRef<HTMLDivElement>(null);
 
 
   const handleApplyPreset = (presetId: string) => {
@@ -683,7 +684,16 @@ export default function App(): React.JSX.Element {
   }, [triggerLocationDetection]);
 
   const handlePlayStation = useCallback((station: RadioStation) => {
-    if (mainContentRef.current) mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    // Robust scroll to top (container + visualizer focus)
+    setTimeout(() => {
+        if (visualizerRef.current) {
+            visualizerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (mainContentRef.current) {
+            mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        // Always try global scroll as fallback for mobile browser bars
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 150);
     initAudioContext();
     if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
     
@@ -1192,16 +1202,16 @@ export default function App(): React.JSX.Element {
         <div className="px-4 pb-4 space-y-2 animate-in slide-in-from-left duration-300">
             <div className="flex bg-[var(--input-bg)] p-1.5 rounded-2xl border border-[var(--panel-border)] gap-1">
                 {(['genres', 'eras', 'moods', 'effects'] as const).map(m => (
-                    <button key={m} onClick={() => loadCategory(m === 'genres' ? GENRES[0] : m === 'eras' ? ERAS[0] : m === 'moods' ? MOODS[0] : EFFECTS[0], m, false)} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${viewMode === m ? 'bg-[var(--selected-item-bg)] text-[var(--text-base)]' : 'text-slate-400'}`}>{t[m]}</button>
+                    <button key={m} onClick={() => loadCategory(m === 'genres' ? GENRES[0] : m === 'eras' ? ERAS[0] : m === 'moods' ? MOODS[0] : EFFECTS[0], m, true)} className={`flex-1 py-2 rounded-xl text-[10px] font-black transition-all ${viewMode === m ? 'bg-[var(--selected-item-bg)] text-[var(--text-base)]' : 'text-slate-400'}`}>{t[m]}</button>
                 ))}
             </div>
-            <button onClick={() => loadCategory(null, 'favorites', false)} className={`w-full py-3 rounded-2xl text-xs font-black border transition-all ${viewMode === 'favorites' ? 'bg-secondary border-secondary text-white' : 'bg-[var(--input-bg)] text-slate-400'}`}>
+            <button onClick={() => loadCategory(null, 'favorites', true)} className={`w-full py-3 rounded-2xl text-xs font-black border transition-all ${viewMode === 'favorites' ? 'bg-secondary border-secondary text-white' : 'bg-[var(--input-bg)] text-slate-400'}`}>
                 <HeartIcon className="w-4 h-4 inline mr-2" filled={viewMode === 'favorites'} /> {t.favorites}
             </button>
         </div>
         <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-1 no-scrollbar">
         {viewMode !== 'favorites' && (viewMode === 'genres' ? GENRES : viewMode === 'eras' ? ERAS : viewMode === 'moods' ? MOODS : EFFECTS).map((cat) => (
-            <button key={cat.id} onClick={() => loadCategory(cat, viewMode, false)} className={`w-full text-left px-4 py-3.5 rounded-2xl transition-all ${selectedCategory?.id === cat.id ? 'bg-[var(--selected-item-bg)] font-black' : 'text-slate-400 hover:text-[var(--text-base)]'}`}>
+            <button key={cat.id} onClick={() => loadCategory(cat, viewMode, true)} className={`w-full text-left px-4 py-3.5 rounded-2xl transition-all ${selectedCategory?.id === cat.id ? 'bg-[var(--selected-item-bg)] font-black' : 'text-slate-400 hover:text-[var(--text-base)]'}`}>
                 {t[cat.id] || cat.name}
             </button>
         ))}
@@ -1317,19 +1327,10 @@ export default function App(): React.JSX.Element {
           </div>
         </header>
 
-  const mainContentRef = useRef<HTMLDivElement>(null);
-
-  // ... (inside handlePlayStation)
-  const handlePlayStation = useCallback((station: RadioStation) => {
-    if (mainContentRef.current) mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    initAudioContext();
-    // ...
-
-  // ... (JSX)
-  <div ref={mainContentRef} className={`flex-1 overflow-y-auto px-6 md:px-10 no-scrollbar transition-all duration-500 ${isIdleView ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
+        <div ref={mainContentRef} className={`flex-1 overflow-y-auto px-6 md:px-10 no-scrollbar transition-all duration-500 ${isIdleView ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
             <>
             {selectedCategory && viewMode !== 'favorites' && (
-                <div className="mb-8">
+                <div ref={visualizerRef} className="mb-8">
                     <div className="p-10 h-56 rounded-[2.5rem] glass-panel relative overflow-hidden flex flex-col justify-end">
                         <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
                         <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} danceStyle={danceStyle} /></div>
