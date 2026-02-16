@@ -18,8 +18,11 @@ const getSocketURL = (): string => {
     return url;
   }
   
-  // Fallback to localhost for development
-  return 'http://localhost:3001';
+  // Fallback to localhost for development ONLY
+  if (import.meta.env.DEV) {
+      return 'http://localhost:3001';
+  }
+  return 'https://streamflow-production.up.railway.app'; // Safe production default if env missing
 };
 
 const SERVER_URL = getSocketURL();
@@ -57,7 +60,9 @@ class SocketService {
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      reconnectionAttempts: this.maxReconnectAttempts
+      reconnectionAttempts: this.maxReconnectAttempts,
+      timeout: 20000, // Increase connection timeout
+      autoConnect: true,
     });
     
     this.socket.on('connect', () => {

@@ -98,6 +98,7 @@ export interface UserProfile {
   country?: string; 
   city?: string;
   approxRegion?: string; // Internal privacy-first region hint
+  hideFromSearch?: boolean; // Privacy setting: Hide from global search/list
   gender: 'male' | 'female' | 'other';
   status: 'online' | 'offline';
   intentStatus?: string;

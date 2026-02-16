@@ -3,17 +3,10 @@
 
 echo "Building Android TWA for AU RadioChat..."
 
-# Install Bubblewrap if not present
-if ! command -v bubblewrap &> /dev/null; then
-    echo "Installing Bubblewrap..."
-    npm install -g @bubblewrap/cli
-fi
-
-# Initialize TWA (run once)
-# bubblewrap init --manifest https://your-domain.com/manifest.json
-
-# Build
-echo "Building APK/AAB..."
-bubblewrap build
+# Use npx to run bubblewrap without global install issues
+echo "Building APK/AAB with npx..."
+# Pipe "password" for both KeyStore and Key password prompts
+# If your password is different, please update this script or run manually!
+(echo "password"; echo "password") | npx @bubblewrap/cli build --skipPwaValidation
 
 echo "Done. Check output for app-release-signed.apk or .aab"

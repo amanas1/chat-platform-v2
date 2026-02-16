@@ -117,17 +117,17 @@ const DownloadAppModal: React.FC<DownloadAppModalProps> = ({ isOpen, onClose, la
                  <div className="flex gap-3">
                      <button 
                         onClick={() => setInstruction('android')}
-                        className={`flex-1 py-4 bg-white/5 border rounded-2xl flex items-center justify-center gap-3 transition-all group ${instruction === 'android' ? 'border-primary bg-primary/20 shadow-[0_0_20px_rgba(188,111,241,0.2)]' : 'border-white/10 hover:bg-white/10 shadow-lg'}`}
+                        className={`flex-1 py-3.5 bg-white/5 border rounded-2xl flex items-center justify-center gap-2 transition-all group ${instruction === 'android' ? 'border-primary bg-primary/20 shadow-[0_0_20px_rgba(188,111,241,0.2)]' : 'border-white/10 hover:bg-white/10 shadow-lg'}`}
                      >
-                        <AndroidIcon className={`w-6 h-6 transition-colors ${instruction === 'android' ? 'text-[#3DDC84]' : 'text-slate-400 group-hover:text-[#3DDC84]'}`} />
-                        <span className={`text-xs font-black uppercase tracking-wider ${instruction === 'android' ? 'text-white' : 'text-slate-300'}`}>{t.android}</span>
+                        <AndroidIcon className={`w-5 h-5 transition-colors ${instruction === 'android' ? 'text-[#3DDC84]' : 'text-slate-400 group-hover:text-[#3DDC84]'}`} />
+                        <span className={`text-[10px] font-black uppercase tracking-wide ${instruction === 'android' ? 'text-white' : 'text-slate-300'}`}>{t.android}</span>
                      </button>
                      <button 
                         onClick={() => setInstruction('ios')}
-                        className={`flex-1 py-4 bg-white/5 border rounded-2xl flex items-center justify-center gap-3 transition-all group ${instruction === 'ios' ? 'border-white bg-white/20 shadow-[0_0_20px_rgba(255,255,255,0.1)]' : 'border-white/10 hover:bg-white/10 shadow-lg'}`}
+                        className={`flex-1 py-3.5 bg-white/5 border rounded-2xl flex items-center justify-center gap-2 transition-all group ${instruction === 'ios' ? 'border-white bg-white/20 shadow-[0_0_20px_rgba(255,255,255,0.1)]' : 'border-white/10 hover:bg-white/10 shadow-lg'}`}
                      >
-                        <AppleIcon className={`w-6 h-6 transition-colors ${instruction === 'ios' ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
-                        <span className={`text-xs font-black uppercase tracking-wider ${instruction === 'ios' ? 'text-white' : 'text-slate-300'}`}>{t.ios}</span>
+                        <AppleIcon className={`w-5 h-5 transition-colors ${instruction === 'ios' ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                        <span className={`text-[10px] font-black uppercase tracking-wide ${instruction === 'ios' ? 'text-white' : 'text-slate-300'}`}>{t.ios}</span>
                      </button>
                  </div>
                  <p className="text-[10px] text-slate-500 mt-2 font-medium leading-relaxed opacity-80">{t.desc}</p>

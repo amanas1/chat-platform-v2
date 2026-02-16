@@ -39,11 +39,19 @@ Teen (13+) — Contains user chat
 - [ ] Feature graphic (Google: 1024x500)
 - [ ] Production domain (HTTPS)
 
-## File Structure
-```
-store-listing/
-├── README.md              (this file)
-├── STORE_MATERIALS.md     (English - full guide)
-├── DESCRIPTIONS_RU.md     (Russian - both platforms)
-└── app-icon-2048.png      (generated icon)
-```
+## Screenshots (Generated Feb 16, 2026)
+High-quality mobile screenshots for Google Play Store
+### Screenshots (Mobile)
+Located in `store-listing/screenshots/`:
+*   `store_home.png`: Main player view
+*   `store_search.png`: Search & Discovery
+*   `store_chat.png`: Active Chat
+*   `store_profile.png`: User Profile
+*   `store_player_equalizer.png`: Active Player with Equalizer
+*   `store_visualizer_galaxy.png`: Galaxy Visualizer
+*   `store_visualizer_neon.png`: Neon Visualizer
+*   `store_visualizer_rings.png`: Rings Visualizer
+*   `store_visualizer_bubbles.png`: Bubbles Visualizer
+
+## Quick Info
+... (rest of the file)

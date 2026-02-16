@@ -318,6 +318,7 @@ export default function App(): React.JSX.Element {
 
   const [detectedLocation, setDetectedLocation] = useState<LocationData | null>(null);
   const [locationStatus, setLocationStatus] = useState<'detecting' | 'ready' | 'error'>('detecting');
+  const [isGlobalLightsOn, setIsGlobalLightsOn] = useState(false);
 
   // User Profile
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
@@ -440,11 +441,11 @@ export default function App(): React.JSX.Element {
 
         const resetHideTimer = () => {
         clearTimeout(hideTimer);
-        // Auto-hide on mobile after 3 seconds of inactivity
-        if (window.innerWidth < 768) {
+        // Auto-hide on mobile/tablet after 5 seconds of inactivity
+        if (window.innerWidth < 1024) {
             hideTimer = window.setTimeout(() => {
                 setSidebarOpen(false);
-            }, 3000);
+            }, 5000);
         }
     };
 
@@ -467,77 +468,134 @@ export default function App(): React.JSX.Element {
     };
   }, [sidebarOpen]);
 
-  const initAudioContext = useCallback(() => {
-    if (audioContextRef.current) return;
-    try {
-        // Optimization for Bluetooth: 'playback' latency hint reduces stuttering on wireless devices
-        const isMobile = window.innerWidth < 768;
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ 
-            // Remove hardcoded sampleRate to allow native device rate (48kHz on Android/iOS)
-            // This prevents expensive resampling which causes glitches
-            latencyHint: 'playback',
-        });
-        audioContextRef.current = ctx;
-        if (!audioRef.current) return;
-        const source = ctx.createMediaElementSource(audioRef.current);
+  // Lazy Audio Context Initialization
+  const initAudioContextFn = useCallback(() => {
+    if (audioContextRef.current && audioContextRef.current.state === 'running') return;
+    
+    // Create Context if doesn't exist
+    if (!audioContextRef.current) {
+        try {
+            // Optimization: 'playback' latency hint for Bluetooth/Wireless
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ 
+                // Remove hardcoded sampleRate to allow native device rate (48kHz on Android/iOS)
+                latencyHint: 'playback', 
+            });
+            audioContextRef.current = ctx;
 
-        const reverb = ctx.createConvolver();
-        reverbNodeRef.current = reverb;
-        const rate = ctx.sampleRate;
-        const length = rate * 1.2; 
-        const decay = 2.0;
-        const impulse = ctx.createBuffer(2, length, rate);
-        for (let channel = 0; channel < 2; channel++) {
-            const data = impulse.getChannelData(channel);
-            for (let i = 0; i < length; i++) {
-                data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+            if (audioRef.current) {
+                 // connect nodes...
+                 const source = ctx.createMediaElementSource(audioRef.current);
+                 const reverb = ctx.createConvolver();
+                 reverbNodeRef.current = reverb;
+                 
+                 // Reduce buffer size for impulse on mobile
+                 const rate = ctx.sampleRate;
+                 const isMobile = window.innerWidth < 768;
+                 const length = rate * (isMobile ? 0.5 : 1.2); 
+                 const decay = 2.0;
+                 const impulse = ctx.createBuffer(2, length, rate);
+                 for (let channel = 0; channel < 2; channel++) {
+                    const data = impulse.getChannelData(channel);
+                    for (let i = 0; i < length; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+                    }
+                 }
+                 reverb.buffer = impulse;
+
+                 const dryGain = ctx.createGain(); 
+                 const wetGain = ctx.createGain(); 
+                 wetGain.gain.value = 0; 
+                 dryGainNodeRef.current = dryGain;
+                 wetGainNodeRef.current = wetGain;
+                 
+                 // Reduce filter count on mobile
+                 const frequencies = isMobile 
+                    ? [64, 250, 1000, 4000, 12000] // 5 bands
+                    : [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]; // 10 bands
+                 
+                 const filters = frequencies.map(freq => {
+                    const f = ctx.createBiquadFilter();
+                    f.type = 'peaking';
+                    f.frequency.value = freq;
+                    f.Q.value = 1;
+                    f.gain.value = 0;
+                    return f;
+                 });
+                 filtersRef.current = filters;
+
+                 const panner = ctx.createStereoPanner();
+                 pannerNodeRef.current = panner;
+
+                 const analyser = ctx.createAnalyser();
+                 analyser.fftSize = 2048; 
+                 analyserNodeRef.current = analyser;
+
+                 source.connect(dryGain);
+                 source.connect(reverb);
+                 reverb.connect(wetGain);
+
+                 dryGain.connect(filters[0]);
+                 wetGain.connect(filters[0]); 
+
+                 let node: AudioNode = filters[0];
+                 for (let i = 1; i < filters.length; i++) {
+                    node.connect(filters[i]);
+                    node = filters[i];
+                 }
+
+                 node.connect(panner);
+                 panner.connect(analyser);
+                 analyser.connect(ctx.destination);
+                 
+                 // Apply initial settings if they were set before context init
+                 if (wetGainNodeRef.current && dryGainNodeRef.current) {
+                      wetGainNodeRef.current.gain.value = fxSettings.reverb;
+                      dryGainNodeRef.current.gain.value = 1 - (fxSettings.reverb * 0.4); 
+                 }
             }
+        } catch (e) {
+            console.error("Audio Context Init Failed", e);
         }
-        reverb.buffer = impulse;
+    }
 
-        const dryGain = ctx.createGain(); 
-        const wetGain = ctx.createGain(); 
-        wetGain.gain.value = 0; 
-        dryGainNodeRef.current = dryGain;
-        wetGainNodeRef.current = wetGain;
+    // Always try to resume if suspended
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume();
+    }
+  }, [fxSettings]);
+  
+  // Call init only on user interaction (handled in togglePlay)
+  const initAudioContext = initAudioContextFn; 
 
-        const frequencies = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
-        const filters = frequencies.map(freq => {
-            const f = ctx.createBiquadFilter();
-            f.type = 'peaking';
-            f.frequency.value = freq;
-            f.Q.value = 1;
-            f.gain.value = 0;
-            return f;
-        });
-        filtersRef.current = filters;
+  // Auto-Suspend AudioContext when paused for 10s or tab hidden
+  useEffect(() => {
+    let suspendTimer: NodeJS.Timeout;
+    
+    if (!isPlaying) {
+        suspendTimer = setTimeout(() => {
+            if (audioContextRef.current && audioContextRef.current.state === 'running') {
+                console.log("[Audio] Suspending Context to save battery...");
+                audioContextRef.current.suspend();
+            }
+        }, 10000);
+    }
 
-        const panner = ctx.createStereoPanner();
-        pannerNodeRef.current = panner;
+    return () => clearTimeout(suspendTimer);
+  }, [isPlaying]);
 
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 2048; 
-        analyserNodeRef.current = analyser;
-
-        source.connect(dryGain);
-        source.connect(reverb);
-        reverb.connect(wetGain);
-
-        dryGain.connect(filters[0]);
-        wetGain.connect(filters[0]);
-
-        let node: AudioNode = filters[0];
-        for (let i = 1; i < filters.length; i++) {
-            node.connect(filters[i]);
-            node = filters[i];
-        }
-
-        node.connect(panner);
-        panner.connect(analyser);
-        analyser.connect(ctx.destination);
-
-    } catch (e) {}
-  }, []);
+  // Handle visibility change for aggressive suspension
+  useEffect(() => {
+      const handleVisChange = () => {
+          if (document.hidden) {
+              if (audioContextRef.current && audioContextRef.current.state === 'running') {
+                   // Only suspend if NOT playing (background audio should keep playing)
+                   if (!isPlaying) audioContextRef.current.suspend();
+              }
+          }
+      };
+      document.addEventListener('visibilitychange', handleVisChange);
+      return () => document.removeEventListener('visibilitychange', handleVisChange);
+  }, [isPlaying]);
 
   useEffect(() => {
       if (wetGainNodeRef.current && dryGainNodeRef.current) {
@@ -572,37 +630,50 @@ export default function App(): React.JSX.Element {
   }, [sleepTimer]);
 
   const triggerLocationDetection = useCallback(async () => {
-    setLocationStatus('detecting');
+    console.log('[GEO] Triggering detection...');
+    if (!detectedLocation) setLocationStatus('detecting'); // Only show loading if we don't have data
+    
     try {
       const loc = await geolocationService.detectLocation();
       const cached = geolocationService.getCachedLocation();
+      console.log('[GEO] Detection result:', loc);
       
-      if (loc && loc.country !== 'Unknown') {
+      if (loc && loc.country && loc.country !== 'Unknown') {
+        console.log('[GEO] Valid location found, setting state:', loc);
         setDetectedLocation(loc);
         geolocationService.saveLocationToCache(loc);
         setLocationStatus('ready');
-      } else if (cached) {
-        console.log('[GEO] Fallback to cached location');
-        setDetectedLocation(cached);
+      } else if (cached && cached.country !== 'Unknown') {
+        console.log('[GEO] Fallback to cached location:', cached);
+        // Only update if we don't have a valid location already (or it matches cache)
+        setDetectedLocation(prev => prev?.country && prev.country !== 'Unknown' ? prev : cached);
         setLocationStatus('ready');
       } else {
         console.log('[GEO] Ultimate fallback to Global');
-        setDetectedLocation({ country: 'Global', city: 'Global', countryCode: 'Global' });
+        // CRITICAL FIX: Only set to Global if we have NOTHING else. 
+        // If we already have a valid location in state (from a race condition or previous call), KEEP IT.
+        setDetectedLocation(prev => {
+            if (prev?.country && prev.country !== 'Unknown') {
+                console.log('[GEO] Keeping existing valid location instead of resetting to Global:', prev);
+                return prev;
+            }
+            return { country: 'Global', city: 'Global', countryCode: 'Global' };
+        });
         setLocationStatus('ready');
       }
 
-      // Auto-switch language if not set
+      // Auto-switch language logic remains...
       if (!localStorage.getItem('auradiochat_language')) {
-        const targetCountry = loc?.country || cached?.country;
-        if (targetCountry) {
-          const ruCountries = ['Russia', 'Ukraine', 'Belarus', 'Kazakhstan', 'Uzbekistan', 'Kyrgyzstan', 'Tajikistan', 'Turkmenistan', 'Armenia', 'Azerbaijan', 'Georgia', 'Moldova'];
-          if (ruCountries.includes(targetCountry)) setLanguage('ru');
-          else setLanguage('en');
-        }
+         // ... (keep existing logic)
+         const target = loc?.country || cached?.country;
+         if (target && ['Russia', 'Ukraine', 'Kazakhstan', 'Belarus', 'Uzbekistan'].includes(target)) {
+             setLanguage('ru');
+         }
       }
+
     } catch (err) {
       console.error('[GEO] Silent detection error:', err);
-      setLocationStatus('ready'); // Unblock even on error
+      setLocationStatus('ready'); 
     }
   }, []);
 
@@ -687,6 +758,7 @@ export default function App(): React.JSX.Element {
     if (isPlaying) {
       audioRef.current.pause();
     } else {
+      initAudioContext(); // Ensure context is ready/resumed
       if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
       audioRef.current.play().catch(() => {});
     }
@@ -1056,11 +1128,21 @@ export default function App(): React.JSX.Element {
   
   const visibleStations = useMemo(() => stations.slice(0, visibleCount), [stations, visibleCount]);
 
+  // Ensure lights are turned off when chat is closed
+  useEffect(() => {
+    if (!chatOpen) {
+      setIsGlobalLightsOn(false);
+    }
+  }, [chatOpen]);
+
   return (
     <ErrorBoundary>
     <div className={`relative flex h-screen font-sans overflow-hidden bg-[var(--base-bg)] text-[var(--text-base)] transition-all duration-700`}>
       <RainEffect intensity={ambience.rainVolume} />
+      <RainEffect intensity={ambience.rainVolume} />
       <FireEffect intensity={ambience.fireVolume} />
+      {/* Global Dimming Overlay for "Stage Mode" */}
+      <div className={`absolute inset-0 bg-black/80 z-[80] transition-opacity duration-1000 pointer-events-none ${isGlobalLightsOn ? 'opacity-100' : 'opacity-0'}`} />
       <audio 
         ref={audioRef} 
         onPlaying={() => { 
@@ -1088,7 +1170,13 @@ export default function App(): React.JSX.Element {
 
       <aside className={`fixed inset-y-0 left-0 z-[70] w-72 transform transition-all duration-500 glass-panel flex flex-col bg-[var(--panel-bg)] ${isIdleView ? '-translate-x-full opacity-0 pointer-events-none' : 'opacity-100 pointer-events-auto'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 flex items-center justify-between">
-           <div className="flex items-center gap-3"><h1 className="text-2xl font-black tracking-tighter">AU RadioChat</h1><DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-9 h-9" visualMode={visualMode} /></div>
+           <div className="flex items-center gap-3">
+                <div className="flex flex-col">
+                    <h1 className="text-2xl font-black tracking-tighter leading-none">AU RadioChat</h1>
+                    <span className="text-[10px] font-bold text-slate-400/70 tracking-widest uppercase mt-1">v1.0 • Global Streaming Platform</span>
+                </div>
+               <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-12 h-12" visualMode={visualMode} />
+           </div>
            <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 text-slate-400"><XMarkIcon className="w-6 h-6" /></button>
         </div>
         <div className="px-4 pb-4 space-y-2 animate-in slide-in-from-left duration-300">
@@ -1129,11 +1217,22 @@ export default function App(): React.JSX.Element {
             </button>
             
             {/* Listening text hidden on mobile, visible on desktop */}
-            <div className="hidden md:flex text-slate-400 text-sm font-medium tracking-wide items-center gap-2">
-                {t.listeningTo} 
-                <span className="text-[var(--text-base)] font-black uppercase tracking-widest ml-1">
-                    {viewMode === 'favorites' ? t.favorites : (selectedCategory ? (t[selectedCategory.id] || selectedCategory.name) : '')}
+            <div className="hidden md:flex text-slate-400 text-sm font-medium tracking-wide items-center gap-3">
+                <span className="whitespace-nowrap">{t.listeningTo}</span>
+                <span className="text-[var(--text-base)] font-black uppercase tracking-widest">
+                    {viewMode === 'favorites' ? t.favorites : (selectedCategory ? (t[selectedCategory.id] || selectedCategory.name) : 'Radio')}
                 </span>
+                
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 rounded-full border border-white/10 backdrop-blur-sm animate-in fade-in zoom-in duration-500 ml-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.05em] flex items-center gap-2">
+                        {language === 'ru' ? 'СЕЙЧАС СЛУШАЕТ' : 'LISTENING NOW'}
+                        <span className="text-sm">{getCountryFlag(detectedLocation?.countryCode || Object.keys(countryStats)[0] || 'KZ')}</span>
+                        <span className="text-primary">*{ (detectedLocation?.country || getCountryName(Object.keys(countryStats)[0] || 'KZ', language)).toUpperCase() }*</span>
+                        <span className="text-white/10">-</span> 
+                        {language === 'ru' ? 'ОНЛАЙН' : 'ONLINE'} {onlineStats.totalOnline || 1}
+                    </span>
+                </div>
             </div>
 
 
@@ -1150,43 +1249,7 @@ export default function App(): React.JSX.Element {
                       {!isAiCurating && <span className="xs:hidden font-bold">AI</span>}
                   </button>
               )}
-              {/* Online Counter - Smart Ticker Mode */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full backdrop-blur-md animate-in fade-in zoom-in duration-500 shadow-lg ml-1">
-                  {/* Green Dot - Desktop Only now */}
-                  <div className={`hidden md:block w-2 h-2 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)] ${onlineStats.totalOnline > 0 ? 'bg-green-500' : 'bg-slate-500 shadow-none'}`}></div>
-                  
-                  {/* MOBILE VERSION (Minimalist: "KZ - 1") */}
-                  <span className="md:hidden text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      {Object.keys(countryStats).length > 0 ? (
-                          <span className="text-white">{(Object.keys(countryStats)[0]?.toUpperCase() === 'UNKNOWN' ? 'KZ' : Object.keys(countryStats)[0])} - {countryStats[Object.keys(countryStats)[0]]}</span>
-                      ) : (
-                          <span className="text-white">KZ - {Number(onlineStats.totalOnline) || 1}</span>
-                      )}
-                  </span>
-                  
-                  {/* DESKTOP VERSION (Verbose) */}
-                  <span className="hidden md:flex text-[10px] font-black uppercase tracking-wider text-slate-400 items-center gap-1.5">
-                      {Object.keys(countryStats).length > 0 ? (
-                          <>
-                            <span className="text-slate-500">{language === 'ru' ? 'Сейчас слушает' : 'Listening now'}</span>
-                            <span>{getCountryFlag(Object.keys(countryStats)[0]?.toUpperCase() === 'UNKNOWN' ? 'KZ' : Object.keys(countryStats)[0])}</span>
-                            <span className="text-primary">"{getCountryName(Object.keys(countryStats)[0]?.toUpperCase() === 'UNKNOWN' ? 'KZ' : Object.keys(countryStats)[0], language)}"</span>
-                            <span className="text-slate-500">-</span>
-                            <span className="text-slate-500">{language === 'ru' ? 'онлайн' : 'online'}</span>
-                            <span className="text-white">{countryStats[Object.keys(countryStats)[0]]}</span>
-                          </>
-                      ) : (
-                          <>
-                             <span className="text-slate-500">{language === 'ru' ? 'Сейчас слушает' : 'Listening now'}</span>
-                             <span>🇰🇿</span> 
-                             <span className="text-primary">"{getCountryName('KZ', language)}"</span>
-                             <span className="text-slate-500">-</span>
-                             <span className="text-slate-500">{language === 'ru' ? 'онлайн' : 'online'}</span>
-                             <span className="text-white">{Number(onlineStats.totalOnline) || 1}</span>
-                          </>
-                      )}
-                  </span>
-              </div>
+              {/* Online Counter - Smart Ticker Mode Removed/Consolidated */}
             </div>
           </div>
           
@@ -1247,10 +1310,16 @@ export default function App(): React.JSX.Element {
         <div className={`flex-1 overflow-y-auto px-6 md:px-10 no-scrollbar transition-all duration-500 ${isIdleView ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
             <>
             {selectedCategory && viewMode !== 'favorites' && (
-                <div className="mb-10 p-10 h-56 rounded-[2.5rem] glass-panel relative overflow-hidden flex flex-col justify-end">
-                    <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
-                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} danceStyle={danceStyle} /></div>
-                    <div className="relative z-10 pointer-events-none hidden"><h2 className="text-5xl md:text-7xl font-extrabold tracking-tighter uppercase">{t[selectedCategory.id] || selectedCategory.name}</h2></div>
+                <div className="mb-8">
+                    <div className="p-10 h-56 rounded-[2.5rem] glass-panel relative overflow-hidden flex flex-col justify-end">
+                        <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
+                        <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} danceStyle={danceStyle} /></div>
+                        <div className="relative z-10 pointer-events-none hidden"><h2 className="text-5xl md:text-7xl font-extrabold tracking-tighter uppercase">{t[selectedCategory.id] || selectedCategory.name}</h2></div>
+                    </div>
+                    {/* Trust Line */}
+                    <div className="text-center mt-4 opacity-0 animate-in fade-in slide-in-from-top-2 duration-700 delay-300 fill-mode-forwards">
+                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">24/7 Live Streaming • Global Stations • No Installation Required</p>
+                    </div>
                 </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-32">
@@ -1265,6 +1334,31 @@ export default function App(): React.JSX.Element {
                     <div className="animate-pulse flex space-x-1"><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div></div>
                 </div>
             )}
+                <footer className="w-full pb-64 pt-20 flex flex-col items-center justify-center gap-10 opacity-80 z-0 relative">
+                    {/* About Block */}
+                    <div className="max-w-2xl text-center space-y-4 px-4">
+                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">About AU Radio</h4>
+                        <p className="text-sm font-medium text-slate-500 leading-relaxed">
+                            AU Radio is a global online streaming platform connecting listeners to live radio stations worldwide.
+                            Discover genres, cultures and real-time broadcasts in one modern interface.
+                        </p>
+                    </div>
+
+                    <div className="w-16 h-px bg-slate-800"></div>
+
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="flex items-center gap-6 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            <a href="/privacy.html" target="_blank" className="hover:text-white transition-colors">Privacy Policy</a>
+                            <span className="text-slate-800">•</span>
+                            <a href="/terms.html" target="_blank" className="hover:text-white transition-colors">Terms</a>
+                            <span className="text-slate-800">•</span>
+                            <a href="mailto:support@auradiochat.com" className="hover:text-white transition-colors">Contact</a>
+                        </div>
+                        <p className="text-[10px] text-slate-600 font-bold tracking-widest">
+                            © 2026 AU Radio
+                        </p>
+                    </div>
+                </footer>
             </>
         </div>
 
@@ -1318,7 +1412,7 @@ export default function App(): React.JSX.Element {
                                     </button>
                                 </div>
                             </div>
-                            <p className="text-[9px] text-primary font-black uppercase tracking-widest leading-tight mt-0.5">{isBuffering ? 'Buffering...' : 'LIVE'}</p>
+                            {isBuffering && <p className="text-[9px] text-primary font-black uppercase tracking-widest leading-tight mt-0.5">Buffering...</p>}
                     </div>
 
                     {/* Mobile Only: Top Right Tools */}
@@ -1513,7 +1607,10 @@ export default function App(): React.JSX.Element {
       <Suspense fallback={null}>
         <ChatPanel 
             isOpen={chatOpen} 
-            onClose={() => setChatOpen(false)} 
+            onClose={() => {
+                setChatOpen(false);
+                setIsGlobalLightsOn(false);
+            }} 
             language={language} 
             onLanguageChange={setLanguage} 
             currentUser={currentUser} 
@@ -1539,6 +1636,7 @@ export default function App(): React.JSX.Element {
                 console.log('[App] Passing location to ChatPanel:', detectedLocation);
                 setShowLoginModal(true);
             }}
+            onLightsToggle={setIsGlobalLightsOn}
         />
       </Suspense>
 
@@ -1548,6 +1646,8 @@ export default function App(): React.JSX.Element {
             onClose={() => setShareOpen(false)} 
         />
       </Suspense>
+
+
     </div>
     </ErrorBoundary>
   );

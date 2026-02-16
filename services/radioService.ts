@@ -136,30 +136,42 @@ const promiseAny = <T>(promises: Promise<T>[]): Promise<T> => {
 const fetchAcrossMirrorsFast = async (path: string, urlParams: string): Promise<RadioStation[]> => {
     const query = urlParams ? `?${urlParams}` : '';
     
-    const fetchPromises = RADIO_BROWSER_MIRRORS.map(async (baseUrl) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); 
+    // First Pass: 8 second timeout (increased from 4s)
+    const tryFetch = async (mirrors: string[], timeoutMs: number) => {
+        const fetchPromises = mirrors.map(async (baseUrl) => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeoutMs); 
 
-        try {
-            const response = await fetch(`${baseUrl}/${path}${query}`, {
-                mode: 'cors',
-                signal: controller.signal,
-                headers: { 'Accept': 'application/json' }
-            });
-            clearTimeout(timeoutId);
-            if (!response.ok) throw new Error('Mirror status not OK');
-            return await response.json();
-        } catch (err) {
-            clearTimeout(timeoutId);
-            throw err;
-        }
-    });
+            try {
+                const response = await fetch(`${baseUrl}/${path}${query}`, {
+                    mode: 'cors',
+                    signal: controller.signal,
+                    headers: { 'Accept': 'application/json' }
+                });
+                clearTimeout(timeoutId);
+                if (!response.ok) throw new Error('Mirror status not OK');
+                return await response.json();
+            } catch (err) {
+                clearTimeout(timeoutId);
+                throw err;
+            }
+        });
+        return await promiseAny(fetchPromises);
+    };
 
     try {
-        return await promiseAny(fetchPromises);
+        return await tryFetch(RADIO_BROWSER_MIRRORS, 8000);
     } catch (e) {
-        console.warn("All fast mirrors failed, trying fallback...");
-        throw new Error("Station source unavailable");
+        console.warn("Primary fetch failed, retrying with fallback mirrors/timeout...");
+        // Retry with same mirrors but slightly longer timeout or different logic if needed. 
+        // For now, simple retry.
+        try {
+             // Wait 500ms before retry
+             await new Promise(r => setTimeout(r, 500));
+             return await tryFetch(RADIO_BROWSER_MIRRORS, 10000);
+        } catch (retryErr) {
+             throw new Error("Station source unavailable after retry");
+        }
     }
 };
 

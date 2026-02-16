@@ -175,7 +175,18 @@ const ManualModal: React.FC<ManualModalProps> = ({ isOpen, onClose, language, on
                         <RocketIcon className="w-6 h-6 animate-bounce" />
                         {language === 'ru' ? 'Открыть полную энциклопедию' : 'Open Full Encyclopedia'}
                     </button>
-                    <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">© 2025 AU RadioChat Engine • Administration</p>
+                    
+                    <div className="flex gap-4 mt-2">
+                        <a href="/terms" target="_blank" className="text-primary/70 hover:text-primary hover:underline text-[10px] font-bold uppercase tracking-widest transition-all">
+                            {isRu ? 'Условия использования' : 'Terms of Service'}
+                        </a>
+                        <span className="text-white/10">•</span>
+                        <a href="/privacy" target="_blank" className="text-primary/70 hover:text-primary hover:underline text-[10px] font-bold uppercase tracking-widest transition-all">
+                            {isRu ? 'Политика конфиденциальности' : 'Privacy Policy'}
+                        </a>
+                    </div>
+                    
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold opacity-50">© 2026 AU RadioChat Engine • Administration</p>
                 </div>
               </>
           )}

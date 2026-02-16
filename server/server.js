@@ -518,7 +518,7 @@ function getAllParticipants() {
     });
     
     // Sort: Online first, then recent
-    return all.sort((a, b) => {
+    return all.filter(u => !u.hideFromSearch).sort((a, b) => {
         if (a.status === 'online' && b.status !== 'online') return -1;
         if (a.status !== 'online' && b.status === 'online') return 1;
         return (b.last_login_at || 0) - (a.last_login_at || 0);
@@ -663,7 +663,10 @@ io.on('connection', (socket) => {
         userRecord.intentStatus = profile.intentStatus;
         userRecord.voiceIntro = profile.voiceIntro;
         userRecord.last_login_at = now;
+        userRecord.voiceIntro = profile.voiceIntro;
+        userRecord.last_login_at = now;
         userRecord.fingerprint = profile.fingerprint || userRecord.fingerprint;
+        userRecord.hideFromSearch = profile.hideFromSearch || false; // Persist privacy setting
         
         persistentUsers.set(profile.id, userRecord);
         savePersistentUsers();
@@ -692,30 +695,24 @@ io.on('connection', (socket) => {
         console.log(`[DB] Created NEW persistent user: ${profile.name} (${profile.id})`);
     }
 
-    // 2. BIND SOCKET & ACTIVATE USER
-    // This runs for BOTH existing and new users
+    // BIND SOCKET & ACTIVATE USER
     boundUserId = profile.id;
     socket.userId = profile.id; 
     
-    // Create/Update Active User Record
-    // Explicitly set flags to ensure Guest messaging works
+    const expiresAt = Date.now() + USER_TTL;
+    
+    // Create/Update Active User Record (Consolidated)
     activeUsers.set(boundUserId, {
-        ...userRecord,
-        status: 'online',
+        profile: { 
+            ...userRecord, 
+            status: 'online' 
+        },
         socketId: socket.id,
         isGuest: !profile.isAuthenticated,
         isAuthenticated: profile.isAuthenticated || false,
-        isAdmin: profile.isAdmin || false
-    });
-
-    boundUserId = profile.id;
-    const expiresAt = Date.now() + USER_TTL;
-    
-    activeUsers.set(boundUserId, {
-      profile: { ...profile, status: 'online' },
-      socketId: socket.id,
-      expiresAt,
-      createdAt: Date.now()
+        isAdmin: profile.isAdmin || false,
+        expiresAt,
+        createdAt: Date.now()
     });
 
     console.log(`[USER] Registered/Synced: ${boundUserId} (Socket: ${socket.id}, Name: ${profile.name})`);
@@ -764,6 +761,7 @@ io.on('connection', (socket) => {
         };
     }).filter(user => {
         if (user.id === boundUserId) return false; // Don't show self
+        if (user.hideFromSearch) return false; // Hide users who opted out
         
         // Basic filtering
         if (filters.name && !user.name.toLowerCase().includes(filters.name.toLowerCase())) {
@@ -1477,6 +1475,14 @@ setInterval(() => {
         storage.save('registrationLog', Object.fromEntries(registrationLog));
     }
 }, 60 * 60 * 1000);
+
+app.get('/terms', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'terms.html'));
+});
+
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'privacy.html'));
+});
 
 app.get('/', (req, res) => {
   res.status(200).send('AU RadioChat Server is Running');

@@ -68,7 +68,7 @@ class GeolocationService {
         console.log('[GEO] 🌍 Requesting location from backend proxy...');
         
         // Determine backend URL (production or localhost)
-        const backendUrl = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+        const backendUrl = import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? 'http://localhost:3001' : 'https://streamflow-production.up.railway.app');
         // Remove trailing slash if present
         const cleanUrl = backendUrl.replace(/\/$/, '');
         
@@ -221,6 +221,7 @@ class GeolocationService {
    */
   saveLocationToCache(location: LocationData): void {
     try {
+      if (!location || !location.country || location.country === 'Unknown') return;
       localStorage.setItem('auradiochat_last_detected_location', JSON.stringify(location));
     } catch (e) {}
   }

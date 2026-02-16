@@ -62,6 +62,19 @@ const DancingAvatar: React.FC<DancingAvatarProps> = ({ isPlaying, className = ''
               transform-origin: 5px 5px; 
             }
 
+            /* Head Bob Animation */
+            @keyframes headBob {
+              0% { transform: rotate(0deg) translateY(0); }
+              25% { transform: rotate(-3deg) translateY(1px); }
+              50% { transform: rotate(0deg) translateY(2px); }
+              75% { transform: rotate(3deg) translateY(1px); }
+              100% { transform: rotate(0deg) translateY(0); }
+            }
+            .animate-head-bob {
+              animation: headBob 0.8s ease-in-out infinite;
+              transform-origin: 50px 100px;
+            }
+
             /* Complex Dance Animations */
             @keyframes complexBodyMain {
               0% { transform: translateY(0) scale(1); }
@@ -115,7 +128,10 @@ const DancingAvatar: React.FC<DancingAvatarProps> = ({ isPlaying, className = ''
           </radialGradient>
         </defs>
 
-        <g className={shouldAnimate ? (effectiveVariant === 'complex' ? 'animate-complex-body-main' : 'animate-simple-body-main') : ''}>
+        <g className={shouldAnimate ? 'animate-head-bob' : ''}>
+           {/* Headphone Band - Lighter color as requested */}
+           <path d="M 8,65 C 8,20 92,20 92,65" fill="none" stroke="#94a3b8" strokeWidth="6" strokeLinecap="round" />
+
           <circle cx="50" cy="65" r="45" fill="url(#faceGradient)" /> 
 
           <ellipse cx="35" cy="45" rx="15" ry="8" fill="white" opacity="0.3" transform="rotate(-45, 35, 45)" />
@@ -141,6 +157,7 @@ const DancingAvatar: React.FC<DancingAvatarProps> = ({ isPlaying, className = ''
             )}
           </g>
 
+          {/* Ear Cups */}
           <rect x="2" y="55" width="12" height="25" rx="4" fill="#334155" />
           <rect x="86" y="55" width="12" height="25" rx="4" fill="#334155" />
         </g>

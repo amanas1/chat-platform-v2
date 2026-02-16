@@ -43,13 +43,14 @@ interface ChatPanelProps {
   onPendingKnocksChange?: (count: number) => void;
   detectedLocation: (LocationData) | null;
   onRequireLogin?: () => void;
+  onLightsToggle?: (isOn: boolean) => void;
 }
 
 const EMOJIS = [
     '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💔', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '✨', '⭐', '🌟', '💫', '⚡', '🔥', '💧', '🌈', '☀️', '🌙', '⭐', '🎵', '🎶', '🎤', '🎧', '📷', '📸', '🎬', '🎨', '🎭', '🎪', '🎯', '🎲', '🎰', '🎳'
 ];
 
-const AGES = Array.from({ length: 63 }, (_, i) => (i + 18).toString()); 
+const AGES = [...Array.from({ length: 48 }, (_, i) => (i + 18).toString()), '65+']; 
 
 const INTENT_STATUSES = ['Хочу поговорить', 'Свободен', 'Просто слушаю', 'Без флирта'] as const;
 
@@ -108,16 +109,17 @@ const stylizeAvatar = (file: File): Promise<string> => {
 
 const processChatImage = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
-        const reader = new FileReader();
+        const objectUrl = URL.createObjectURL(file);
+        const img = new Image();
+        img.src = objectUrl;
 
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target?.result as string;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                // Limit max dimension to 1280px for better quality on modern phones
-                const MAX_SIZE = 1280;
+        img.onload = () => {
+            // Revoke immediately to free memory
+            URL.revokeObjectURL(objectUrl);
+
+            const canvas = document.createElement('canvas');
+            // Limit max dimension to 800px for smaller AES payload (mobile memory safety)
+            const MAX_SIZE = 800;
                 let width = img.width;
                 let height = img.height;
                 
@@ -141,13 +143,14 @@ const processChatImage = (file: File): Promise<string> => {
                 // Standard draw without filters
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Use JPEG for maximum compatibility and smaller file size
-                resolve(canvas.toDataURL('image/jpeg', 0.7));
+                // Use JPEG with 0.5 quality for smaller footprint during crypto operations
+                resolve(canvas.toDataURL('image/jpeg', 0.5));
             };
-            img.onerror = (err) => reject(err);
-        };
-        reader.onerror = (err) => reject(err);
-    });
+            img.onerror = (err) => {
+                URL.revokeObjectURL(objectUrl);
+                reject(err);
+            };
+        });
 };
 
 interface DrumPickerProps {
@@ -267,7 +270,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     currentUser, onUpdateCurrentUser,
     isPlaying, onTogglePlay, onNextStation, onPrevStation, currentStation, analyserNode,
     volume, onVolumeChange, visualMode, favorites, onToggleFavorite, randomMode, onToggleRandomMode, onShare,
-    onPendingKnocksChange, detectedLocation: passedLocation, onRequireLogin
+    onPendingKnocksChange, detectedLocation: passedLocation, onRequireLogin, onLightsToggle
 }) => {
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
   const [currentTime, setCurrentTime] = useState(Date.now());
@@ -279,6 +282,40 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [isWaitingForPartner, setIsWaitingForPartner] = useState(false);
   const [knockAcceptedData, setKnockAcceptedData] = useState<{ sessionId: string; partnerProfile: UserProfile } | null>(null);
   const [incomingKnock, setIncomingKnock] = useState<{ knockId: string; fromUser: UserProfile } | null>(null);
+
+  // Hidden Users State
+  const [hiddenUsers, setHiddenUsers] = useState<Set<string>>(() => {
+      const saved = localStorage.getItem('hidden_users_v1');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
+  const handleHideUser = (userId: string) => {
+      if (!confirm(language === 'ru' ? 'Скрыть этого пользователя из списка?' : 'Hide this user from the list?')) return;
+      
+      setHiddenUsers(prev => {
+          const next = new Set(prev);
+          next.add(userId);
+          localStorage.setItem('hidden_users_v1', JSON.stringify(Array.from(next)));
+          return next;
+      });
+  };
+
+  // Hidden Sessions State
+  const [hiddenSessions, setHiddenSessions] = useState<Set<string>>(() => {
+      const saved = localStorage.getItem('hidden_sessions_v1');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
+  const handleHideSession = (sessionId: string) => {
+      if (!confirm(language === 'ru' ? 'Скрыть этот диалог из списка?' : 'Hide this chat from the list?')) return;
+      
+      setHiddenSessions(prev => {
+          const next = new Set(prev);
+          next.add(sessionId);
+          localStorage.setItem('hidden_sessions_v1', JSON.stringify(Array.from(next)));
+          return next;
+      });
+  };
 
   // Helper for TTS
   const announceNotification = (text: string) => {
@@ -367,13 +404,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [regVoiceIntro, setRegVoiceIntro] = useState<string | null>(currentUser.voiceIntro || null);
   const [isRecordingIntro, setIsRecordingIntro] = useState(false);
   const [introRecordingTime, setIntroRecordingTime] = useState(0);
+  const [isPlayingIntro, setIsPlayingIntro] = useState(false);
   const [activePrompt, setActivePrompt] = useState<string>('');
   const mediaRecorderIntroRef = useRef<MediaRecorder | null>(null);
   const audioChunksIntroRef = useRef<Blob[]>([]);
+  const introAudioRef = useRef<HTMLAudioElement | null>(null);
   const introTimerRef = useRef<any>(null);
   
   const [searchAgeFrom, setSearchAgeFrom] = useState('18');
-  const [searchAgeTo, setSearchAgeTo] = useState('80');
+  const [searchAgeTo, setSearchAgeTo] = useState('65+');
   const [searchGender, setSearchGender] = useState<'any' | 'male' | 'female'>('any');
   
   const [sentKnocks, setSentKnocks] = useState<Set<string>>(new Set());
@@ -434,6 +473,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }
   }, [currentUser.id, currentUser.name, currentUser.age, currentUser.gender, currentUser.avatar, currentUser.intentStatus, currentUser.voiceIntro]);
   const [profileExpiresAt, setProfileExpiresAt] = useState<number | null>(null);
+  const [isLightsOn, setIsLightsOn] = useState(false); // Cozy Lighting Mode
   const [expirationWarning, setExpirationWarning] = useState(false);
   const [violationMessage, setViolationMessage] = useState<string | null>(null);
   const [onlineStats, setOnlineStats] = useState({ totalOnline: 0, chatOnline: 0 });
@@ -451,6 +491,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
   
   const [detectedLocation, setDetectedLocation] = useState<{country: string, city: string, ip?: string} | null>(() => {
+    // Priority 0: passed prop (from Radio)
+    if (passedLocation?.country && passedLocation.country !== 'Unknown') {
+        return passedLocation;
+    }
     // Priority 1: currentUser data
     if (currentUser.detectedCountry && currentUser.detectedCity) {
       return { 
@@ -462,6 +506,19 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     // Priority 2: localStorage cache
     return geolocationService.getCachedLocation();
   });
+
+  // Sync prop to state if it arrives later
+  useEffect(() => {
+    if (passedLocation?.country && passedLocation.country !== 'Unknown') {
+        setDetectedLocation(prev => {
+            // Only update if different to avoid loops
+            if (prev?.country !== passedLocation.country || prev?.city !== passedLocation.city) {
+                return passedLocation;
+            }
+            return prev;
+        });
+    }
+  }, [passedLocation]);
 
   
   const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
@@ -974,7 +1031,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
     // RE-REGISTER ON RECONNECT (Fix for server restarts) — with cleanup
     cleanups.push(socketService.onConnect(() => {
-        if (currentUser && currentUser.id && currentUser.isAuthenticated) {
+        if (currentUser && currentUser.id) {
             console.log("🔄 Re-registering user after reconnect...");
             socketService.registerUser(currentUser, (data) => {
                 console.log("✅ User re-registered successfully");
@@ -996,7 +1053,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }));
 
     // Check immediate connection status (for hydration/initial load)
-    if (socketService.isConnected && currentUser && currentUser.id && currentUser.isAuthenticated) {
+    if (socketService.isConnected && currentUser && currentUser.id) {
          console.log("👤 User state updated, ensuring registration (immediate)...");
          socketService.registerUser(currentUser, (data) => {
              console.log("✅ User registered/updated on server");
@@ -1077,70 +1134,99 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     
     // Listen for new messages
     cleanups.push(socketService.onMessageReceived((message) => {
+      // IGNORE HISTORICAL MESSAGES (Persisted on server but sent as "new" on reconnect)
+      // Check timestamp against page load time (minus buffer)
+      const pageLoadTime = (window as any)._streamflowPageLoadTime || Date.now();
+      // If message is older than 30s before page load, it's history replayed
+      const isHistorical = message.timestamp < (pageLoadTime - 30000);
+
       const currentActiveSession = activeSessionRef.current;
       console.log(`[CLIENT] 📥 Message received:`, {
         sessionId: message.sessionId,
         senderId: message.senderId,
         messageType: message.messageType,
-        currentSession: currentActiveSession?.sessionId
+        currentSession: currentActiveSession?.sessionId,
+        historical: isHistorical
       });
-      
-      // If no active session at all, ignore
-      if (!currentActiveSession) {
-        console.log(`[CLIENT] ⚠️ Message ignored: no active session`);
-        return;
+
+      // CRASH PREVENTION: Validate Image Payloads
+      // Mobile Safari/Chrome can crash if rendering a corrupted base64 string
+      if (message.messageType === 'image') {
+          try {
+             const payload = message.encryptedPayload || ''; // It's encrypted here, but if we decrypt later...
+             // Wait, logic below decrypts it. We need to wrap that.
+          } catch (e) { console.error("Message pre-check failed", e); return; }
       }
       
-      // If message is for a different session, show notification but don't add to current messages
-      if (message.sessionId !== currentActiveSession.sessionId) {
-        console.log(`[CLIENT] ⚠️ Message from different session, showing notification only`);
+      const isForActiveSession = currentActiveSession && message.sessionId === currentActiveSession.sessionId;
+      
+      // If NOT for the active session, or NO active session, show toast/notification
+      // (Bypass for our own messages reflected from server)
+      if (!isForActiveSession && message.senderId !== currentUser.id && !isHistorical) {
+        console.log(`[CLIENT] ⚠️ Message for different or no active session, showing notification toast`);
         
-        // Still play sound and show toast for messages from other sessions
-        if (message.senderId !== currentUser.id) {
-            playNotificationSound('knock');
-            
-            // Find the session this message belongs to
-            const otherSession = activeSessions.get(message.sessionId);
-            const senderName = otherSession?.partnerProfile?.name || (language === 'ru' ? 'Собеседник' : 'Partner');
-            const senderAvatar = otherSession?.partnerProfile?.avatar;
-            
-            if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-            setNotificationToast({
-                senderName,
-                text: message.messageType === 'text' ? '[message]' : (language === 'ru' ? '📷 Фото' : '📷 Photo'),
-                senderId: message.senderId,
-                avatar: senderAvatar
-            });
-            toastTimeoutRef.current = setTimeout(() => setNotificationToast(null), 5000);
-            
-            // Banner notification
-            if (currentUser.chatSettings?.bannerNotificationsEnabled && document.visibilityState === 'hidden') {
-                showBannerNotification(
-                    language === 'ru' ? 'Новое сообщение' : 'New Message',
-                    `${senderName}: ${language === 'ru' ? 'новое сообщение' : 'New message'}`
-                );
-            }
+        playNotificationSound('knock');
+        
+        // Find the session info in our active sessions map
+        const msgSession = activeSessions.get(message.sessionId);
+        const senderName = msgSession?.partnerProfile?.name || (language === 'ru' ? 'Собеседник' : 'Partner');
+        const senderAvatar = msgSession?.partnerProfile?.avatar;
+        
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        setNotificationToast({
+            senderName,
+            text: message.messageType === 'text' ? '[message]' : (language === 'ru' ? '📷 Фото' : '📷 Photo'),
+            senderId: message.senderId,
+            avatar: senderAvatar
+        });
+        toastTimeoutRef.current = setTimeout(() => setNotificationToast(null), 2000);
+        
+        // Banner notification if app is in background
+        if (currentUser.chatSettings?.bannerNotificationsEnabled && document.visibilityState === 'hidden') {
+            showBannerNotification(
+                language === 'ru' ? 'Новое сообщение' : 'New Message',
+                `${senderName}: ${language === 'ru' ? 'новое сообщение' : 'New message'}`
+            );
         }
-        return;
       }
+
+      // If we don't have an active session, we can't do more (like adding to message list)
+      if (!currentActiveSession) return;
+      
+      // If for a different session, also return (toast already handled above)
+      if (message.sessionId !== currentActiveSession.sessionId) return;
+      
       
       if (currentUser.blockedUsers.includes(message.senderId)) {
         console.log(`[CLIENT] 🚫 Message ignored: sender is blocked`);
         return;
       }
       
-      // Decrypt message
+      // Decrypt message SAFELY
+      let text, image, audioBase64;
+      try {
+          if (message.messageType === 'text' && message.encryptedPayload) {
+              text = encryptionService.decrypt(message.encryptedPayload, message.sessionId);
+          } else if (message.messageType === 'image' && message.encryptedPayload) {
+              image = encryptionService.decryptBinary(message.encryptedPayload, message.sessionId);
+              // CRASH PREVENTION: post-decryption check
+              if (!image.startsWith('data:image')) {
+                  console.warn(`[CLIENT] ⚠️ Invalid image header for msg ${message.id}`);
+                  image = undefined; // Drop it
+              }
+          } else if (message.messageType === 'audio' && message.encryptedPayload) {
+              audioBase64 = encryptionService.decryptBinary(message.encryptedPayload, message.sessionId);
+          }
+      } catch (e) {
+          console.error(`[CRYPTO] Decryption failed for msg ${message.id}`, e);
+          return; // Skip this message to prevent crash
+      }
+
       const decrypted = {
         ...message,
-        text: message.messageType === 'text' && message.encryptedPayload 
-          ? encryptionService.decrypt(message.encryptedPayload, message.sessionId)
-          : undefined,
-        image: message.messageType === 'image' && message.encryptedPayload
-          ? encryptionService.decryptBinary(message.encryptedPayload, message.sessionId)
-          : undefined,
-        audioBase64: message.messageType === 'audio' && message.encryptedPayload
-          ? encryptionService.decryptBinary(message.encryptedPayload, message.sessionId)
-          : undefined,
+        text,
+        image,
+        audioBase64,
         flagged: message.metadata?.flagged || false
       };
       
@@ -1197,7 +1283,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                  senderId: message.senderId,
                  avatar: senderAvatar
              });
-             toastTimeoutRef.current = setTimeout(() => setNotificationToast(null), 5000);
+             toastTimeoutRef.current = setTimeout(() => setNotificationToast(null), 2000);
           }
 
           // Voice Mode (Reading chat text aloud) - works independently of voice notification setting
@@ -1382,6 +1468,20 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         setIsVerifyingOtp(false);
     }));
 
+    // DEBUG: Monitor Disconnects
+    cleanups.push(socketService.onEvent('disconnect', (reason) => {
+        console.warn(`[SOCKET] ❌ Client disconnected: ${reason}`);
+        // Optional: Show toast if active session
+        if (activeSessionRef.current) {
+             // alert(`DEBUG: Socket disconnected (${reason}). Reconnecting...`);
+        }
+    }));
+
+    // DEBUG: Monitor Connect
+    cleanups.push(socketService.onEvent('connect', () => {
+        console.log(`[SOCKET] ✅ Client connected: ${socketService.serverUrl}`);
+    }));
+
     // AI Voice Mode Helper (Refactored out)
 
 
@@ -1400,20 +1500,41 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }));
 
     // Listen for knock accepted (Sender side)
+    // Listen for knock accepted (Sender side)
     cleanups.push(socketService.onKnockAccepted((data) => {
+        // ONE-TIME BANNER LOGIC: Check if already acknowledged
+        try {
+            const rawAck = localStorage.getItem('streamflow_acknowledged_banners');
+            const ackList: string[] = rawAck ? JSON.parse(rawAck).map(String) : [];
+            const currentSessId = String(data.sessionId);
+
+            if (ackList.includes(currentSessId)) {
+                console.log(`[KNOCK] 🚫 Skipping already acknowledged banner for session: ${currentSessId}`);
+                // If acknowledged, we assume they already handled the "Start" prompt previously?
+                // Or maybe they refreshed. If so, let's just show the prompt again to be safe, 
+                // or auto-join if they are the initiator.
+                // For safety in this new flow, we will show the prompt.
+            }
+        } catch (e) {
+            console.error("Error checking ack list:", e);
+        }
+
+        // MUTUAL CONSENT: Do NOT auto-join. Show confirmation modal.
+        console.log("[KNOCK] ✅ User accepted! Waiting for Sender confirmation:", data.sessionId);
+        
         setKnockAcceptedData({
             sessionId: data.sessionId,
             partnerProfile: data.partnerProfile
         });
-        
-        // AUTO-JOIN ENABLED: Fix for "stuck" state
-        console.log("[KNOCK] ✅ Auto-joining session:", data.sessionId);
-        socketService.joinSession(data.sessionId);
 
-        playNotificationSound('knock'); // Success sound
+        playNotificationSound('knock'); 
         announceNotification(language === 'ru' 
             ? `Стук принят! ${data.partnerProfile.name} ждет вас.` 
             : `Knock accepted! ${data.partnerProfile.name} is waiting for you.`);
+            
+        // Timeout removed - we want them to click "Start Chat"
+        // But maybe we auto-dismiss the banner after 10s if ignored?
+        // No, let's keep it until they interact or close it.
     }));
 
     // Duplicate listener removed - consolidated above
@@ -1448,24 +1569,42 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           
           // AUTO-RESUME / REPLAY: 
           // If we have sessions but aren't in chat, show the "Knock Accepted" modal again
-          // This ensures Mata sees the invite even if she missed the real-time event due to disconnect
           const latestSession = data.activeSessions[data.activeSessions.length - 1];
-          if (latestSession && view !== 'chat') {
-              console.log("[SESSION] Found active session on reconnect. Replaying Knock Accepted modal:", latestSession.sessionId);
-              
-              // Construct specific partner profile from session data
-              // We need to find the partner ID (not us)
-              const partnerId = latestSession.partnerId; // registerUser returns processed sessions with partnerId
-              const partnerProfile = latestSession.partnerProfile || { name: 'User', avatar: '/avatars/default.png' }; 
+          // CHECK IF ALREADY ACKNOWLEDGED (Fix for persistent notifications)
+          try {
+            const rawAck = localStorage.getItem('streamflow_acknowledged_banners');
+            const ackList: string[] = rawAck ? JSON.parse(rawAck).map(String) : [];
+            
+            if (latestSession && view !== 'chat') {
+                const currentSessId = String(latestSession.sessionId);
+                
+                // Debug log to verify what's happening
+                console.log(`[SESSION_CHECK] Checking session ${currentSessId} against ackList:`, ackList);
 
-              setKnockAcceptedData({
-                  sessionId: latestSession.sessionId,
-                  partnerProfile: partnerProfile
-              });
-              
-              announceNotification(language === 'ru' 
-                ? `Стук принят! ${partnerProfile.name} ждет вас.` 
-                : `Knock accepted! ${partnerProfile.name} is waiting for you.`);
+                // Ensure we don't show if already acked
+                if (!ackList.includes(currentSessId)) {
+                    console.log("[SESSION] Found unacknowledged active session:", currentSessId);
+                    
+                    // Construct specific partner profile
+                    const partnerProfile = latestSession.partnerProfile || { name: 'User', avatar: '/avatars/default.png' }; 
+
+                    setKnockAcceptedData({
+                        sessionId: currentSessId,
+                        partnerProfile: partnerProfile
+                    });
+                    
+                    announceNotification(language === 'ru' 
+                      ? `Стук принят! ${partnerProfile.name} ждет вас.` 
+                      : `Knock accepted! ${partnerProfile.name} is waiting for you.`);
+                      
+                    // Auto-dismiss restored session banner
+                    setTimeout(() => setKnockAcceptedData(null), 2000);
+                } else {
+                    console.log(`[SESSION] Skipping already acknowledged session: ${currentSessId}`);
+                }
+            }
+          } catch (e) {
+            console.error("Error checking acknowledged banners:", e);
           }
         }
       });
@@ -1475,6 +1614,25 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         {/* Knock Accepted Banner - FIXED POSITION & Z-INDEX */}
         {knockAcceptedData && (
             <div className="fixed top-20 left-4 right-4 z-[9999] bg-green-500/20 border border-green-500/50 backdrop-blur-xl rounded-2xl p-6 shadow-[0_0_50px_rgba(34,197,94,0.5)] animate-in zoom-in-95 duration-300 flex flex-col items-center gap-4 text-center">
+                <button 
+                    onClick={() => {
+                        // Mark as acknowledged on dismiss
+                        if (knockAcceptedData) {
+                            const acknowledged = localStorage.getItem('streamflow_acknowledged_banners');
+                            const ackList: string[] = acknowledged ? JSON.parse(acknowledged).map(String) : [];
+                            const sId = String(knockAcceptedData.sessionId);
+                            if (!ackList.includes(sId)) {
+                                ackList.push(sId);
+                                localStorage.setItem('streamflow_acknowledged_banners', JSON.stringify(ackList));
+                                console.log("[BANNER] Dismissed and acked:", sId);
+                            }
+                            setKnockAcceptedData(null);
+                        }
+                    }}
+                    className="absolute top-2 right-2 text-green-200/50 hover:text-white p-2"
+                >
+                    <XMarkIcon className="w-6 h-6" />
+                </button>
                 <div className="w-16 h-16 rounded-full border-4 border-green-400 p-1">
                     <img src={knockAcceptedData.partnerProfile.avatar} className="w-full h-full rounded-full object-cover" />
                 </div>
@@ -1485,8 +1643,21 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 <button 
                     onClick={() => {
                         console.log("🖱️ User clicked JOIN SESSION");
-                        socketService.joinSession(knockAcceptedData.sessionId);
-                        setKnockAcceptedData(null);
+                        // Mark as acknowledged on join
+                        if (knockAcceptedData) {
+                            const acknowledged = localStorage.getItem('streamflow_acknowledged_banners');
+                            const ackList: string[] = acknowledged ? JSON.parse(acknowledged).map(String) : [];
+                            const sId = String(knockAcceptedData.sessionId);
+                            
+                            if (!ackList.includes(sId)) {
+                                ackList.push(sId);
+                                localStorage.setItem('streamflow_acknowledged_banners', JSON.stringify(ackList));
+                                console.log("[BANNER] Joined and acked:", sId);
+                            }
+                            
+                            socketService.joinSession(sId);
+                            setKnockAcceptedData(null);
+                        }
                     }}
                     className="w-full py-4 bg-green-500 hover:bg-green-400 text-black font-black uppercase tracking-widest rounded-xl text-sm shadow-xl hover:shadow-green-500/40 transition-all transform hover:scale-105 active:scale-95"
                 >
@@ -1508,7 +1679,20 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         const reader = new FileReader();
         reader.readAsDataURL(blob);
         reader.onloadend = () => {
-          setRegVoiceIntro(reader.result as string);
+          const url = reader.result as string;
+          setRegVoiceIntro(url);
+          
+          // Auto-play
+          setTimeout(() => {
+              const audio = new Audio(url);
+              introAudioRef.current = audio;
+              setIsPlayingIntro(true);
+              audio.onended = () => {
+                  setIsPlayingIntro(false);
+                  introAudioRef.current = null;
+              };
+              audio.play().catch(console.error);
+          }, 500);
         };
         // Restore volume
         if (preRecordingVolumeRef.current !== null) {
@@ -1538,15 +1722,34 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     if (introTimerRef.current) clearInterval(introTimerRef.current);
   };
 
-  const handleSentImageClick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const stylized = await stylizeAvatar(file);
-      // In chat, we send stylized images for consistency with the privacy brief
-      if (activeSession) {
-        socketService.sendMessage(activeSession.sessionId, stylized, 'image');
+  const handlePlayIntro = () => {
+      if (!regVoiceIntro || isPlayingIntro) return;
+      
+      try {
+          if (introAudioRef.current) {
+              introAudioRef.current.pause();
+              introAudioRef.current = null;
+          }
+
+          const audio = new Audio(regVoiceIntro);
+          introAudioRef.current = audio;
+          setIsPlayingIntro(true);
+          
+          audio.onended = () => {
+              setIsPlayingIntro(false);
+              introAudioRef.current = null;
+          };
+          
+          audio.onerror = () => {
+              setIsPlayingIntro(false);
+              introAudioRef.current = null;
+          };
+
+          audio.play().catch(console.error);
+      } catch (err) {
+          console.error(err);
+          setIsPlayingIntro(false);
       }
-    }
   };
 
   const handleDeleteAccount = () => {
@@ -1611,9 +1814,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       registrationTimestamp: currentUser.registrationTimestamp || Date.now(),
       
       // Location Data — prioritize passedLocation (from App.tsx/radio) over local detection
-      country: passedLocation?.country || detectedLocation?.country || currentUser.country || (language === 'ru' ? 'Неизвестно' : 'Unknown'),
-      detectedCountry: passedLocation?.country || detectedLocation?.country || currentUser.detectedCountry,
-      detectedCity: passedLocation?.city || detectedLocation?.city || currentUser.detectedCity,
+      country: (passedLocation?.country && passedLocation.country !== 'Unknown') ? passedLocation.country : (detectedLocation?.country || currentUser.country || (language === 'ru' ? 'Неизвестно' : 'Unknown')),
+      detectedCountry: (passedLocation?.country && passedLocation.country !== 'Unknown') ? passedLocation.country : (detectedLocation?.country || currentUser.detectedCountry),
+      detectedCity: (passedLocation?.city && passedLocation.city !== 'Unknown') ? passedLocation.city : (detectedLocation?.city || currentUser.detectedCity),
       detectedIP: passedLocation?.ip || detectedLocation?.ip || currentUser.detectedIP,
 
       chatSettings: {
@@ -1681,7 +1884,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             
             // Apply active filters
             if (searchAgeFrom !== 'Any' && user.age && user.age < parseInt(searchAgeFrom)) return false;
-            if (searchAgeTo !== 'Any' && user.age && user.age > parseInt(searchAgeTo)) return false;
+            if (searchAgeTo !== 'Any' && searchAgeTo !== '65+' && user.age && user.age > parseInt(searchAgeTo)) return false;
             
             // Gender
             if (searchGender !== 'any' && user.gender !== searchGender) return false;
@@ -1712,7 +1915,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const handleSearch = () => {
     const filters: any = {};
     if (searchAgeFrom !== 'Any') filters.minAge = parseInt(searchAgeFrom);
-    if (searchAgeTo !== 'Any') filters.maxAge = parseInt(searchAgeTo);
+    if (searchAgeTo !== 'Any') filters.maxAge = searchAgeTo === '65+' ? 100 : parseInt(searchAgeTo);
     if (searchGender !== 'any') filters.gender = searchGender;
     
     socketService.searchUsers(filters, (results) => {
@@ -1755,6 +1958,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const handleAcceptKnock = (knock: any) => {
     socketService.acceptKnock(knock.knockId, knock.fromUserId);
     setPendingKnocks(prev => prev.filter(k => k.knockId !== knock.knockId));
+    
+    // MUTUAL CONSENT: Show "Waiting for partner..." state
+    setIsWaitingForPartner(true);
   };
 
   const handleRejectKnock = (knock: any) => {
@@ -1859,6 +2065,22 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       const encrypted = encryptionService.encryptBinary(compressedBase64, activeSession.sessionId);
       console.log("[UPLOAD] Encrypted payload length:", encrypted.length);
       
+      // OPTIMISTIC UI: Add photo locally before server ACK
+      const tempId = `temp_${Date.now()}`;
+      const optimisticMsg: any = {
+          id: tempId,
+          sessionId: activeSession.sessionId,
+          senderId: currentUser.id,
+          image: compressedBase64,
+          messageType: 'image',
+          metadata: { optimistic: true },
+          timestamp: Date.now(),
+          expiresAt: Date.now() + 60000
+      };
+      
+      setMessages(prev => [...prev, optimisticMsg]);
+      scrollToBottom();
+
       // Send with ACK callback for delivery confirmation
       socketService.sendMessage(
         activeSession.sessionId,
@@ -1868,10 +2090,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         (ack) => {
           if (ack && ack.success) {
             console.log(`[UPLOAD] ✅ Server confirmed: messageId=${ack.messageId}, deliveredTo=${ack.deliveredTo}`);
+            // Remove optimistic placeholder on success (server will broadcast real message soon)
+            setMessages(prev => prev.filter(m => m.id !== tempId));
           } else {
             const errorMsg = ack?.error || 'Unknown error';
             console.error(`[UPLOAD] ❌ Server rejected photo: ${errorMsg}`);
             alert(language === 'ru' ? `Фото не доставлено: ${errorMsg}` : `Photo not delivered: ${errorMsg}`);
+            // Remove optimistic placeholder on failure
+            setMessages(prev => prev.filter(m => m.id !== tempId));
           }
         }
       );
@@ -2190,7 +2416,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const partnerDetails = activeSession ? getPartnerFromSession(activeSession) : null;
 
   return (
-    <aside className="w-full md:w-[420px] flex flex-col glass-panel border-l border-[var(--panel-border)] shadow-2xl animate-in slide-in-from-right duration-500 bg-[var(--panel-bg)] z-[60] h-full fixed right-0 top-0 bottom-0">
+    <aside className="w-full md:w-[420px] flex flex-col glass-panel border-l border-[var(--panel-border)] shadow-2xl animate-in slide-in-from-right duration-500 bg-[var(--panel-bg)] z-[90] h-full fixed right-0 top-0 bottom-0">
         <header className="h-16 flex items-center justify-between px-4 border-b border-white/5 bg-transparent shrink-0 relative z-50">
             {view === 'chat' && partnerDetails ? (
                 <>
@@ -2421,6 +2647,27 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         </div>
                     </div>
 
+                    {/* Privacy Settings */}
+                    <div className="bg-white/5 rounded-lg p-3 border border-white/5">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{language === 'ru' ? 'ПРИВАТНОСТЬ' : 'PRIVACY'}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] text-slate-400">{language === 'ru' ? 'Скрыть из поиска' : 'Hide from search'}</span>
+                                <button 
+                                    onClick={() => onUpdateCurrentUser({ ...currentUser, hideFromSearch: !currentUser.hideFromSearch })}
+                                    className={`w-8 h-4 rounded-full relative transition-colors ${currentUser.hideFromSearch ? 'bg-primary' : 'bg-slate-700'}`}
+                                >
+                                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${currentUser.hideFromSearch ? 'right-0.5' : 'left-0.5'}`} />
+                                </button>
+                            </div>
+                        </div>
+                        <p className="text-[9px] text-slate-500 leading-tight">
+                            {language === 'ru' 
+                                ? 'Ваш профиль не будет отображаться в списке пользователей и поиске, но вы сможете искать других.'
+                                : 'Your profile will not appear in the user list or search, but you can still search for others.'}
+                        </p>
+                    </div>
+
                     {/* Sliders Grid */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -2479,6 +2726,59 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         {language === 'ru' ? 'ОТКРЫТЬ' : 'OPEN'}
                     </div>
                 </button>
+            )}
+
+            {/* MUTUAL CONSENT: Waiting Overlay (Receiver) */}
+            {isWaitingForPartner && (
+                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center animate-in fade-in duration-300">
+                    <div className="w-16 h-16 mb-6 relative">
+                         <div className="absolute inset-0 border-4 border-slate-700 rounded-full"></div>
+                         <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-wider mb-2">
+                        {language === 'ru' ? 'Ожидание собеседника...' : 'Waiting for partner...'}
+                    </h3>
+                    <p className="text-sm text-slate-400 max-w-[250px] text-center">
+                        {language === 'ru' 
+                            ? 'Партнер должен подтвердить вход в чат.' 
+                            : 'Partner must confirm to start the chat.'}
+                    </p>
+                </div>
+            )}
+
+            {/* MUTUAL CONSENT: Confirmation Modal (Sender) */}
+            {knockAcceptedData && (
+                 <div className="absolute inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center animate-in zoom-in duration-300 p-6">
+                    <img 
+                        src={knockAcceptedData.partnerProfile?.avatar || '/avatars/default.png'} 
+                        className="w-24 h-24 rounded-full border-4 border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.4)] mb-6"
+                    />
+                    <h3 className="text-2xl font-black text-white text-center mb-2">
+                        {knockAcceptedData.partnerProfile?.name}
+                    </h3>
+                    <p className="text-sm text-green-400 font-bold uppercase tracking-widest mb-8 flex items-center gap-2">
+                        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                        {language === 'ru' ? 'Принял ваш вызов!' : 'Accepted your knock!'}
+                    </p>
+                    
+                    <div className="w-full max-w-xs space-y-3">
+                        <button 
+                            onClick={() => {
+                                socketService.joinSession(knockAcceptedData.sessionId);
+                                setKnockAcceptedData(null);
+                            }}
+                            className="w-full py-4 bg-primary text-white rounded-xl font-black uppercase tracking-widest shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:scale-105 transition-transform"
+                        >
+                            {language === 'ru' ? 'НАЧАТЬ ЧАТ' : 'START CHAT'}
+                        </button>
+                        <button 
+                            onClick={() => setKnockAcceptedData(null)}
+                            className="w-full py-3 bg-white/5 text-slate-400 hover:text-white rounded-xl font-bold uppercase tracking-widest transition-colors"
+                        >
+                            {language === 'ru' ? 'ОТМЕНА' : 'CANCEL'}
+                        </button>
+                    </div>
+                 </div>
             )}
 
             {/* In-App Toast Notification with Animated Border */}
@@ -2610,11 +2910,27 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             )}
 
             {view === 'register' && (
-                <div className="flex-1 flex flex-col p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
-                    <div className="flex justify-center mb-4 shrink-0">
-                        <div className="text-center">
-                            <h3 className="text-2xl font-black text-white leading-tight uppercase tracking-widest mb-2">{language === 'ru' ? 'Ваш профиль' : 'Your Profile'}</h3>
-                            <p className="text-[10px] text-slate-400 max-w-[240px] leading-relaxed mx-auto">
+                <div className={`flex-1 flex flex-col p-6 overflow-y-auto animate-in slide-in-from-right duration-300 relative transition-all duration-1000 ${isLightsOn ? 'shadow-[inset_0_0_100px_rgba(0,0,0,0.9)]' : ''}`}>
+                    {/* Cozy Lighting Overlay */}
+                    <div className={`fixed inset-0 bg-black/90 z-0 transition-opacity duration-1000 pointer-events-none ${isLightsOn ? 'opacity-100' : 'opacity-0'}`} />
+                    
+                    {/* Spotlight Glow Effect (Background) */}
+                    <div className={`fixed inset-0 z-0 transition-opacity duration-1000 pointer-events-none ${isLightsOn ? 'opacity-100' : 'opacity-0'}`}
+                         style={{
+                             background: 'radial-gradient(circle at 50% 30%, rgba(255, 200, 100, 0.15) 0%, rgba(255, 150, 50, 0.05) 40%, transparent 70%)'
+                         }}
+                    />
+
+                    <div className="flex justify-center mb-4 shrink-0 relative z-10">
+                        <div className="flex flex-col items-center w-full">
+                            
+                            {/* Lighting Controls REMOVED */}
+                            {null}
+
+                            <h3 className={`text-2xl font-black leading-tight uppercase tracking-widest mb-2 transition-colors duration-1000 ${isLightsOn ? 'text-yellow-100 drop-shadow-[0_0_15px_rgba(255,200,100,0.5)]' : 'text-white'}`}>
+                                {language === 'ru' ? 'Ваш профиль' : 'Your Profile'}
+                            </h3>
+                            <p className={`text-[10px] max-w-[240px] leading-relaxed mx-auto transition-colors duration-1000 ${isLightsOn ? 'text-yellow-200/70' : 'text-slate-400'}`}>
                                 {language === 'ru' 
                                     ? 'Эта информация помогает подбирать собеседников. Сообщения и данные удаляются автоматически.' 
                                     : 'This info helps find better matches. Messages and data are automatically deleted.'}
@@ -2687,7 +3003,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 <span className="text-sm">📍</span>
                                 <span className="text-[10px] text-slate-400 font-medium">
                                     {language === 'ru' ? 'Авто-определение: ' : 'Auto-detected: '} 
-                                    <span className="text-slate-200 font-bold">{detectedCountry || 'Unknown'}</span>
+                                    <span className="text-slate-200 font-bold">{detectedLocation?.country || 'Unknown'}</span>
                                 </span>
                             </div>
                         </div>
@@ -2760,12 +3076,37 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         : (regVoiceIntro ? (language === 'ru' ? '✅ Приветствие записано' : '✅ Intro recorded') : (language === 'ru' ? 'Главный «крючок» для общения' : 'Your main hook for chats'))}
                                 </p>
                             </div>
-                            {regVoiceIntro && !isRecordingIntro && (
-                                <button onClick={() => new Audio(regVoiceIntro).play()} className="p-2 bg-white/5 rounded-full hover:bg-white/10 transition-colors">
-                                    <PlayIcon className="w-4 h-4 text-white" />
-                                </button>
-                            )}
                         </div>
+                        
+                        {regVoiceIntro && !isRecordingIntro && (
+                            <div className="flex gap-2 w-full mt-2 animate-in fade-in slide-in-from-top-2">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        handlePlayIntro();
+                                    }}
+                                    disabled={isPlayingIntro}
+                                    className={`flex-1 py-3 ${isPlayingIntro ? 'bg-green-500/20 text-green-400' : 'bg-green-500 hover:bg-green-400 text-white'} rounded-xl font-bold text-xs uppercase transition-all shadow-lg flex items-center justify-center gap-2`}
+                                >
+                                    {isPlayingIntro ? <span className="animate-pulse">▶ Playing...</span> : (language === 'ru' ? '▶ Прослушать' : '▶ Play Check')}
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        setRegVoiceIntro(null);
+                                        if(introAudioRef.current) {
+                                            introAudioRef.current.pause();
+                                            setIsPlayingIntro(false);
+                                        }
+                                    }}
+                                    className="px-4 py-3 bg-white/10 hover:bg-red-500/20 hover:text-red-400 text-slate-400 rounded-xl font-bold text-xs uppercase transition-all"
+                                >
+                                    {language === 'ru' ? 'Перезаписать' : 'Retry'}
+                                </button>
+                            </div>
+                        )}
 
                         {/* Settings Collapsible */}
                         <details className="group bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
@@ -2859,6 +3200,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         ? (language === 'ru' ? 'ОТМЕНИТЬ УДАЛЕНИЕ' : 'CANCEL DELETION')
                                         : (language === 'ru' ? 'УДАЛИТЬ АККАУНТ' : 'DELETE ACCOUNT')}
                                 </button>
+                                {!currentUser.deletionRequestedAt && (
+                                    <p className="text-[8px] text-center text-slate-600 mt-1">
+                                        {language === 'ru' ? 'Аккаунт будет удален через 30 дней' : 'Account will be deleted after 30 days'}
+                                    </p>
+                                )}
                                 
                                 {/* Hard Reset / Fix */}
                                 <button
@@ -2894,9 +3240,67 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         </p>
                     </div>
                 ) : (
-                <div className="flex-1 flex flex-col overflow-hidden animate-in slide-in-from-right duration-300">
-                    <div className="p-6 overflow-y-auto no-scrollbar pb-20">
+                <div className={`flex-1 flex flex-col overflow-hidden animate-in slide-in-from-right duration-300 relative transition-all duration-1000 ${isLightsOn ? 'shadow-[inset_0_0_100px_rgba(0,0,0,0.9)]' : ''}`}>
+                    {/* Cozy Lighting Overlay (Search) */}
+                    <div className={`fixed inset-0 bg-black/90 z-0 transition-opacity duration-1000 pointer-events-none ${isLightsOn ? 'opacity-100' : 'opacity-0'}`} />
+                    
+                    {/* Spotlight Glow Effect (Search) */}
+                    <div className={`fixed inset-0 z-0 transition-opacity duration-1000 pointer-events-none ${isLightsOn ? 'opacity-100' : 'opacity-0'}`}
+                         style={{
+                             background: 'radial-gradient(circle at 50% 40%, rgba(255, 200, 100, 0.1) 0%, rgba(255, 150, 50, 0.02) 50%, transparent 80%)'
+                         }}
+                    />
+
+                    <div className="p-6 overflow-y-auto no-scrollbar pb-20 relative z-10">
                             <div className="flex flex-col items-center gap-1 mb-6">
+                                {/* Lighting Controls (Search) */}
+                                <div className="flex items-end justify-center gap-12 mb-2 w-full max-w-sm relative">
+                                    {/* Left Projector */}
+                                    <div className={`flex flex-col items-center gap-1 transition-all duration-700 ${isLightsOn ? 'opacity-100 transform rotate-45 translate-y-4 text-yellow-200' : 'opacity-50 text-slate-600'}`}>
+                                        <div className={`w-10 h-10 rounded-full border-2 bg-slate-800 relative overflow-hidden shadow-xl ${isLightsOn ? 'border-yellow-400 shadow-[0_0_20px_rgba(255,200,0,0.5)] bg-yellow-900/50' : 'border-slate-600'}`}>
+                                            <div className="absolute inset-2 bg-gradient-to-br from-white/20 to-transparent rounded-full" />
+                                            {isLightsOn && <div className="absolute inset-0 bg-yellow-400/20 animate-pulse" />}
+                                        </div>
+                                        <div className="w-1 h-8 bg-slate-700 rounded-full" />
+                                    </div>
+
+                                    {/* Central Tumbler Switch */}
+                                    <div className="flex flex-col items-center relative -top-4">
+                                        <button 
+                                            onClick={() => {
+                                                const newState = !isLightsOn;
+                                                setIsLightsOn(newState);
+                                                if (onLightsToggle) onLightsToggle(newState);
+                                            }}
+                                            className={`w-14 h-24 rounded-full border-4 transition-all duration-300 shadow-2xl relative overflow-hidden group ${isLightsOn ? 'bg-yellow-900/50 border-yellow-500 shadow-[0_0_30px_rgba(255,180,0,0.4)]' : 'bg-slate-800 border-slate-600'}`}
+                                        >
+                                            <div className={`absolute left-1 right-1 h-10 rounded-full transition-all duration-300 flex items-center justify-center border-t border-white/10 ${isLightsOn ? 'top-12 bg-gradient-to-b from-yellow-500 to-yellow-700 shadow-[0_0_10px_rgba(255,200,0,0.8)]' : 'top-1 bg-gradient-to-b from-slate-500 to-slate-700 shadow-lg'}`}>
+                                                <div className={`w-1 h-4 rounded-full bg-black/20 ${isLightsOn ? '' : 'hidden'}`} />
+                                            </div>
+                                        </button>
+                                        <span className={`text-[10px] font-bold uppercase tracking-widest mt-2 transition-colors ${isLightsOn ? 'text-yellow-500 text-shadow-glow' : 'text-slate-600'}`}>
+                                            {language === 'ru' ? 'СЦЕНА' : 'STAGE'}
+                                        </span>
+                                    </div>
+
+                                    {/* Right Projector */}
+                                    <div className={`flex flex-col items-center gap-1 transition-all duration-700 ${isLightsOn ? 'opacity-100 transform -rotate-45 translate-y-4 text-yellow-200' : 'opacity-50 text-slate-600'}`}>
+                                        <div className={`w-10 h-10 rounded-full border-2 bg-slate-800 relative overflow-hidden shadow-xl ${isLightsOn ? 'border-yellow-400 shadow-[0_0_20px_rgba(255,200,0,0.5)] bg-yellow-900/50' : 'border-slate-600'}`}>
+                                            <div className="absolute inset-2 bg-gradient-to-br from-white/20 to-transparent rounded-full" />
+                                            {isLightsOn && <div className="absolute inset-0 bg-yellow-400/20 animate-pulse" />}
+                                        </div>
+                                        <div className="w-1 h-8 bg-slate-700 rounded-full" />
+                                    </div>
+                                    
+                                    {/* Long Light Beams aiming at Cards */}
+                                    {isLightsOn && (
+                                        <>
+                                            {/* Extended beams to reach carousel */}
+                                            <div className="absolute top-14 left-[-40px] w-[200px] h-[1200px] bg-gradient-to-b from-yellow-200/20 via-yellow-200/5 to-transparent transform rotate-[15deg] pointer-events-none blur-2xl z-20 mix-blend-screen" />
+                                            <div className="absolute top-14 right-[-40px] w-[200px] h-[1200px] bg-gradient-to-b from-yellow-200/20 via-yellow-200/5 to-transparent transform -rotate-[15deg] pointer-events-none blur-2xl z-20 mix-blend-screen" />
+                                        </>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full animate-in fade-in zoom-in duration-500">
                                     <span className="relative flex h-2 w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -2978,7 +3382,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                                     <button 
                                                         key={g} 
                                                         onClick={() => setSearchGender(searchGender === g ? 'any' : g)} 
-                                                        className={`flex-1 rounded-lg text-[9px] font-black transition-all uppercase ${searchGender === g ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}
+                                                        className={`flex-1 rounded-lg text-xs font-bold transition-all uppercase ${searchGender === g ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}
                                                     >
                                                         {t[g].substring(0, 1)}
                                                     </button>
@@ -3002,96 +3406,211 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                     </p>
                                 </div>
                             </div>
-                        <div className="space-y-3">
-                            {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => u.id !== currentUser.id).map(user => (
-                                <div key={user.id} className={`p-4 rounded-3xl flex flex-col gap-3 transition-all animate-in slide-in-from-bottom-2 duration-300 border ${user.status === 'online' ? 'bg-white/5 border-white/5 hover:bg-white/[0.08]' : 'bg-white/[0.02] border-white/[0.02] opacity-80'}`}>
-                                    
-                                    {/* Header: Identity & Status */}
-                                    <div className="flex items-start gap-3">
-                                        <div className="relative shrink-0">
-                                            <img src={user.avatar || ''} className={`w-14 h-14 rounded-2xl object-cover bg-slate-800 shadow-xl ${user.status === 'offline' ? 'grayscale-[0.5]' : ''}`} />
-                                            <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#0f172a] ${user.status === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-slate-500'}`}></div>
-                                        </div>
+                        <div className="relative h-[500px] overflow-hidden rounded-3xl bg-black/20 border border-white/5 mask-gradient-vertical">
+                            {/* Gradient Masks for smooth fade in/out */}
+                            <div className="sticky top-0 left-0 right-0 h-8 bg-gradient-to-b from-[#0f172a] to-transparent z-10 pointer-events-none"></div>
+                            
+                            <div className="space-y-3 p-1 pb-3 animate-vertical-marquee hover:[animation-play-state:paused]">
+                                {/* First Copy */}
+                                {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id)).map((user, idx) => (
+                                    <div key={`${user.id}-1`} className={`p-4 rounded-3xl flex flex-col gap-3 transition-all border group relative ${user.status === 'online' ? 'bg-white/5 border-white/5 hover:bg-white/[0.08]' : 'bg-white/[0.02] border-white/[0.02] opacity-80'}`}>
                                         
-                                        <div className="flex-1 min-w-0 flex flex-col justify-center min-h-[56px]">
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <h5 className="font-black text-sm text-white truncate">
-                                                    {user.name}
-                                                </h5>
-                                                <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded-md font-bold">{user.age}</span>
-                                                {user.country && (
-                                                    <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-full">
-                                                        <span className="text-[10px]">📍</span>
-                                                        <span className="text-[10px] font-bold text-slate-200 uppercase tracking-tighter max-w-[80px] truncate">{user.country}</span>
-                                                    </div>
-                                                )}
+                                        {/* Hide Button */}
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleHideUser(user.id); }}
+                                            className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-red-500/80 text-white/50 hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-all z-20 backdrop-blur-sm"
+                                            title={language === 'ru' ? 'Скрыть' : 'Hide'}
+                                        >
+                                            <XMarkIcon className="w-3.5 h-3.5" />
+                                        </button>
+                                        
+                                        {/* Header: Identity & Status */}
+                                        <div className="flex items-start gap-3">
+                                            <div className="relative shrink-0">
+                                                <img src={user.avatar || ''} className={`w-14 h-14 rounded-2xl object-cover bg-slate-800 shadow-xl ${user.status === 'offline' ? 'grayscale-[0.5]' : ''}`} />
+                                                <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#0f172a] ${user.status === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-slate-500'}`}></div>
                                             </div>
                                             
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <div className="px-2 py-0.5 bg-secondary/10 border border-secondary/20 rounded-md text-[9px] font-black text-secondary uppercase tracking-tight">
-                                                    {user.intentStatus || 'Свободен'}
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center min-h-[56px]">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <h5 className="font-black text-sm text-white truncate">
+                                                        {user.name}
+                                                    </h5>
+                                                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded-md font-bold">{user.age}</span>
+                                                    {user.country && (
+                                                        <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-full">
+                                                            <span className="text-[10px]">📍</span>
+                                                            <span className="text-[10px] font-bold text-slate-200 uppercase tracking-tighter max-w-[80px] truncate">{user.country}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <span className={`text-[9px] font-bold uppercase tracking-tight ${user.status === 'online' ? 'text-green-400' : 'text-slate-500'}`}>
-                                                    {user.status === 'online' 
-                                                        ? (language === 'ru' ? '● В СЕТИ' : '● ONLINE') 
-                                                        : (language === 'ru' 
-                                                            ? `Был(а): ${new Date(user.lastSeen || (user as any).last_login_at || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'})}`
-                                                            : `Seen: ${new Date(user.lastSeen || (user as any).last_login_at || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'})}`
-                                                        )
-                                                    }
-                                                </span>
+                                                
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <div className="px-2 py-0.5 bg-secondary/10 border border-secondary/20 rounded-md text-[9px] font-black text-secondary uppercase tracking-tight">
+                                                        {user.intentStatus || 'Свободен'}
+                                                    </div>
+                                                    <span className={`text-[9px] font-bold uppercase tracking-tight ${user.status === 'online' ? 'text-green-400' : 'text-slate-500'}`}>
+                                                        {user.status === 'online' 
+                                                            ? (language === 'ru' ? '● В СЕТИ' : '● ONLINE') 
+                                                            : (language === 'ru' 
+                                                                ? `Был(а): ${new Date(user.lastSeen || (user as any).last_login_at || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'})}`
+                                                                : `Seen: ${new Date(user.lastSeen || (user as any).last_login_at || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'})}`
+                                                            )
+                                                        }
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Action Row: Voice & Knock */}
-                                    <div className="flex items-center gap-2 h-11">
-                                        {user.voiceIntro ? (
-                                            <button 
-                                                onClick={() => {
-                                                    const audio = new Audio(user.voiceIntro);
-                                                    audio.play();
-                                                }}
-                                                className="flex-1 h-full bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 rounded-xl flex items-center px-3 gap-3 transition-all group"
-                                            >
-                                                <div className="w-7 h-7 bg-indigo-500 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform shrink-0">
-                                                    <PlayIcon className="w-3.5 h-3.5 text-white ml-0.5" />
-                                                </div>
-                                                <div className="flex-1 flex flex-col justify-center min-w-0">
-                                                    <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest text-left mb-0.5">
-                                                        {language === 'ru' ? 'ГОЛОС' : 'VOICE INTRO'}
-                                                    </span>
-                                                    <div className="flex gap-0.5 items-end h-2 w-full opacity-50">
-                                                        <div className="w-0.5 bg-indigo-400 h-1.5 rounded-full animate-pulse"></div>
-                                                        <div className="w-0.5 bg-indigo-400 h-full rounded-full animate-pulse delay-75"></div>
-                                                        <div className="w-0.5 bg-indigo-400 h-1 rounded-full animate-pulse delay-150"></div>
-                                                        <div className="w-0.5 bg-indigo-400 h-1.5 rounded-full animate-pulse"></div>
+                                        {/* Action Row: Voice & Knock */}
+                                        <div className="flex items-center gap-2 h-11">
+                                            {user.voiceIntro ? (
+                                                <button 
+                                                    onClick={() => {
+                                                        const audio = new Audio(user.voiceIntro);
+                                                        audio.play();
+                                                    }}
+                                                    className="flex-1 h-full bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 rounded-xl flex items-center px-3 gap-3 transition-all group"
+                                                >
+                                                    <div className="w-7 h-7 bg-indigo-500 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                                                        <PlayIcon className="w-3.5 h-3.5 text-white ml-0.5" />
                                                     </div>
+                                                    <div className="flex-1 flex flex-col justify-center min-w-0">
+                                                        <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest text-left mb-0.5">
+                                                            {language === 'ru' ? 'ГОЛОС' : 'VOICE INTRO'}
+                                                        </span>
+                                                        <div className="flex gap-0.5 items-end h-2 w-full opacity-50">
+                                                            <div className="w-0.5 bg-indigo-400 h-1.5 rounded-full animate-pulse"></div>
+                                                            <div className="w-0.5 bg-indigo-400 h-full rounded-full animate-pulse delay-75"></div>
+                                                            <div className="w-0.5 bg-indigo-400 h-1 rounded-full animate-pulse delay-150"></div>
+                                                            <div className="w-0.5 bg-indigo-400 h-1.5 rounded-full animate-pulse"></div>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ) : (
+                                                <div className="flex-1 h-full bg-white/5 rounded-xl flex items-center justify-center text-[9px] font-bold text-slate-600 uppercase border border-white/5 italic">
+                                                    {language === 'ru' ? 'НЕТ ГОЛОСА' : 'NO VOICE'}
                                                 </div>
-                                            </button>
-                                        ) : (
-                                            <div className="flex-1 h-full bg-white/5 rounded-xl flex items-center justify-center text-[9px] font-bold text-slate-600 uppercase border border-white/5 italic">
-                                                {language === 'ru' ? 'НЕТ ГОЛОСА' : 'NO VOICE'}
-                                            </div>
-                                        )}
+                                            )}
 
-                                        {user.id === currentUser.id ? (
-                                            <div className="w-28 h-full bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1">
-                                                <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-                                                {language === 'ru' ? 'ЭТО ВЫ' : 'YOU'}
-                                            </div>
-                                        ) : (
-                                            <button 
-                                                onClick={() => handleKnock(user)} 
-                                                disabled={sentKnocks.has(user.id)} 
-                                                className={`w-32 h-full rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shadow-lg ${sentKnocks.has(user.id) ? 'bg-green-500/20 text-green-500 cursor-default' : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-95'}`}
-                                            >
-                                                {sentKnocks.has(user.id) ? (language === 'ru' ? 'ОТПРАВЛЕНО' : 'SENT') : (language === 'ru' ? 'ПОСТУЧАТЬСЯ' : 'KNOCK')}
-                                            </button>
-                                        )}
+                                            {user.id === currentUser.id ? (
+                                                <div className="w-28 h-full bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1">
+                                                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                                                    {language === 'ru' ? 'ЭТО ВЫ' : 'YOU'}
+                                                </div>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => handleKnock(user)} 
+                                                    disabled={sentKnocks.has(user.id)} 
+                                                    className={`w-32 h-full rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shadow-lg ${sentKnocks.has(user.id) ? 'bg-green-500/20 text-green-500 cursor-default' : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-95'}`}
+                                                >
+                                                    {sentKnocks.has(user.id) ? (language === 'ru' ? 'ОТПРАВЛЕНО' : 'SENT') : (language === 'ru' ? 'ПОСТУЧАТЬСЯ' : 'KNOCK')}
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                ))}
+
+                                {/* Second Copy for seamless Loop (RESTORED for Infinite Scroll) */}
+                                {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id)).map((user, idx) => (
+                                    <div key={`${user.id}-2`} className={`p-4 rounded-3xl flex flex-col gap-3 transition-all border group relative ${user.status === 'online' ? 'bg-white/5 border-white/5 hover:bg-white/[0.08]' : 'bg-white/[0.02] border-white/[0.02] opacity-80'}`}>
+                                        
+                                        {/* Hide Button */}
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleHideUser(user.id); }}
+                                            className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-red-500/80 text-white/50 hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-all z-20 backdrop-blur-sm"
+                                            title={language === 'ru' ? 'Скрыть' : 'Hide'}
+                                        >
+                                            <XMarkIcon className="w-3.5 h-3.5" />
+                                        </button>
+                                        
+                                        {/* Header: Identity & Status */}
+                                        <div className="flex items-start gap-3">
+                                            <div className="relative shrink-0">
+                                                <img src={user.avatar || ''} className={`w-14 h-14 rounded-2xl object-cover bg-slate-800 shadow-xl ${user.status === 'offline' ? 'grayscale-[0.5]' : ''}`} />
+                                                <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#0f172a] ${user.status === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-slate-500'}`}></div>
+                                            </div>
+                                            
+                                            <div className="flex-1 min-w-0 flex flex-col justify-center min-h-[56px]">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <h5 className="font-black text-sm text-white truncate">
+                                                        {user.name}
+                                                    </h5>
+                                                    <span className="text-[10px] bg-white/10 text-slate-300 px-1.5 py-0.5 rounded-md font-bold">{user.age}</span>
+                                                    {user.country && (
+                                                        <div className="flex items-center gap-1 bg-black/20 px-1.5 py-0.5 rounded-full">
+                                                            <span className="text-[10px]">📍</span>
+                                                            <span className="text-[10px] font-bold text-slate-200 uppercase tracking-tighter max-w-[80px] truncate">{user.country}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    <div className="px-2 py-0.5 bg-secondary/10 border border-secondary/20 rounded-md text-[9px] font-black text-secondary uppercase tracking-tight">
+                                                        {user.intentStatus || 'Свободен'}
+                                                    </div>
+                                                    <span className={`text-[9px] font-bold uppercase tracking-tight ${user.status === 'online' ? 'text-green-400' : 'text-slate-500'}`}>
+                                                        {user.status === 'online' 
+                                                            ? (language === 'ru' ? '● В СЕТИ' : '● ONLINE') 
+                                                            : (language === 'ru' 
+                                                                ? `Был(а): ${new Date(user.lastSeen || (user as any).last_login_at || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'})}`
+                                                                : `Seen: ${new Date(user.lastSeen || (user as any).last_login_at || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short'})}`
+                                                            )
+                                                        }
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Row: Voice & Knock */}
+                                        <div className="flex items-center gap-2 h-11">
+                                            {user.voiceIntro ? (
+                                                <button 
+                                                    onClick={() => {
+                                                        const audio = new Audio(user.voiceIntro);
+                                                        audio.play();
+                                                    }}
+                                                    className="flex-1 h-full bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 border border-indigo-500/20 rounded-xl flex items-center px-3 gap-3 transition-all group"
+                                                >
+                                                    <div className="w-7 h-7 bg-indigo-500 rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                                                        <PlayIcon className="w-3.5 h-3.5 text-white ml-0.5" />
+                                                    </div>
+                                                    <div className="flex-1 flex flex-col justify-center min-w-0">
+                                                        <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest text-left mb-0.5">
+                                                            {language === 'ru' ? 'ГОЛОС' : 'VOICE INTRO'}
+                                                        </span>
+                                                        <div className="flex gap-0.5 items-end h-2 w-full opacity-50">
+                                                            <div className="w-0.5 bg-indigo-400 h-1.5 rounded-full animate-pulse"></div>
+                                                            <div className="w-0.5 bg-indigo-400 h-full rounded-full animate-pulse delay-75"></div>
+                                                            <div className="w-0.5 bg-indigo-400 h-1 rounded-full animate-pulse delay-150"></div>
+                                                            <div className="w-0.5 bg-indigo-400 h-1.5 rounded-full animate-pulse"></div>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ) : (
+                                                <div className="flex-1 h-full bg-white/5 rounded-xl flex items-center justify-center text-[9px] font-bold text-slate-600 uppercase border border-white/5 italic">
+                                                    {language === 'ru' ? 'НЕТ ГОЛОСА' : 'NO VOICE'}
+                                                </div>
+                                            )}
+
+                                            {user.id === currentUser.id ? (
+                                                <div className="w-28 h-full bg-green-500/10 border border-green-500/20 rounded-xl text-green-400 text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-1">
+                                                    <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+                                                    {language === 'ru' ? 'ЭТО ВЫ' : 'YOU'}
+                                                </div>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => handleKnock(user)} 
+                                                    disabled={sentKnocks.has(user.id)} 
+                                                    className={`w-32 h-full rounded-xl font-black text-[9px] uppercase tracking-widest transition-all shadow-lg ${sentKnocks.has(user.id) ? 'bg-green-500/20 text-green-500 cursor-default' : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:shadow-orange-500/30 hover:scale-[1.02] active:scale-95'}`}
+                                                >
+                                                    {sentKnocks.has(user.id) ? (language === 'ru' ? 'ОТПРАВЛЕНО' : 'SENT') : (language === 'ru' ? 'ПОСТУЧАТЬСЯ' : 'KNOCK')}
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3119,9 +3638,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 pl-2 mb-2">{t.myDialogs}</h4>
                         {activeSessions.size === 0 && (
                             <div className="flex flex-col items-center justify-center py-12 px-6 text-center animate-in fade-in zoom-in duration-500">
-                                <div className="w-20 h-20 bg-white/5 rounded-[2rem] flex items-center justify-center mb-6 shadow-2xl relative rotate-3 group transition-transform hover:rotate-6">
-                                    <span className="text-4xl filter drop-shadow-lg grayscale group-hover:grayscale-0 transition-all duration-500">💬</span>
-                                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-white/10 rounded-full animate-ping"></div>
+                                <div className="w-20 h-20 flex items-center justify-center mb-4 relative transition-transform hover:scale-110">
+                                    <span className="text-5xl grayscale-0">💬</span>
                                 </div>
                                 
                                 <h3 className="text-lg font-black text-white uppercase tracking-wider mb-2">
@@ -3136,7 +3654,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 {/* Activity Badge */}
                                 <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-full mb-6">
                                     <span className="relative flex h-1.5 w-1.5">
-                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
+                                      {/* Pulse Removed */}
                                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
                                     </span>
                                     <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">
@@ -3168,7 +3686,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </p>
                             </div>
                         )}
-                        {Array.from(activeSessions.values()).map(session => {
+                        {Array.from(activeSessions.values()).filter(s => !hiddenSessions.has(s.sessionId)).map(session => {
                             const partner = getPartnerFromSession(session);
                             const isPartnerOnline = onlineUsers.some(u => u.id === session.partnerId);
                             return (
@@ -3195,8 +3713,18 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                             setMessages(decrypted);
                                         });
                                     }} 
-                                    className="p-4 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-[1.5rem] flex items-center gap-4 cursor-pointer transition-all active:scale-98 bg-white/[0.02]"
+                                    className="p-4 hover:bg-white/5 border border-transparent hover:border-white/5 rounded-[1.5rem] flex items-center gap-4 cursor-pointer transition-all active:scale-98 bg-white/[0.02] group relative"
                                 >
+                                    
+                                    {/* Hide Button */}
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleHideSession(session.sessionId); }}
+                                        className="absolute top-2 right-2 p-1.5 bg-black/40 hover:bg-red-500/80 text-white/50 hover:text-white rounded-full opacity-0 group-hover:opacity-100 transition-all z-20 backdrop-blur-sm"
+                                        title={language === 'ru' ? 'Скрыть диалог' : 'Hide chat'}
+                                    >
+                                        <XMarkIcon className="w-3.5 h-3.5" />
+                                    </button>
+
                                     <div className="relative">
                                         <img src={partner?.avatar} className="w-14 h-14 rounded-2xl object-cover bg-slate-800" />
                                         <div className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 ${isPartnerOnline ? 'bg-green-500' : 'bg-slate-500'} border-2 border-[#1e293b] rounded-full`}></div>
@@ -3240,13 +3768,29 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         </div>
                                     ) : (
                                         <>
-                                            {msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
-                                            {msg.image && <div className="relative"><img src={msg.image} className="rounded-xl max-w-full mt-1 object-cover" /></div>}
-                                            {msg.audioBase64 && (
-                                                <div className="flex items-center gap-3 py-1 min-w-[160px] pr-2">
-                                                    <button onClick={() => new Audio(msg.audioBase64).play()} className="p-2.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors shrink-0"><PlayIcon className="w-4 h-4" /></button>
-                                                    <div className="flex-1 flex flex-col justify-center gap-1"><div className="h-1 bg-white/30 w-full rounded-full overflow-hidden relative"><div className="absolute inset-0 bg-white/60 w-1/3"></div></div><span className="text-[9px] uppercase font-bold opacity-70">0:05</span></div>
-                                                </div>
+                                            {msg.messageType === 'text' && msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+                                            {msg.messageType === 'image' && (
+                                                msg.image ? (
+                                                    <div className="relative"><img src={msg.image} className="rounded-xl max-w-full mt-1 object-cover" /></div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-1.5 p-3 bg-red-500/10 border border-red-500/20 rounded-xl mt-1">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-400 opacity-80">PHOTO ERROR</span>
+                                                        <span className="text-[8px] text-slate-500 uppercase tracking-tighter">Decryption failed</span>
+                                                    </div>
+                                                )
+                                            )}
+                                            {msg.messageType === 'audio' && (
+                                                msg.audioBase64 ? (
+                                                    <div className="flex items-center gap-3 py-1 min-w-[160px] pr-2">
+                                                        <button onClick={() => new Audio(msg.audioBase64).play()} className="p-2.5 bg-white/20 rounded-full hover:bg-white/30 transition-colors shrink-0"><PlayIcon className="w-4 h-4" /></button>
+                                                        <div className="flex-1 flex flex-col justify-center gap-1"><div className="h-1 bg-white/30 w-full rounded-full overflow-hidden relative"><div className="absolute inset-0 bg-white/60 w-1/3"></div></div><span className="text-[9px] uppercase font-bold opacity-70">0:05</span></div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-1.5 p-3 bg-red-500/10 border border-red-500/20 rounded-xl mt-1">
+                                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-400 opacity-80">AUDIO ERROR</span>
+                                                        <span className="text-[8px] text-slate-500 uppercase tracking-tighter">Decryption failed</span>
+                                                    </div>
+                                                )
                                             )}
                                         </>
                                     )}

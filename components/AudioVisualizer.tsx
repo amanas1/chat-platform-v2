@@ -90,9 +90,24 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     if (canvas.parentElement) resizeObserver.observe(canvas.parentElement);
 
     const renderFrame = (timestamp: number) => {
+      // --- BACKGROUND OPTIMIZATION ---
+      // Completely stop rendering if tab is hidden to save battery
+      if (document.hidden) {
+          setTimeout(() => requestAnimationFrame(renderFrame), 200); // Check again in 200ms
+          return;
+      }
+
       // --- FPS THROTTLING ---
-      // If disabled (Eco Mode), lower FPS to 15 to save battery
-      const targetFPS = settings.isDisabled ? 15 : (visualMode === 'low' ? 24 : visualMode === 'medium' ? 30 : 60);
+      // Smart FPS caps:
+      // - Eco Mode (Energy Saver): 15 FPS
+      // - Low Mode (Weak devices): 24 FPS
+      // - Medium Mode (Balanced): 30 FPS
+      // - High Mode (Performance): 60 FPS
+      let targetFPS = 60;
+      if (settings.isDisabled || settings.energySaver) targetFPS = 15;
+      else if (visualMode === 'low') targetFPS = 24;
+      else if (visualMode === 'medium') targetFPS = 30;
+
       const interval = 1000 / targetFPS;
       const elapsed = timestamp - lastFrameTimeRef.current;
 
@@ -104,15 +119,16 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       // Adjust for slight drift
       lastFrameTimeRef.current = timestamp - (elapsed % interval);
 
-      // Use client dimensions to ensure we draw correctly regardless of internal resolution
-      const width = canvas.width / (canvas.width / canvas.getBoundingClientRect().width);
-      const height = canvas.height / (canvas.height / canvas.getBoundingClientRect().height);
-      
-      if (width <= 0 || height <= 0) {
-        animationRef.current = requestAnimationFrame(renderFrame);
-        return;
+      // Use client dimensions
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+           animationRef.current = requestAnimationFrame(renderFrame);
+           return;
       }
-
+      
+      const width = canvas.width / (canvas.width / rect.width);
+      const height = canvas.height / (canvas.height / rect.height);
+      
       ctx.clearRect(0, 0, width, height);
       
       // Draw background dimming layer
@@ -124,7 +140,8 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       // If Disabled, Draw Simple Twinkling Stars and Return
       if (settings.isDisabled) {
           if (starsRef.current.length === 0) {
-              starsRef.current = Array.from({ length: 50 }, () => ({
+              // Reduce star count in disabled mode
+              starsRef.current = Array.from({ length: 20 }, () => ({
                   x: Math.random() * width,
                   y: Math.random() * height,
                   size: Math.random() * 1.5 + 0.5,
@@ -374,23 +391,14 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
 
         // Human-like Blink Logic (Global for all dancers)
       if (time > nextBlinkTimeRef.current) {
-          const isDoubleBlink = Math.random() > 0.8;
-          nextBlinkTimeRef.current = time + 1.5 + Math.random() * 3; // Next main blink in 1.5-4.5s
-          blinkEndTimeRef.current = time + 0.12; // First blink lasts 120ms
-          
-          if (isDoubleBlink) {
-             // Secondary blink logic handled below
-          }
+          nextBlinkTimeRef.current = time + 1.5 + Math.random() * 3; // Next blink in 1.5-4.5s
+          blinkEndTimeRef.current = time + 0.12; // Blink lasts 120ms
       }
 
       // Refactor: Smoother blink logic without setTimeout
       let isBlinking = time < blinkEndTimeRef.current;
-      
-      // Secondary blink for double-blink effect (approx 200ms after first one starts)
-      if (!isBlinking && time > (blinkEndTimeRef.current - 0.12) + 0.25 && time < (blinkEndTimeRef.current - 0.12) + 0.35) {
-          isBlinking = true;
-      }
 
+      // Determine visualizer type
       if (variant === 'stage-dancer') {
         // Light Show - Dynamic Spotlights (Enabled for Mobile/Low too, but optimized)
         if (isPlaying) {
@@ -452,12 +460,20 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
         
         let starCount = 150;
         let particleCount = 100;
+        
+        // Mobile Optimization
+        const isMobile = window.innerWidth < 768;
+        if (isMobile) {
+            starCount = 40;
+            particleCount = 40; 
+        }
+
         if (visualMode === 'low') {
-            starCount = 50;
-            particleCount = 30;
+            starCount = 30;
+            particleCount = 20;
         } else if (visualMode === 'medium') {
-            starCount = 80;
-            particleCount = 60;
+            starCount = isMobile ? 50 : 80;
+            particleCount = isMobile ? 50 : 80;
         }
 
         if (starsRef.current.length === 0) {
@@ -749,7 +765,11 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     };
   }, [analyserNode, isPlaying, variant, settings, visualMode]);
 
-  return <canvas ref={canvasRef} className="w-full h-full block" />;
+  return (
+    <div className="w-full h-full relative">
+      <canvas ref={canvasRef} className="w-full h-full block absolute inset-0 z-10" />
+    </div>
+  );
 };
 
 export default AudioVisualizer;
