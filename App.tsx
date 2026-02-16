@@ -397,6 +397,14 @@ export default function App(): React.JSX.Element {
   const playButtonRef = useRef<HTMLButtonElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
   const loadTimeoutRef = useRef<number | null>(null);
+  const stationsRef = useRef<RadioStation[]>([]);
+  const currentStationRef = useRef<RadioStation | null>(null);
+  const isPlayingRef = useRef(false);
+  const isRandomModeRef = useRef(false);
+  const handleNextStationRef = useRef<() => void>(() => {});
+  const handlePreviousStationRef = useRef<() => void>(() => {});
+  const handlePlayStationRef = useRef<(s: RadioStation) => void>(() => {});
+  const togglePlayRef = useRef<() => void>(() => {});
 
   const t = TRANSLATIONS[language];
 
@@ -684,7 +692,9 @@ export default function App(): React.JSX.Element {
   }, [triggerLocationDetection]);
 
   const handlePlayStation = useCallback((station: RadioStation) => {
-    // Robust scroll to top (container + visualizer focus)
+    currentStationRef.current = station; // Instant ref update for Media Session stability
+    
+    // Scroll to top
     setTimeout(() => {
         if (visualizerRef.current) {
             visualizerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -711,7 +721,6 @@ export default function App(): React.JSX.Element {
         audioRef.current.play().catch(() => {});
 
         // Set 3-second timeout to check if station is "alive"
-        // If it fails to play in 3s, remove it and skip to next
         loadTimeoutRef.current = window.setTimeout(() => {
             console.warn(`[RADIO] Station ${station.name} is too slow. Filtering and skipping.`);
             
@@ -720,7 +729,6 @@ export default function App(): React.JSX.Element {
                 const newList = prev.filter(s => s.stationuuid !== station.stationuuid);
                 
                 if (newList.length > 0) {
-                    // Try to play next station in the list
                     const nextIndex = currentIndex % newList.length;
                     setTimeout(() => handlePlayStation(newList[nextIndex]), 10);
                 }
@@ -999,6 +1007,17 @@ export default function App(): React.JSX.Element {
     });
   };
 
+  // Sync refs for stable handlers
+  useEffect(() => { stationsRef.current = stations; }, [stations]);
+  useEffect(() => { currentStationRef.current = currentStation; }, [currentStation]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { isRandomModeRef.current = isRandomMode; }, [isRandomMode]);
+  useEffect(() => { handleNextStationRef.current = handleNextStation; }, [handleNextStation]);
+  useEffect(() => { handlePreviousStationRef.current = handlePreviousStation; }, [handlePreviousStation]);
+  useEffect(() => { handlePlayStationRef.current = handlePlayStation; }, [handlePlayStation]);
+  useEffect(() => { togglePlayRef.current = togglePlay; }, [togglePlay]);
+
+  // Reactive Metadata & Playback State
   useEffect(() => {
     if ('mediaSession' in navigator) {
       if (currentStation) {
@@ -1014,24 +1033,49 @@ export default function App(): React.JSX.Element {
           ]
         });
       }
-
       navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [currentStation, isPlaying]);
 
-      navigator.mediaSession.setActionHandler('play', togglePlay);
-      navigator.mediaSession.setActionHandler('pause', togglePlay);
+  // STABLE Action Handlers (Registered ONLY once)
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      const handleNext = () => {
+          if (isRandomModeRef.current) {
+               handleNextStationRef.current(); 
+          } else {
+               const s = stationsRef.current;
+               const c = currentStationRef.current;
+               if (!s.length) return;
+               const idx = c ? s.findIndex(st => st.stationuuid === c.stationuuid) : -1;
+               const next = idx === -1 ? 0 : (idx + 1) % s.length;
+               handlePlayStationRef.current(s[next]);
+          }
+      };
+
+      const handlePrev = () => {
+          const s = stationsRef.current;
+          const c = currentStationRef.current;
+          if (!s.length) return;
+          const idx = c ? s.findIndex(st => st.stationuuid === c.stationuuid) : -1;
+          const prev = idx === -1 ? s.length - 1 : (idx - 1 + s.length) % s.length;
+          handlePlayStationRef.current(s[prev]);
+      };
+
+      navigator.mediaSession.setActionHandler('play', () => togglePlayRef.current());
+      navigator.mediaSession.setActionHandler('pause', () => togglePlayRef.current());
       navigator.mediaSession.setActionHandler('stop', () => { 
           if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
       });
-      navigator.mediaSession.setActionHandler('previoustrack', handlePreviousStation);
-      navigator.mediaSession.setActionHandler('nexttrack', handleNextStation);
-      navigator.mediaSession.setActionHandler('seekbackward', handlePreviousStation);
-      navigator.mediaSession.setActionHandler('seekforward', handleNextStation);
-      navigator.mediaSession.setActionHandler('seekto', () => { /* No-op for live radio */ });
-
-      // No cleanup on every small change, only when component unmounts
-      // Actually, we SHOULD keep handlers as long as the session is active.
+      navigator.mediaSession.setActionHandler('previoustrack', handlePrev);
+      navigator.mediaSession.setActionHandler('nexttrack', handleNext);
+      navigator.mediaSession.setActionHandler('seekbackward', handlePrev);
+      navigator.mediaSession.setActionHandler('seekforward', handleNext);
+      navigator.mediaSession.setActionHandler('seekto', () => {});
     }
-  }, [currentStation, isPlaying, togglePlay, handleNextStation, handlePreviousStation]);
+  }, []); // Truly stable registration
+  // Note: These handlers are now much more stable since dependencies change less often.
+  // togglePlay is memoized, handlePlayStation depends on fxSettings.speed.
 
   useEffect(() => {
     // Subscribe to presence updates (only active if socket is connected via initAuth)
