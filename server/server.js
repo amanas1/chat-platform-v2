@@ -366,6 +366,8 @@ const rawUsers = storage.load('users', []);
 const persistentUsers = new Map(); // userId -> User
 rawUsers.forEach(u => persistentUsers.set(u.id, u));
 
+const registrationLog = new Map(Object.entries(storage.load('registrationLog', {})));
+
 function saveRegistrationLog() {
   storage.save('registrationLog', Object.fromEntries(registrationLog));
 }
