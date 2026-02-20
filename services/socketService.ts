@@ -52,9 +52,15 @@ class SocketService {
   }
 
   async connect() {
-    if (this.socket?.connected) return;
+    if (this.socket) {
+      if (!this.socket.connected) {
+        console.log(`🔌 Reconnecting existing Socket.IO instance...`);
+        this.socket.connect();
+      }
+      return;
+    }
     
-    console.log(`🔌 Connecting to Socket.IO server: ${SERVER_URL}`);
+    console.log(`🔌 Creating new Socket.IO instance: ${SERVER_URL}`);
     
     // Create Socket.IO connection
     this.socket = io(SERVER_URL, {
