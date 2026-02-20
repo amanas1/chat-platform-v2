@@ -1110,6 +1110,24 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       }
     }));
 
+    // ANTI-SPAM: Listen for knock errors (daily limit, blocks, etc.)
+    cleanups.push(socketService.addListener('knock:error', (data: { message: string; reason?: string; remaining?: number }) => {
+      console.warn('[KNOCK] Error:', data);
+      if (data.reason === 'DAILY_LIMIT') {
+        alert(data.message || 'Daily knock limit reached.');
+      } else if (data.reason === 'PERMANENT_BLOCK') {
+        alert(data.message || 'This user has blocked you.');
+      } else {
+        alert(data.message || 'Could not send knock.');
+      }
+    }));
+
+    // ANTI-SPAM: Listen for suspension notifications
+    cleanups.push(socketService.onSuspended((data) => {
+      console.warn('[SUSPENSION]', data);
+      alert(data.message || 'Your profile has been temporarily suspended for review.');
+    }));
+
     // RE-REGISTER ON RECONNECT (Fix for server restarts) — with cleanup
     cleanups.push(socketService.onConnect(() => {
         if (currentUser && currentUser.id) {
@@ -2057,6 +2075,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const handleBlockUser = (userId: string) => {
     if (!window.confirm(t.blockConfirm || 'Block this user?')) return;
     
+    // Server-side persistent block
+    socketService.blockUser(userId);
+    
+    // Local block list (client-side)
     const updatedUser = {
       ...currentUser,
       blockedUsers: [...currentUser.blockedUsers, userId]

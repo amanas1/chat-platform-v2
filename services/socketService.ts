@@ -319,6 +319,26 @@ class SocketService {
     }
   }
 
+  // Anti-Spam: Block User (Persistent)
+  blockUser(targetUserId: string) {
+    if (this.socket) {
+      this.socket.emit('user:block', { targetUserId });
+    }
+  }
+
+  onUserBlocked(callback: (data: { targetUserId: string }) => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('user:blocked', callback);
+    return () => this.socket?.off('user:blocked', callback);
+  }
+
+  // Anti-Spam: Suspension Listener
+  onSuspended(callback: (data: { message: string; until: number; reason: string }) => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('user:suspended', callback);
+    return () => this.socket?.off('user:suspended', callback);
+  }
+
   // Generic listener
   onEvent(event: string, callback: (...args: any[]) => void): () => void {
     if (!this.socket) return () => {};

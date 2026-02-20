@@ -269,12 +269,26 @@ async function moderateImage(imageBuffer) {
     }
 }
 
+function getBanReason(userId) {
+    const ban = bans.get(userId);
+    return ban ? ban.reason : null;
+}
+
+function isSuspended(userId) {
+    const ban = bans.get(userId);
+    if (!ban) return false;
+    if (ban.type === '1d' && ban.expiresAt !== -1 && Date.now() < ban.expiresAt) return true;
+    return false;
+}
+
 module.exports = {
     getFilterViolation,
     checkRateLimit,
     isUserBanned,
+    isSuspended,
     applyBan,
     logViolation,
+    getBanReason,
     getActiveBans: () => Object.fromEntries(bans),
     moderateImage
 };

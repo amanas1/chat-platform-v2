@@ -351,6 +351,24 @@ const messages = new Map(Object.entries(rawMessages));
 // Map: userId -> Set<knockRequestId>
 const knockRequests = new Map();
 
+// ============================================
+// ANTI-SPAM: Knock Daily Limits (Persistent)
+// Format: { [userId]: { count: number, resetAt: number } }
+// ============================================
+const knockLimits = storage.load('knock_limits', {});
+const KNOCK_DAILY_MAX = 3;
+
+function saveKnockLimits() {
+  storage.save('knock_limits', knockLimits);
+}
+
+// ============================================
+// ANTI-SPAM: IP Rate Limiting (In-Memory, Safe)
+// ============================================
+const ipConnectionLimits = new Map(); // ip -> { count, windowStart }
+const IP_CONN_LIMIT = 10; // max connections per IP per minute
+const IP_CONN_WINDOW = 60000; // 1 minute
+
 // Map: userId1:userId2 -> timestamp (24h block)
 const reconnectBlocks = new Map(Object.entries(storage.load('reconnectBlocks', {})));
 
@@ -661,6 +679,35 @@ setInterval(() => {
 
 io.on('connection', (socket) => {
   console.log(`[SOCKET] New connection: ${socket.id}`);
+
+  // ============================================
+  // ANTI-SPAM: Per-IP Connection Rate Limiting
+  // ============================================
+  try {
+    const clientIp = (socket.handshake.headers['x-forwarded-for'] || '').split(',')[0].trim() || socket.handshake.address || 'unknown';
+    const now = Date.now();
+    const ipData = ipConnectionLimits.get(clientIp) || { count: 0, windowStart: now };
+
+    // Reset window if expired
+    if (now - ipData.windowStart > IP_CONN_WINDOW) {
+      ipData.count = 0;
+      ipData.windowStart = now;
+    }
+    ipData.count++;
+    ipConnectionLimits.set(clientIp, ipData);
+
+    if (ipData.count > IP_CONN_LIMIT) {
+      moderation.logViolation(clientIp, 'ip_rate_limit', `IP exceeded ${IP_CONN_LIMIT} connections/min`);
+      console.warn(`[RATE_LIMIT] IP ${clientIp} exceeded ${IP_CONN_LIMIT} conn/min. Disconnecting.`);
+      socket.emit('user:error', { message: 'Too many connections. Please wait.' });
+      socket.disconnect(true);
+      return;
+    }
+  } catch (err) {
+    console.error('[RATE_LIMIT] Error (non-fatal):', err.message);
+    // Never crash — allow connection on error
+  }
+
   broadcastPresenceCount(socket); // Send current count immediately to the new client
   broadcastPresenceCount(); // Then update everyone else
   
@@ -901,6 +948,33 @@ io.on('connection', (socket) => {
         return;
     }
 
+    // ============================================
+    // ANTI-SPAM: Knock Daily Limit (3/day free users)
+    // ============================================
+    const senderUser = persistentUsers.get(boundUserId);
+    const isFreeUser = !senderUser?.early_access || (senderUser?.free_until && Date.now() >= senderUser.free_until);
+    if (isFreeUser) {
+      const now = Date.now();
+      const limit = knockLimits[boundUserId];
+      if (limit && limit.resetAt > now && limit.count >= KNOCK_DAILY_MAX) {
+        const remaining = 0;
+        socket.emit('knock:error', {
+          message: `Daily knock limit reached (${KNOCK_DAILY_MAX}/${KNOCK_DAILY_MAX}). Resets in ${Math.ceil((limit.resetAt - now) / 3600000)}h.`,
+          reason: 'DAILY_LIMIT',
+          remaining
+        });
+        console.log(`[KNOCK] User ${boundUserId} hit daily limit (${KNOCK_DAILY_MAX})`);
+        return;
+      }
+      // Reset if expired or first use
+      if (!limit || limit.resetAt <= now) {
+        knockLimits[boundUserId] = { count: 1, resetAt: now + 86400000 };
+      } else {
+        limit.count++;
+      }
+      saveKnockLimits();
+    }
+
     const target = activeUsers.get(targetUserId);
     if (!target || !target.socketId) {
       socket.emit('knock:error', { message: 'User not found or offline' });
@@ -914,6 +988,10 @@ io.on('connection', (socket) => {
     }
     knockRequests.get(targetUserId).add(knockId);
     
+    // Calculate remaining knocks for feedback
+    const currentLimit = knockLimits[boundUserId];
+    const remainingKnocks = isFreeUser && currentLimit ? Math.max(0, KNOCK_DAILY_MAX - currentLimit.count) : -1; // -1 = unlimited
+    
     // Notify target user
     io.to(target.socketId).emit('knock:received', {
       knockId,
@@ -921,7 +999,7 @@ io.on('connection', (socket) => {
       fromUser: activeUsers.get(boundUserId)?.profile
     });
     
-    socket.emit('knock:sent', { knockId, targetUserId });
+    socket.emit('knock:sent', { knockId, targetUserId, remainingKnocks });
   });
 
   // KNOCK ACCEPT
@@ -1149,13 +1227,24 @@ io.on('connection', (socket) => {
   // USER REPORT
   socket.on('user:report', ({ targetUserId, reason, messageId }) => {
     if (!boundUserId) return;
+
+    // ANTI-SPAM: Reject self-reports
+    if (boundUserId === targetUserId) {
+      console.warn(`[REPORT] Self-report rejected: ${boundUserId}`);
+      socket.emit('report:acknowledged', { success: false, reason: 'self_report' });
+      return;
+    }
     
     console.log(`[REPORT] User ${boundUserId} reported ${targetUserId}. Reason: ${reason}`);
 
-    // 1. Log the report
+    // Get reporter IP for unique validation
+    const reporterIp = (socket.handshake.headers['x-forwarded-for'] || '').split(',')[0].trim() || socket.handshake.address || 'unknown';
+
+    // 1. Log the report (with IP for deduplication)
     const reports = storage.load('user_reports', []);
     reports.push({
         reporterId: boundUserId,
+        reporterIp,
         targetUserId,
         reason,
         messageId,
@@ -1169,9 +1258,6 @@ io.on('connection', (socket) => {
     
     // Check if target user fingerprint is in suspicious list
     const isSuspicious = suspiciousUsers.some(u => u.fingerprint === targetUser?.fingerprint);
-    
-    // Count total reports for this target user
-    const targetReports = reports.filter(r => r.targetUserId === targetUserId);
 
     if (isSuspicious) {
         // CASE A: User was already flagged for NSFW -> Instant block on first report
@@ -1181,13 +1267,9 @@ io.on('connection', (socket) => {
             targetUser.banReason = banReason;
             persistentUsers.set(targetUserId, targetUser);
             savePersistentUsers();
-            
-            // Centralized ban enforcement
             moderation.applyBan(targetUserId, 'perm', banReason);
-            
             console.log(`[SECURITY] AUTO-BLOCKED suspicious user: ${targetUserId} due to community report.`);
             
-            // Notify target if online
             const targetSocketData = activeUsers.get(targetUserId);
             if (targetSocketData?.socketId) {
                 io.to(targetSocketData.socketId).emit('user:error', {
@@ -1196,24 +1278,51 @@ io.on('connection', (socket) => {
                 });
             }
         }
-    } else if (targetReports.length >= 3) {
-        // CASE B: Normal user reached 3 reports -> Automatic block
-        if (targetUser) {
-            targetUser.accountStatus = 'blocked';
-            const banReason = 'Consensus community reports (3+)';
+    } else {
+        // CASE B: 24h window — 3 unique reporters (different account + different IP) -> Temporary suspension
+        const now = Date.now();
+        const recentReports = reports.filter(r =>
+            r.targetUserId === targetUserId &&
+            now - r.timestamp < 86400000 // 24h window
+        );
+
+        // Deduplicate: count only unique (reporterId + reporterIp) pairs
+        const uniqueReporters = new Map();
+        recentReports.forEach(r => {
+            // Only count if both account AND IP are different from existing entries
+            if (!uniqueReporters.has(r.reporterId)) {
+                uniqueReporters.set(r.reporterId, r.reporterIp);
+            }
+        });
+
+        // Filter out reporters sharing the same IP (sock puppet protection)
+        const uniqueIps = new Set();
+        const trulyUniqueReporters = [];
+        for (const [reporterId, ip] of uniqueReporters.entries()) {
+            if (!uniqueIps.has(ip)) {
+                uniqueIps.add(ip);
+                trulyUniqueReporters.push(reporterId);
+            }
+        }
+
+        console.log(`[REPORT] ${targetUserId} has ${trulyUniqueReporters.length} unique reporters in 24h (need 3 for suspension)`);
+
+        if (trulyUniqueReporters.length >= 3 && targetUser) {
+            targetUser.accountStatus = 'suspended';
+            const banReason = 'Temporary suspension: 3+ unique reporters in 24h';
             targetUser.banReason = banReason;
+            targetUser.suspendedAt = now;
+            targetUser.suspendedUntil = now + 86400000;
             persistentUsers.set(targetUserId, targetUser);
             savePersistentUsers();
-            
-            // Centralized ban enforcement
-            moderation.applyBan(targetUserId, 'perm', banReason);
-            
-            console.log(`[SECURITY] BLOCKED user: ${targetUserId} after reaching threshold (3 reports).`);
+            moderation.applyBan(targetUserId, '1d', banReason);
+            console.log(`[SECURITY] SUSPENDED user: ${targetUserId} for 24h (${trulyUniqueReporters.length} unique reporters).`);
             
             const targetSocketData = activeUsers.get(targetUserId);
             if (targetSocketData?.socketId) {
-                io.to(targetSocketData.socketId).emit('user:error', {
-                    message: 'Your access has been restricted due to multiple reports.',
+                io.to(targetSocketData.socketId).emit('user:suspended', {
+                    message: 'Your profile is temporarily suspended for review.',
+                    until: now + 86400000,
                     reason: banReason
                 });
             }
@@ -1254,6 +1363,18 @@ io.on('connection', (socket) => {
   socket.on('session:block', ({ sessionId }) => {
     if (!boundUserId) return;
     closeSession(sessionId, 'BLOCK');
+  });
+
+  // ============================================
+  // ANTI-SPAM: Block User (In-Chat, Persistent)
+  // ============================================
+  socket.on('user:block', ({ targetUserId }) => {
+    if (!boundUserId || boundUserId === targetUserId) return;
+    const pairId = [boundUserId, targetUserId].sort().join(':');
+    permanentBlocks.set(pairId, Date.now());
+    saveBlocks();
+    console.log(`[BLOCK] User ${boundUserId} blocked ${targetUserId}. PairId: ${pairId}`);
+    socket.emit('user:blocked', { targetUserId });
   });
 
   // GET MESSAGES for a session
