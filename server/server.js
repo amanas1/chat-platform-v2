@@ -303,7 +303,7 @@ const io = new Server(server, {
 // IN-MEMORY STORAGE WITH TTL & PERSISTENCE
 // ============================================
 
-const USER_TTL = 60 * 24 * 60 * 60 * 1000; // 60 days
+
 const MEDIA_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (Persistent)
 const TEXT_TTL = 30 * 24 * 60 * 60 * 1000; // 30 days (Persistent History)
 const VOICE_INTRO_TTL = 24 * 60 * 60 * 1000; // 24 hours
@@ -451,66 +451,7 @@ function saveMessages() {
 // TTL CLEANUP JOBS
 // ============================================
 
-// Clean expired users every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  const expiredUsers = [];
-  let persistentModified = false; // Track if we need to save changes
-  
-  
-  for (const [userId, userData] of activeUsers.entries()) {
-    if (now > userData.expiresAt) {
-      expiredUsers.push(userId);
-    } else if (now > userData.expiresAt - (30 * 60 * 1000)) {
-      // Warn user 30 minutes before expiration
-      if (userData.socketId) {
-        io.to(userData.socketId).emit('profile:expiring', {
-          expiresIn: userData.expiresAt - now
-        });
-      }
-    }
-  }
-  
-  expiredUsers.forEach(userId => {
-    const userData = activeUsers.get(userId);
-    if (userData?.socketId) {
-      io.to(userData.socketId).emit('profile:expired');
-    }
-    activeUsers.delete(userId);
-  });
-  
-  // Also clean sessions if participants are gone (optional, keeping for 24h)
-  
-  if (expiredUsers.length > 0) {
-    syncGlobalPresence();
-  }
 
-  for (const [userId, user] of persistentUsers.entries()) {
-      const now = Date.now();
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-      const canDeleteAfter = (user.registrationTimestamp || user.created_at) + thirtyDaysMs;
-
-      if (user.deletionRequestedAt && now > canDeleteAfter) {
-          console.log(`[USER] PERMANENTLY DELETING account: ${userId} (Grace period expired)`);
-          persistentUsers.delete(userId);
-          persistentModified = true;
-          
-          // cleanup associated sessions and messages
-          for (const [sessionId, session] of activeSessions.entries()) {
-              if (session.participants.includes(userId)) {
-                  activeSessions.delete(sessionId);
-                  messages.delete(sessionId);
-              }
-          }
-      }
-  }
-
-  if (persistentModified) {
-      savePersistentUsers();
-      saveSessions();
-      saveMessages();
-  }
-}, 5 * 60 * 1000);
 
 // Clean expired voice intros every hour
 setInterval(() => {
@@ -526,42 +467,7 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000);
 
-// Clean expired messages every 10 seconds
-setInterval(() => {
-  const now = Date.now();
-  let hasChanges = false;
-  
-  for (const [sessionId, messageList] of messages.entries()) {
-    const freshMessages = messageList.filter(msg => {
-      const age = now - msg.timestamp;
-      const ttl = (msg.messageType === 'image' || msg.messageType === 'audio' || msg.messageType === 'video') ? MEDIA_TTL : TEXT_TTL;
-      return age < ttl;
-    });
-    
-    if (freshMessages.length !== messageList.length) {
-      hasChanges = true;
-      if (freshMessages.length === 0) {
-        messages.delete(sessionId);
-      } else {
-        messages.set(sessionId, freshMessages);
-      }
-      
-      // Notify session participants that messages expired
-      const session = activeSessions.get(sessionId);
-      if (session) {
-        session.participants.forEach(userId => {
-          const user = activeUsers.get(userId);
-          if (user?.socketId) {
-            io.to(user.socketId).emit('messages:deleted', {
-              sessionId,
-              remainingCount: freshMessages.length
-            });
-          }
-        });
-      }
-    }
-  }
-}, 10 * 1000);
+
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -788,8 +694,6 @@ io.on('connection', (socket) => {
     boundUserId = profile.id;
     socket.userId = profile.id; 
     
-    const expiresAt = Date.now() + USER_TTL;
-    
     // Create/Update Active User Record (Consolidated)
     activeUsers.set(boundUserId, {
         profile: { 
@@ -800,7 +704,6 @@ io.on('connection', (socket) => {
         isGuest: !profile.isAuthenticated,
         isAuthenticated: profile.isAuthenticated || false,
         isAdmin: profile.isAdmin || false,
-        expiresAt,
         createdAt: Date.now()
     });
 
@@ -823,8 +726,6 @@ io.on('connection', (socket) => {
     const regData = {
       userId: boundUserId,
       profile: profile, // Return the (potentially corrected) profile back to client
-      expiresAt,
-      ttl: USER_TTL,
       activeSessions: userSessions
     };
 
@@ -889,42 +790,45 @@ io.on('connection', (socket) => {
     socket.emit('users:search:results', results);
   });
 
-  // ACCOUNT DELETION REQUEST (30-day grace period)
-  socket.on('user:delete_request', () => {
+  // IMMEDIATE ACCOUNT DELETION
+  socket.on('user:delete_account', () => {
     if (!boundUserId) return;
     
-    let userRecord = persistentUsers.get(boundUserId);
-    if (userRecord) {
-        const now = Date.now();
-        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-        const regTime = userRecord.registrationTimestamp || userRecord.created_at;
-        const canDeleteAfter = regTime + thirtyDaysMs;
-
-        if (now < canDeleteAfter) {
-            const daysLeft = Math.ceil((canDeleteAfter - now) / (1000 * 60 * 60 * 24));
-            return socket.emit('user:error', { 
-                message: `Profile deletion available after 30 days. Please wait ${daysLeft} more days.`,
-                code: 'DELETION_LOCKED'
-            });
+    // 1. Remove from activeUsers
+    activeUsers.delete(boundUserId);
+    
+    // 2. Remove from persistentUsers
+    persistentUsers.delete(boundUserId);
+    
+    // 3. Clean up sessions + messages where user is a participant
+    for (const [sessionId, session] of activeSessions.entries()) {
+        if (session.participants.includes(boundUserId)) {
+            activeSessions.delete(sessionId);
+            messages.delete(sessionId);
         }
-
-        if (!userRecord.deletionRequestedAt) {
-            userRecord.deletionRequestedAt = now;
-            persistentUsers.set(boundUserId, userRecord);
-            savePersistentUsers();
-            console.log(`[USER] Deletion requested for ${boundUserId}.`);
-        }
-        
-        socket.emit('user:delete_requested', { success: true, deletionRequestedAt: userRecord.deletionRequestedAt });
-        
-        // Sync back to client
-        socket.emit('user:registered', {
-            userId: boundUserId,
-            profile: userRecord,
-            expiresAt: activeUsers.get(boundUserId)?.expiresAt || (now + USER_TTL),
-            ttl: USER_TTL
-        });
     }
+    
+    // 4. Clean up registration log
+    for (const [key, val] of registrationLog.entries()) {
+        if (val === boundUserId) {
+            registrationLog.delete(key);
+        }
+    }
+    
+    // 5. Save all persistence
+    savePersistentUsers();
+    saveSessions();
+    saveMessages();
+    saveRegistrationLog();
+    
+    console.log(`[USER] Account ${boundUserId} permanently deleted.`);
+    
+    // 6. Confirm and disconnect
+    socket.emit('user:deleted_confirmed');
+    socket.disconnect(true);
+    
+    syncGlobalPresence();
+    broadcastPresenceCount();
   });
 
   // KNOCK (Request to chat)
@@ -1629,7 +1533,7 @@ setInterval(() => {
     const now = Date.now();
     let changed = false;
     for (const [key, entry] of registrationLog.entries()) {
-        if (now - entry.timestamp > USER_TTL) {
+        if (now - entry.timestamp > 24 * 60 * 60 * 1000) { // 24 hours
             registrationLog.delete(key);
             changed = true;
         }
