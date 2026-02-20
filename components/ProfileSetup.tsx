@@ -2,7 +2,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { UserProfile, Language } from '../types';
 import { TRANSLATIONS, COUNTRIES_DATA } from '../constants';
-import { PhotoIcon, XMarkIcon } from './Icons';
+import { UserIcon, XMarkIcon, CameraIcon } from './Icons';
+const AvatarCreator = React.lazy(() => import('./AvatarCreator').then(module => ({ default: module.AvatarCreator })));
+import VoiceBioRecorder from './VoiceBioRecorder';
 
 const AGES = Array.from({ length: 63 }, (_, i) => (i + 18).toString()); 
 
@@ -64,9 +66,10 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete, language, initi
   const [age, setAge] = useState(initialProfile?.age?.toString() || '25');
   const [country, setCountry] = useState(initialProfile?.country || 'Russia');
   const [city, setCity] = useState(initialProfile?.city || 'Moscow');
-  const [gender, setGender] = useState<'male' | 'female' | 'other'>(initialProfile?.gender || 'male');
+  const [gender, setGender] = useState<'male' | 'female'>(initialProfile?.gender as 'male' | 'female' || 'male');
+  const [voiceIntro, setVoiceIntro] = useState<string | null>(initialProfile?.voiceIntro || null);
   const [avatar, setAvatar] = useState<string | null>(initialProfile?.avatar || null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showAvatarCreator, setShowAvatarCreator] = useState(false);
 
   const availableCities = useMemo(() => {
     const found = COUNTRIES_DATA.find(c => c.name === country);
@@ -77,13 +80,7 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete, language, initi
     if (!availableCities.includes(city)) setCity(availableCities[0]);
   }, [availableCities, city]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setAvatar(reader.result as string);
-    reader.readAsDataURL(file);
-  };
+  // Removed simple file handler in favor of AvatarCreator
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,7 +93,9 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete, language, initi
       age: parseInt(age) || 18,
       country,
       city,
-      gender,
+      gender: gender as 'male' | 'female',
+      voiceIntro,
+      voiceIntroTimestamp: voiceIntro ? Date.now() : undefined,
       status: 'online',
       safetyLevel: initialProfile?.safetyLevel || 'green',
       blockedUsers: initialProfile?.blockedUsers || [],
@@ -141,19 +140,44 @@ const ProfileSetup: React.FC<ProfileSetupProps> = ({ onComplete, language, initi
         <div className="flex flex-col md:flex-row gap-8 items-start">
             <div className="flex flex-col items-center gap-4 w-full md:w-56 shrink-0">
                 <div 
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => setShowAvatarCreator(true)}
                     className="w-48 h-48 rounded-[2.5rem] bg-white/5 border-2 border-dashed border-white/10 hover:border-primary/50 transition-all cursor-pointer overflow-hidden flex items-center justify-center relative group shadow-2xl"
                 >
                     {avatar ? (
-                        <img src={avatar} alt="User Avatar" className="w-full h-full object-cover" />
+                        <div className="relative w-full h-full group">
+                            <img src={avatar} alt="User Avatar" className="w-full h-full object-cover" />
+                             <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <CameraIcon className="w-8 h-8 text-white" />
+                             </div>
+                        </div>
                     ) : (
                         <div className="flex flex-col items-center text-slate-500 group-hover:text-primary transition-colors">
-                            <PhotoIcon className="w-12 h-12 mb-3" />
-                            <span className="text-[10px] font-bold uppercase tracking-widest">{t.uploadPhoto}</span>
+                            <UserIcon className="w-12 h-12 mb-3" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">{t.createAvatar || "Create Avatar"}</span>
                         </div>
                     )}
                 </div>
-                <input type="file" ref={fileInputRef} onChange={handleAvatarChange} className="hidden" accept="image/*" />
+                {showAvatarCreator && (
+                  <React.Suspense fallback={<div className="p-4 text-center text-white">Loading Editor...</div>}>
+                    <AvatarCreator 
+                        currentAvatar={avatar || undefined}
+                        onSelect={(avatarUrl) => {
+                            setAvatar(avatarUrl);
+                            setShowAvatarCreator(false);
+                        }}
+                        onClose={() => setShowAvatarCreator(false)}
+                        t={t}
+                        lang={language || 'en'}
+                    />
+                  </React.Suspense>
+                )}
+                
+                <VoiceBioRecorder 
+                    onRecordingComplete={setVoiceIntro}
+                    currentAudio={voiceIntro}
+                    label={t.voiceGreeting || "Voice Greeting"}
+                />
+
                 <div className="w-full">
                   <label className="text-[10px] font-bold text-slate-500 uppercase mb-2 block ml-2 tracking-widest">{t.gender}</label>
                   <div className="flex bg-black/40 rounded-2xl p-1 border border-white/10">

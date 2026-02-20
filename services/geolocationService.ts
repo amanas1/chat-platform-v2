@@ -3,6 +3,8 @@
  * Handles browser geolocation, IP-based fallback, and location validation
  */
 
+import { normalizeCountryName } from '../constants';
+
 export interface LocationData {
   country: string;
   city: string;
@@ -57,25 +59,19 @@ class GeolocationService {
 
   /**
    * Get user location via IP address (fallback method)
-   * Uses ipapi.co free service (no API key needed)
-   */
-  /**
-   * Get user location via IP address (fallback method)
    * Uses our own backend proxy to avoid CORS and Mixed Content issues
    */
   async getIPLocation(): Promise<LocationData> {
     try {
         console.log('[GEO] 🌍 Requesting location from backend proxy...');
         
-        // Determine backend URL (production or localhost)
-        const backendUrl = import.meta.env.VITE_SOCKET_URL || (import.meta.env.DEV ? 'http://localhost:3001' : 'https://streamflow-production.up.railway.app');
-        // Remove trailing slash if present
-        const cleanUrl = backendUrl.replace(/\/$/, '');
+        // STRICT PRODUCTION BACKEND URL
+        const backendUrl = 'https://streamflow-backend-production.up.railway.app';
         
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-        const response = await fetch(`${cleanUrl}/api/location`, { 
+        const response = await fetch(`${backendUrl}/api/location`, { 
             signal: controller.signal,
             headers: { 'Accept': 'application/json' }
         });
@@ -87,31 +83,25 @@ class GeolocationService {
         console.log('[GEO] ✅ Backend proxy detected location:', data);
 
         return {
-            country: data.country || 'Unknown',
+            country: normalizeCountryName(data.country || 'Unknown'),
             city: data.city || 'Unknown',
             countryCode: data.countryCode,
             ip: data.ip
         };
 
     } catch (err) {
-        console.error('[GEO] ❌ Backend proxy failed, trying direct fallback...', err);
-        
-        // Fallback: Try one direct HTTPS API that might work (ipapi.co is often blocked, try ip-api.io)
-        try {
-             const response = await fetch('https://ip-api.io/api/json');
-             const data = await response.json();
-             return {
-                country: data.country_name || 'Unknown',
-                city: data.city || 'Unknown',
-                countryCode: data.country_code,
-                ip: data.ip
-             };
-        } catch (e) {
-             console.warn('[GEO] Direct fallback also failed');
-        }
-
+        console.error('[GEO] ❌ Backend proxy failed:', err);
         return { country: 'Unknown', city: 'Unknown', ip: 'Unknown' };
     }
+  }
+
+  /**
+   * Universal location detection
+   * Simpler logic: Try Browser Internal -> Fallback to Backend Proxy
+   */
+  async detectLocation(): Promise<LocationData | null> {
+    // 1. Try Backend Proxy Directly (Recommended for consistency)
+    return await this.getIPLocation(); 
   }
 
   /**
@@ -134,10 +124,11 @@ class GeolocationService {
       const address = data.address || {};
       
       return {
-        country: address.country || 'Unknown',
+        country: normalizeCountryName(address.country || 'Unknown'),
         city: address.city || address.town || address.village || 'Unknown',
         countryCode: address.country_code?.toUpperCase()
       };
+
       
     } catch (error) {
       console.error('[GEO] ❌ Reverse geocoding failed:', error);
@@ -161,62 +152,6 @@ class GeolocationService {
   }
 
   /**
-   * Generate unique device ID for duplicate registration detection
-   * Uses browser fingerprinting (not 100% accurate but good enough)
-   */
-  getDeviceId(): string {
-    const fingerprint = [
-      navigator.userAgent,
-      navigator.language,
-      screen.width,
-      screen.height,
-      screen.colorDepth,
-      new Date().getTimezoneOffset(),
-      !!navigator.cookieEnabled
-    ].join('|');
-    
-    // Simple hash function
-    let hash = 0;
-    for (let i = 0; i < fingerprint.length; i++) {
-      const char = fingerprint.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    
-    return `device_${Math.abs(hash).toString(36)}`;
-  }
-
-  /**
-   * Check if user registered today (client-side check)
-   * Server will also validate for security
-   */
-  hasRegisteredToday(): boolean {
-    try {
-      const lastReg = localStorage.getItem('lastRegistrationDate');
-      if (!lastReg) return false;
-      
-      const lastDate = new Date(parseInt(lastReg));
-      const today = new Date();
-      
-      // Same day check
-      return lastDate.toDateString() === today.toDateString();
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Mark user as registered today
-   */
-  markRegisteredToday(): void {
-    try {
-      localStorage.setItem('lastRegistrationDate', Date.now().toString());
-    } catch (error) {
-      console.warn('[GEO] Failed to save registration timestamp:', error);
-    }
-  }
-
-  /**
    * Cache detected location to avoid repeated lookups
    */
   saveLocationToCache(location: LocationData): void {
@@ -234,47 +169,6 @@ class GeolocationService {
       const saved = localStorage.getItem('auradiochat_last_detected_location');
       return saved ? JSON.parse(saved) : null;
     } catch {
-      return null;
-    }
-  }
-  /**
-   * Get location from our own server proxy
-   * Bypasses CORS and AdBlockers
-   */
-  async getServerLocation(): Promise<LocationData | null> {
-      try {
-          // In production, use relative path. In dev, might need full URL if ports differ.
-          // Assuming relative path works with proxy setup or same origin
-          const apiUrl =  window.location.hostname === 'localhost' 
-            ? 'http://localhost:3002/api/location' // Default backend port
-            : '/api/location';
-
-          const response = await fetch(apiUrl);
-          if (!response.ok) throw new Error('Server geo-lookup failed');
-          return await response.json();
-      } catch (e) {
-          console.warn('[GEO] Server proxy failed:', e);
-          return null;
-      }
-  }
-
-  /**
-   * Universal location detection
-   * Tries Server Proxy first (most reliable), then IP fallback
-   */
-  async detectLocation(): Promise<LocationData | null> {
-    try {
-      // 1. Try Server Proxy (Best for reliability & CORS)
-      const serverLoc = await this.getServerLocation();
-      if (serverLoc) {
-          console.log('[GEO] ✅ Server-side detection successful:', serverLoc);
-          return serverLoc;
-      }
-
-      // 2. Fallback to client-side IP APIs
-      return await this.getIPLocation();
-    } catch (error) {
-      console.error('[GEO] Silent detect location error:', error);
       return null;
     }
   }

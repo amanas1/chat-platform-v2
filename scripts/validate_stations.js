@@ -2,12 +2,7 @@
 import fetch from 'node-fetch';
 
 const RADIO_BROWSER_MIRRORS = [
-    'https://all.api.radio-browser.info/json/stations',
-    'https://de1.api.radio-browser.info/json/stations',
-    'https://at1.api.radio-browser.info/json/stations',
-    'https://nl1.api.radio-browser.info/json/stations',
-    'https://fr1.api.radio-browser.info/json/stations',
-    'https://uk1.api.radio-browser.info/json/stations'
+    'https://all.api.radio-browser.info/json/stations'
 ];
 
 const GENRES = ['jazz', 'blues', 'rock', 'classical', 'electronic', 'hiphop', 'pop', 'rnb', 'reggae', 'soul', 'islamic'];

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useLocation, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from './types';
 import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, GLOBAL_PRESETS } from './constants';
@@ -31,9 +31,12 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { useAuth } from './AuthProvider';
 
 // SEO Components
+import { SEOHead } from './components/seo/SEOHead';
 import SEOContent from './components/seo/SEOContent';
 import { AboutPage, PrivacyPage, ContactPage, GenresPage } from './components/seo/StaticPages';
 import { JazzRadioPage, RockRadioPage, ElectronicRadioPage, HipHopRadioPage } from './components/seo/GenrePages';
+import DynamicRadioHub from './components/seo/DynamicRadioHub';
+import { DirectoryPage } from './components/seo/DirectoryPage';
 
 const THEME_COLORS: Record<ThemeName, { primary: string; secondary: string }> = {
   default: { primary: '#bc6ff1', secondary: '#f038ff' },
@@ -152,16 +155,17 @@ const StationCard = React.memo(({
 const COUNTRY_FLAGS: Record<string, string> = {
   'Kazakhstan': '🇰🇿', 'KZ': '🇰🇿',
   'Russia': '🇷🇺', 'RU': '🇷🇺',
-  'USA': '🇺🇸', 'US': '🇺🇸',
+  'United States': '🇺🇸', 'US': '🇺🇸', 'USA': '🇺🇸',
   'Uzbekistan': '🇺🇿', 'UZ': '🇺🇿',
   'Ukraine': '🇺🇦', 'UA': '🇺🇦',
   'Germany': '🇩🇪', 'DE': '🇩🇪',
   'France': '🇫🇷', 'FR': '🇫🇷',
   'China': '🇨🇳', 'CN': '🇨🇳',
   'Japan': '🇯🇵', 'JP': '🇯🇵',
-  'UK': '🇬🇧', 'GB': '🇬🇧',
+  'United Kingdom': '🇬🇧', 'UK': '🇬🇧', 'GB': '🇬🇧',
   'Kyrgyzstan': '🇰🇬', 'KG': '🇰🇬',
   'Turkey': '🇹🇷', 'TR': '🇹🇷',
+  'United Arab Emirates': '🇦🇪', 'UAE': '🇦🇪', 'AE': '🇦🇪',
   'Global': '🌍'
 };
 
@@ -170,12 +174,17 @@ const COUNTRY_NAMES: Record<string, Record<string, string>> = {
   'Kazakhstan': { en: 'Kazakhstan', ru: 'Казахстан', es: 'Kazajistán', fr: 'Kazakhstan', zh: '哈萨克斯坦', de: 'Kasachstan' },
   'RU': { en: 'Russia', ru: 'Россия', es: 'Rusia', fr: 'Russie', zh: '俄罗斯', de: 'Russland' },
   'Russia': { en: 'Russia', ru: 'Россия', es: 'Rusia', fr: 'Russie', zh: '俄罗斯', de: 'Russland' },
-  'US': { en: 'USA', ru: 'США', es: 'EE. UU.', fr: 'États-Unis', zh: '美国', de: 'USA' },
-  'USA': { en: 'USA', ru: 'США', es: 'EE. UU.', fr: 'États-Unis', zh: '美国', de: 'USA' },
+  'US': { en: 'United States', ru: 'США', es: 'EE. UU.', fr: 'États-Unis', zh: '美国', de: 'USA' },
+  'USA': { en: 'United States', ru: 'США', es: 'EE. UU.', fr: 'États-Unis', zh: '美国', de: 'USA' },
+  'United States': { en: 'United States', ru: 'США', es: 'EE. UU.', fr: 'États-Unis', zh: '美国', de: 'USA' },
   'UZ': { en: 'Uzbekistan', ru: 'Узбекистан', es: 'Uzbekistán', fr: 'Ouzbékistan', zh: '乌兹别克斯坦', de: 'Usbekistan' },
   'UA': { en: 'Ukraine', ru: 'Украина', es: 'Ucrania', fr: 'Ukraine', zh: '乌克兰', de: 'Ukraine' },
-  'DE': { en: 'Germany', ru: 'Германия', es: 'Alemania', fr: 'Allemagne', zh: '德国', de: 'Deutschland' },
+  'DE': { en: 'Germany', ru: 'Германия', es: 'Alemania', fr: 'Allemagne', zh: 'Deutschland', de: 'Deutschland' },
   'TR': { en: 'Turkey', ru: 'Турция', es: 'Turquía', fr: 'Turquie', zh: '土耳其', de: 'Türkei' },
+  'UK': { en: 'United Kingdom', ru: 'Великобритания', es: 'Reino Unido', fr: 'Royaume-Uni', zh: '英国', de: 'Großbritannien' },
+  'United Kingdom': { en: 'United Kingdom', ru: 'Великобритания', es: 'Reino Unido', fr: 'Royaume-Uni', zh: '英国', de: 'Großbritannien' },
+  'UAE': { en: 'United Arab Emirates', ru: 'ОАЭ', es: 'EAU', fr: 'Émirats Arabes Unis', zh: '阿联酋', de: 'VAE' },
+  'United Arab Emirates': { en: 'United Arab Emirates', ru: 'ОАЭ', es: 'EAU', fr: 'Émirats Arabes Unis', zh: '阿联酋', de: 'VAE' },
   'Global': { en: 'Global', ru: 'Весь мир', es: 'Global', fr: 'Global', zh: '全球', de: 'Weltweit' }
 };
 
@@ -1494,6 +1503,52 @@ export default function App(): React.JSX.Element {
   
   const visibleStations = useMemo(() => stations.slice(0, visibleCount), [stations, visibleCount]);
 
+  const LanguageWrapper = ({ children }: { children: React.ReactNode }) => {
+      const { lang } = useParams<{ lang: string }>();
+      useEffect(() => {
+          if (lang && ['en', 'es', 'fr', 'de', 'ru', 'zh'].includes(lang)) {
+              setLanguage(lang as Language);
+          }
+      }, [lang]);
+      return <>{children}</>;
+  };
+
+  const renderHome = () => (
+    <>
+        <Helmet>
+            <title>AU RadioChat – Global Online Radio Streaming Player</title>
+            <meta name="description" content="AU RadioChat – Global Online Radio Streaming Platform. Listen to jazz, rock, electronic, hip-hop and world radio stations live. Free international internet radio player with smart chat." />
+            <link rel="canonical" href="https://auradiochat.com/" />
+        </Helmet>
+        {selectedCategory && viewMode !== 'favorites' && (
+            <div ref={visualizerRef} className="mb-8">
+                <div className="p-10 h-56 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-end animated-player-border">
+                    <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
+                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} danceStyle={danceStyle} /></div>
+                    {/* Category name removed for clean visualizer look */}
+                </div>
+                {/* Trust Line */}
+                <div className="text-center mt-4 opacity-0 animate-in fade-in slide-in-from-top-2 duration-700 delay-300 fill-mode-forwards">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">24/7 Live Streaming • Global Stations • No Installation Required</p>
+                </div>
+            </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-32">
+            {isLoading || isAiCurating ? Array.from({ length: 5 }).map((_, i) => <div key={i} className="aspect-[1.2] rounded-[2rem] skeleton-loader"></div>) : (
+                visibleStations.map((station, index) => (
+                    <StationCard key={station.stationuuid} station={station} index={index} isSelected={currentStation?.stationuuid === station.stationuuid} isFavorite={favorites.includes(station.stationuuid)} onPlay={handlePlayStation} onToggleFavorite={toggleFavorite} />
+                ))
+            )}
+        </div>
+        {!isLoading && !isAiCurating && stations.length > visibleCount && (
+            <div ref={loaderRef} className="h-20 flex items-center justify-center relative z-10 opacity-30">
+                <div className="animate-pulse flex space-x-1"><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div></div>
+            </div>
+        )}
+        <SEOContent language={language} />
+    </>
+  );
+
   // Ensure lights are turned off when chat is closed
   useEffect(() => {
     if (!chatOpen) {
@@ -1504,6 +1559,7 @@ export default function App(): React.JSX.Element {
   return (
     <ErrorBoundary>
     <div className={`relative flex h-screen font-sans overflow-hidden bg-[var(--base-bg)] text-[var(--text-base)] transition-all duration-700`}>
+      <SEOHead language={language} />
       <RainEffect intensity={ambience.rainVolume} />
       <RainEffect intensity={ambience.rainVolume} />
       <FireEffect intensity={ambience.fireVolume} />
@@ -1546,8 +1602,15 @@ export default function App(): React.JSX.Element {
         <div className="p-6 flex items-center justify-between">
            <div className="flex items-center gap-3">
                 <div className="flex flex-col">
-                    <h1 className="text-2xl font-black tracking-tighter leading-none">AU RadioChat – Global Online Radio Streaming</h1>
-                    <span className="text-[10px] font-bold text-slate-400/70 tracking-widest uppercase mt-1">v1.0 • Global Streaming Platform</span>
+                    <Link to="/" className="hover:opacity-80 transition-opacity flex flex-col">
+                        <div className="text-2xl font-black tracking-tighter leading-none text-white">AU RadioChat</div>
+                        <div className="text-[10px] font-bold text-rose-500 tracking-widest uppercase mt-1">
+                            {t.tagline || 'Global Online Radio Streaming Player'}
+                        </div>
+                    </Link>
+                    <span className="text-[9px] font-semibold text-slate-400 tracking-wider mt-0.5 italic opacity-90">
+                        V1.1 • {t.platform || 'Global Streaming Platform'}
+                    </span>
                 </div>
                <DancingAvatar isPlaying={isPlaying && !isBuffering} className="w-12 h-12" visualMode={visualMode} />
            </div>
@@ -1582,7 +1645,7 @@ export default function App(): React.JSX.Element {
         <div className="p-4 pt-2 border-t border-[var(--panel-border)] hidden md:block">
              <button onClick={() => setDownloadModalOpen(true)} className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-primary/20 to-secondary/20 border border-white/5 hover:border-white/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 group">
                 <DownloadIcon className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
-                <div className="text-left"><p className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-white transition-colors">Mobile App</p><p className="text-xs font-black text-white">Download</p></div>
+                <div className="text-left"><p className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-white transition-colors">{t.mobileApp || 'Mobile App'}</p><p className="text-xs font-black text-white">{t.downloadText || 'Download'}</p></div>
              </button>
         </div>
       </aside>
@@ -1700,40 +1763,10 @@ export default function App(): React.JSX.Element {
 
         <div ref={mainContentRef} className={`flex-1 overflow-y-auto px-6 md:px-10 no-scrollbar transition-all duration-500 ${isIdleView ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'}`}>
             <Routes>
-                <Route path="/" element={
-                    <>
-                        <Helmet>
-                            <title>AU RadioChat – Global Online Radio Streaming Player</title>
-                            <meta name="description" content="AU RadioChat – Global Online Radio Streaming Platform. Listen to jazz, rock, electronic, hip-hop and world radio stations live. Free international internet radio player with smart chat." />
-                        </Helmet>
-                        {selectedCategory && viewMode !== 'favorites' && (
-                            <div ref={visualizerRef} className="mb-8">
-                                <div className="p-10 h-56 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-end animated-player-border">
-                                    <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
-                                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} danceStyle={danceStyle} /></div>
-                                    <div className="relative z-10 pointer-events-none hidden"><h2 className="text-5xl md:text-7xl font-extrabold tracking-tighter uppercase">{t[selectedCategory.id] || selectedCategory.name}</h2></div>
-                                </div>
-                                {/* Trust Line */}
-                                <div className="text-center mt-4 opacity-0 animate-in fade-in slide-in-from-top-2 duration-700 delay-300 fill-mode-forwards">
-                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">24/7 Live Streaming • Global Stations • No Installation Required</p>
-                                </div>
-                            </div>
-                        )}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 pb-32">
-                            {isLoading || isAiCurating ? Array.from({ length: 5 }).map((_, i) => <div key={i} className="aspect-[1.2] rounded-[2rem] skeleton-loader"></div>) : (
-                                visibleStations.map((station, index) => (
-                                    <StationCard key={station.stationuuid} station={station} index={index} isSelected={currentStation?.stationuuid === station.stationuuid} isFavorite={favorites.includes(station.stationuuid)} onPlay={handlePlayStation} onToggleFavorite={toggleFavorite} />
-                                ))
-                            )}
-                        </div>
-                        {!isLoading && !isAiCurating && stations.length > visibleCount && (
-                            <div ref={loaderRef} className="h-20 flex items-center justify-center relative z-10 opacity-30">
-                                <div className="animate-pulse flex space-x-1"><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div><div className="w-1.5 h-1.5 bg-slate-500 rounded-full"></div></div>
-                            </div>
-                        )}
-                        <SEOContent />
-                    </>
-                } />
+                <Route path="/" element={renderHome()} />
+                <Route path="/:lang" element={<LanguageWrapper>{renderHome()}</LanguageWrapper>} />
+                <Route path="/radio/:slug" element={<DynamicRadioHub setLanguage={setLanguage} onPlay={handlePlayStation} currentStation={currentStation} favorites={favorites} toggleFavorite={toggleFavorite} language={language} />} />
+                <Route path="/:lang/radio/:slug" element={<DynamicRadioHub setLanguage={setLanguage} onPlay={handlePlayStation} currentStation={currentStation} favorites={favorites} toggleFavorite={toggleFavorite} language={language} />} />
                 <Route path="/favorites" element={
                     <>
                         <Helmet>
@@ -1755,29 +1788,32 @@ export default function App(): React.JSX.Element {
                         </div>
                     </>
                 } />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/privacy-policy" element={<PrivacyPage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/genres" element={<GenresPage />} />
-                <Route path="/jazz-radio" element={<JazzRadioPage />} />
-                <Route path="/rock-radio" element={<RockRadioPage />} />
-                <Route path="/electronic-radio" element={<ElectronicRadioPage />} />
-                <Route path="/hip-hop-radio" element={<HipHopRadioPage />} />
+                <Route path="/about" element={<AboutPage language={language} />} />
+                <Route path="/privacy-policy" element={<PrivacyPage language={language} />} />
+                <Route path="/contact" element={<ContactPage language={language} />} />
+                <Route path="/genres" element={<GenresPage language={language} />} />
+                <Route path="/jazz-radio" element={<JazzRadioPage language={language} />} />
+                <Route path="/rock-radio" element={<RockRadioPage language={language} />} />
+                <Route path="/electronic-radio" element={<ElectronicRadioPage language={language} />} />
+                <Route path="/hip-hop-radio" element={<HipHopRadioPage language={language} />} />
+                <Route path="/directory" element={<DirectoryPage language={language} />} />
             </Routes>
                 <footer className="w-full pb-64 pt-20 flex flex-col items-center justify-center gap-10 opacity-80 z-0 relative border-t border-white/5 mt-20">
                     <div className="flex flex-col items-center gap-6">
                         <div className="flex flex-wrap justify-center items-center gap-x-6 gap-y-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                            <Link to="/about" className="hover:text-white transition-colors">About AU Radio</Link>
+                            <Link to="/about" className="hover:text-white transition-colors">{t.aboutAU}</Link>
                             <span className="text-slate-800">•</span>
-                            <Link to="/genres" className="hover:text-white transition-colors">Genres</Link>
+                            <Link to="/genres" className="hover:text-white transition-colors">{t.genresText}</Link>
                             <span className="text-slate-800">•</span>
-                            <Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link>
+                            <Link to="/privacy-policy" className="hover:text-white transition-colors">{t.privacyPolicy}</Link>
                             <span className="text-slate-800">•</span>
-                            <Link to="/contact" className="hover:text-white transition-colors">Contact</Link>
+                            <Link to="/contact" className="hover:text-white transition-colors">{t.contactText}</Link>
+                            <span className="text-slate-800">•</span>
+                            <Link to="/directory" className="hover:text-white transition-colors">{t.directoryText}</Link>
                         </div>
                         <div className="w-16 h-px bg-slate-800"></div>
-                        <p className="text-[10px] text-slate-600 font-bold tracking-widest">
-                            © 2026 AU RadioChat — Global Online Radio Streaming
+                        <p className="text-[10px] text-slate-600 font-bold tracking-widest text-center px-4">
+                            {t.copyRight}
                         </p>
                     </div>
                 </footer>

@@ -99,7 +99,7 @@ export interface UserProfile {
   city?: string;
   approxRegion?: string; // Internal privacy-first region hint
   hideFromSearch?: boolean; // Privacy setting: Hide from global search/list
-  gender: 'male' | 'female' | 'other';
+  gender: 'male' | 'female';
   status: 'online' | 'offline';
   intentStatus?: string;
   voiceIntro?: string; // Base64 encoded voice snippet (5-7s)
@@ -110,6 +110,7 @@ export interface UserProfile {
   bio: string;
   hasAgreedToRules: boolean;
   isAuthenticated?: boolean; 
+  sentInvites?: { timestamp: number, toUserId: string }[];
   // User Management
   role?: 'early_user' | 'regular';
   early_access?: boolean;
@@ -132,7 +133,6 @@ export interface UserProfile {
   detectedIP?: string;
   deviceId?: string;
   registrationTimestamp?: number;
-  hasRealPhoto?: boolean;
   canDeleteAfter?: number;
   // Trust Score system
   trustScore?: number;
@@ -145,7 +145,6 @@ export interface UserProfile {
     userAgent: string;
     platform: string;
   };
-  facePhoto?: string | null; // High-quality face photo for social recognition
   fingerprint?: string; // Device fingerprint for security tracking
 }
 

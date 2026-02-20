@@ -265,6 +265,12 @@ export const AndroidIcon: React.FC<{ className?: string }> = ({ className }) => 
     </svg>
 );
 
+export const StarIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <path fillRule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.007 5.404.433c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.433 2.082-5.006z" clipRule="evenodd" />
+  </svg>
+);
+
 export const AppleIcon: React.FC<{ className?: string }> = ({ className }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={className}>
       <path d="M17.653 15.654c-.104.302-.216.588-.337.859a5.393 5.393 0 01-1.282 1.865c-.461.428-1.028.641-1.7.641-.337 0-.74-.087-1.209-.261-.469-.174-.9-.261-1.291-.261-.418 0-.877.087-1.378.261-.501.174-.897.261-1.187.261-.758 0-1.385-.246-1.879-.74-.844-.844-1.266-2.112-1.266-3.804 0-1.42.368-2.612 1.103-3.575.735-.963 1.642-1.444 2.719-1.444.382 0 .825.105 1.33.315.505.21.848.315 1.029.315.152 0 .47-.101.952-.304.482-.203.92-.304 1.316-.304 1.009 0 1.839.404 2.491 1.213-.884.545-1.326 1.36-1.326 2.447 0 .963.351 1.782 1.055 2.457.243.232.511.417.805.554zm-2.903-7.558c-.468.567-1.045.85-1.729.85-.058 0-.116-.003-.174-.011.022-.616.242-1.196.663-1.74.464-.595 1.037-.903 1.718-.924.015.087.022.167.022.239 0 .544-.167 1.073-.5 1.586z" />
@@ -293,6 +299,12 @@ export const EnvelopeIcon: React.FC<{ className?: string }> = ({ className }) =>
 export const UserIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+  </svg>
+);
+
+export const TrashIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
   </svg>
 );
 
