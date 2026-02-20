@@ -105,10 +105,10 @@ const PAGE_SIZE = 10;
 
 // Replaced with more reliable direct MP3 links
 const AMBIENCE_URLS = {
-    rain_soft: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3',
-    rain_roof: 'https://soundbible.com/mp3/Rain_Background-Mike_Koenig-1681389445.mp3', // Fallback to same reliable source
+    rain_soft: '/kamin.mp3',
+    rain_roof: '/kamin.mp3',
     fire: '/kamin.mp3',
-    city: 'https://soundbible.com/mp3/City_Traffic-Sound_Explorer-1662968325.mp3',
+    city: '/kamin.mp3',
     vinyl: '/kamin.mp3'
 };
 
