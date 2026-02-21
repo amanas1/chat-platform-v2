@@ -15,7 +15,7 @@ if (!SERVER_URL) {
 class SocketService {
   private socket: Socket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = Infinity;
+  private maxReconnectAttempts = 20;
   private currentProfile: UserProfile | null = null;
   
   // Expose URL for debugging
@@ -54,7 +54,6 @@ class SocketService {
       reconnectionAttempts: this.maxReconnectAttempts,
       timeout: 45000, // Increased to 45s to reduce premature timeouts
       autoConnect: false, // We will call connect() manually
-      forceNew: true, // Ensure a fresh connection instance
     });
     
     this.socket.connect();
@@ -95,8 +94,8 @@ class SocketService {
     }
     
     this.currentProfile = profile;
-    this.socket.emit('user:register', profile);
     this.socket.once('user:registered', callback);
+    this.socket.emit('user:register', profile);
   }
 
   async logout(): Promise<void> {
@@ -213,7 +212,7 @@ class SocketService {
   }
   
   // Messaging
-  sendMessage(sessionId: string, encryptedPayload: string, messageType: 'text' | 'image' | 'audio' | 'video', metadata?: any, ackCallback?: (response: { success: boolean; messageId?: string; deliveredTo?: number; error?: string }) => void) {
+  sendMessage(sessionId: string, encryptedPayload: string, messageType: 'text' | 'audio', metadata?: any, ackCallback?: (response: { success: boolean; messageId?: string; deliveredTo?: number; error?: string }) => void) {
     if (!this.socket) {
         console.error("Socket not initialized in sendMessage");
         if (ackCallback) ackCallback({ success: false, error: 'Socket not initialized' });
