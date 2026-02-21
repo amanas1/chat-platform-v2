@@ -98,6 +98,12 @@ app.use('/avatars', express.static(AVATARS_DIR));
 
 app.post('/api/moderate-avatar', upload.single('avatar'), async (req, res) => {
     try {
+        const fingerprint = req.body.fingerprint;
+
+        if (!fingerprint) {
+            return res.status(400).json({ error: 'Missing fingerprint' });
+        }
+
         if (!req.file) {
             return res.status(400).json({ status: 'rejected', reason: 'No file uploaded' });
         }
@@ -167,6 +173,11 @@ app.get('/api/test', (req, res) => {
         version: "2.1",
         timestamp: new Date().toISOString()
     });
+});
+
+// HEALTH ENDPOINT FOR UPTIME MONITORING
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok' });
 });
 
 /**
@@ -366,7 +377,7 @@ function saveKnockLimits() {
 // ANTI-SPAM: IP Rate Limiting (In-Memory, Safe)
 // ============================================
 const ipConnectionLimits = new Map(); // ip -> { count, windowStart }
-const IP_CONN_LIMIT = 10; // max connections per IP per minute
+const IP_CONN_LIMIT = 1000; // max connections per IP per minute (test)
 const IP_CONN_WINDOW = 60000; // 1 minute
 
 // Map: userId1:userId2 -> timestamp (24h block)
@@ -622,8 +633,42 @@ io.on('connection', (socket) => {
   
   let boundUserId = null;
 
+  // WRAPPER FOR SAFE ASYNC HANDLING TO PREVENT CRASHES
+  const safeHandler = (eventName, handler) => {
+      return async (...args) => {
+          let ackCalled = false;
+          let originalAck = null;
+
+          // If the last argument is a function, it's an ackCallback. Wrap it to intercept execution.
+          if (args.length > 0 && typeof args[args.length - 1] === 'function') {
+              originalAck = args[args.length - 1];
+              args[args.length - 1] = (...cbArgs) => {
+                  ackCalled = true;
+                  originalAck(...cbArgs);
+              };
+          }
+
+          try {
+              // Await handles both synchronous and asynchronous inner functions natively
+              await handler(...args);
+          } catch (err) {
+              // Structured JSON logging as requested (no raw stack dumps)
+              console.error(JSON.stringify({
+                  event: eventName,
+                  userId: boundUserId || null,
+                  error: err.message
+              }));
+              
+              // Only call ackCallback if the handler itself didn't already call it before crashing
+              if (originalAck && !ackCalled) {
+                  originalAck({ success: false, error: 'Internal server error' });
+              }
+          }
+      };
+  };
+
   // USER JOINS
-  socket.on('user:register', (profile, callback) => {
+  socket.on('user:register', safeHandler('user:register', async (profile, callback) => {
     if (!profile || !profile.id) return;
     
     // Check if user is banned
@@ -737,10 +782,10 @@ io.on('connection', (socket) => {
     
     syncGlobalPresence();
     broadcastPresenceCount();
-  });
+  }));
 
   // SEARCH USERS (Online + Offline)
-  socket.on('users:search', (filters) => {
+  socket.on('users:search', safeHandler('users:search', async (filters) => {
     // 1. Get all registered users from persistence
     const allUsers = Array.from(persistentUsers.values());
     
@@ -791,10 +836,10 @@ io.on('connection', (socket) => {
     });
 
     socket.emit('users:search:results', results);
-  });
+  }));
 
   // IMMEDIATE ACCOUNT DELETION
-  socket.on('user:delete_account', () => {
+  socket.on('user:delete_account', safeHandler('user:delete_account', async () => {
     if (!boundUserId) return;
     
     // 1. Remove from activeUsers
@@ -832,15 +877,13 @@ io.on('connection', (socket) => {
     
     syncGlobalPresence();
     broadcastPresenceCount();
-  });
+  }));
 
   // KNOCK (Request to chat)
-  socket.on('knock:send', ({ targetUserId }) => {
+  socket.on('knock:send', safeHandler('knock:send', async ({ targetUserId }) => {
     if (!boundUserId) return;
     
     const pairId = [boundUserId, targetUserId].sort().join(':');
-    console.log(`[DEBUG] Knock pairId: ${pairId}`);
-
     // Block check
     if (permanentBlocks.has(pairId)) {
         socket.emit('knock:error', { 
@@ -907,10 +950,10 @@ io.on('connection', (socket) => {
     });
     
     socket.emit('knock:sent', { knockId, targetUserId, remainingKnocks });
-  });
+  }));
 
   // KNOCK ACCEPT
-  socket.on('knock:accept', ({ knockId, fromUserId }) => {
+  socket.on('knock:accept', safeHandler('knock:accept', async ({ knockId, fromUserId }) => {
     if (!boundUserId) return;
     
     if (moderation.isUserBanned(boundUserId)) {
@@ -979,10 +1022,10 @@ io.on('connection', (socket) => {
         partnerProfile: user1?.profile
       });
     }
-  });
+  }));
 
   // SESSION JOIN (Sender confirms entry)
-  socket.on('session:join', ({ sessionId }) => {
+  socket.on('session:join', safeHandler('session:join', async ({ sessionId }) => {
       if (!boundUserId) return;
       const session = activeSessions.get(sessionId);
       if (!session) return;
@@ -1010,10 +1053,10 @@ io.on('connection', (socket) => {
               partnerId: boundUserId
           });
       }
-  });
+  }));
 
   // KNOCK REJECT
-  socket.on('knock:reject', ({ knockId, fromUserId }) => {
+  socket.on('knock:reject', safeHandler('knock:reject', async ({ knockId, fromUserId }) => {
     if (!boundUserId) return;
     
     if (knockRequests.has(boundUserId)) {
@@ -1024,10 +1067,10 @@ io.on('connection', (socket) => {
     if (fromUser?.socketId) {
       io.to(fromUser.socketId).emit('knock:rejected', { knockId });
     }
-  });
+  }));
 
   // SEND MESSAGE (E2EE - server just relays encrypted payload)
-  socket.on('message:send', ({ sessionId, encryptedPayload, messageType, metadata }, ackCallback) => {
+  socket.on('message:send', safeHandler('message:send', async ({ sessionId, encryptedPayload, messageType, metadata }, ackCallback) => {
     if (!boundUserId) {
       if (typeof ackCallback === 'function') ackCallback({ success: false, error: 'Not registered' });
       return;
@@ -1071,10 +1114,6 @@ io.on('connection', (socket) => {
         return;
     }
 
-    if (messageType === 'voice' || messageType === 'audio') {
-         console.log(`[MSG] 🎤 Voice message from ${boundUserId}. Payload length: ${encryptedPayload?.length || 0}`);
-    }
-
     // Validate payload exists
     if (!encryptedPayload) {
         console.error(`[MSG] ❌ Empty payload from ${boundUserId}`);
@@ -1115,19 +1154,12 @@ io.on('connection', (socket) => {
     // PERSIST IMMEDIATELY
     saveMessages();
     
-    console.log(`[MSG] 📤 Broadcasting message ${messageId} (type: ${messageType}) to session ${sessionId}`);
-    console.log(`[MSG] Session participants: [${session.participants.join(', ')}]`);
-    
     let deliveredCount = 0;
     session.participants.forEach(userId => {
       const user = activeUsers.get(userId);
-      console.log(`[MSG] Checking participant ${userId}: socketId=${user?.socketId || 'NONE'}`);
       if (user?.socketId) {
-        console.log(`[MSG] ✅ Sending to ${userId} via socket ${user.socketId}`);
         io.to(user.socketId).emit('message:received', message);
         deliveredCount++;
-      } else {
-        console.log(`[MSG] ❌ User ${userId} has no active socket connection`);
       }
     });
 
@@ -1135,10 +1167,10 @@ io.on('connection', (socket) => {
     if (typeof ackCallback === 'function') {
         ackCallback({ success: true, messageId, deliveredTo: deliveredCount });
     }
-  });
+  }));
 
   // USER REPORT
-  socket.on('user:report', ({ targetUserId, reason, messageId }) => {
+  socket.on('user:report', safeHandler('user:report', async ({ targetUserId, reason, messageId }) => {
     if (!boundUserId) return;
 
     // ANTI-SPAM: Reject self-reports
@@ -1243,10 +1275,10 @@ io.on('connection', (socket) => {
     }
 
     socket.emit('report:acknowledged', { success: true });
-  });
+  }));
 
   // WEBRTC SIGNALING RELAY
-  socket.on('webrtc:signal', ({ targetUserId, signal }) => {
+  socket.on('webrtc:signal', safeHandler('webrtc:signal', async ({ targetUserId, signal }) => {
     if (!boundUserId) {
         console.log('[SIGNAL] Rejected: User not bound');
         return;
@@ -1265,33 +1297,33 @@ io.on('connection', (socket) => {
     } else {
       console.log(`[SIGNAL] Failed: Target user ${targetUserId} not found or has no socket`);
     }
-  });
+  }));
 
   // SESSION CONTROLS
-  socket.on('session:close', ({ sessionId }) => {
+  socket.on('session:close', safeHandler('session:close', async ({ sessionId }) => {
     if (!boundUserId) return;
     closeSession(sessionId, 'CLOSE');
-  });
+  }));
 
-  socket.on('session:block', ({ sessionId }) => {
+  socket.on('session:block', safeHandler('session:block', async ({ sessionId }) => {
     if (!boundUserId) return;
     closeSession(sessionId, 'BLOCK');
-  });
+  }));
 
   // ============================================
   // ANTI-SPAM: Block User (In-Chat, Persistent)
   // ============================================
-  socket.on('user:block', ({ targetUserId }) => {
+  socket.on('user:block', safeHandler('user:block', async ({ targetUserId }) => {
     if (!boundUserId || boundUserId === targetUserId) return;
     const pairId = [boundUserId, targetUserId].sort().join(':');
     permanentBlocks.set(pairId, Date.now());
     saveBlocks();
     console.log(`[BLOCK] User ${boundUserId} blocked ${targetUserId}. PairId: ${pairId}`);
     socket.emit('user:blocked', { targetUserId });
-  });
+  }));
 
   // GET MESSAGES for a session
-  socket.on('messages:get', ({ sessionId }) => {
+  socket.on('messages:get', safeHandler('messages:get', async ({ sessionId }) => {
     if (!boundUserId) return;
     
     const session = activeSessions.get(sessionId);
@@ -1308,10 +1340,10 @@ io.on('connection', (socket) => {
       sessionId,
       messages: validMessages
     });
-  });
+  }));
 
   // TYPING INDICATOR
-  socket.on('typing:start', ({ sessionId }) => {
+  socket.on('typing:start', safeHandler('typing:start', async ({ sessionId }) => {
     if (!boundUserId) return;
     const session = activeSessions.get(sessionId);
     if (!session) return;
@@ -1323,9 +1355,9 @@ io.on('connection', (socket) => {
         }
       }
     });
-  });
+  }));
 
-  socket.on('typing:stop', ({ sessionId }) => {
+  socket.on('typing:stop', safeHandler('typing:stop', async ({ sessionId }) => {
     if (!boundUserId) return;
     const session = activeSessions.get(sessionId);
     if (!session) return;
@@ -1337,7 +1369,7 @@ io.on('connection', (socket) => {
         }
       }
     });
-  });
+  }));
 
   // DISCONNECT
   socket.on('disconnect', () => {
@@ -1371,7 +1403,7 @@ io.on('connection', (socket) => {
 // Authentication is now handled silently via the /auth/init REST endpoint.
 
   // FEEDBACK VIA SOCKET
-  socket.on('feedback:send', ({ rating, message }) => {
+  socket.on('feedback:send', safeHandler('feedback:send', async ({ rating, message }) => {
     const feedbackEntry = {
         timestamp: new Date().toISOString(),
         userId: boundUserId || 'guest',
@@ -1389,27 +1421,19 @@ io.on('connection', (socket) => {
     });
 
     socket.emit('feedback:received', { success: true });
-  });
+  }));
 });
 
 // ============================================
-// REST API ENDPOINTS (Optional healthz check)
+// REST API ENDPOINTS
 // ============================================
-
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    activeUsers: activeUsers.size,
-    activeSessions: activeSessions.size,
-    uptime: process.uptime()
-  });
-});
 
 app.get('/stats', (req, res) => {
   res.json({
     users: activeUsers.size,
     sessions: activeSessions.size,
-    totalMessages: Array.from(messages.values()).reduce((sum, msgs) => sum + msgs.length, 0)
+    totalMessages: Array.from(messages.values()).reduce((sum, msgs) => sum + msgs.length, 0),
+    memoryUsage: process.memoryUsage()
   });
 });
 

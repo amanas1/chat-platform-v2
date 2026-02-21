@@ -98,6 +98,10 @@ function checkRateLimit(userId) {
     return false;
 }
 
+function getMutedUntil(userId) {
+    return muteStats.get(userId)?.expiresAt || 0;
+}
+
 /**
  * Logging engine
  */
@@ -284,6 +288,7 @@ function isSuspended(userId) {
 module.exports = {
     getFilterViolation,
     checkRateLimit,
+    getMutedUntil,
     isUserBanned,
     isSuspended,
     applyBan,
