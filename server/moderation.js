@@ -136,6 +136,12 @@ function logViolation(userId, type, messagePreview) {
         messagePreview: (messagePreview || '').substring(0, 100)
     };
     violations.push(log);
+    
+    // Cap violations array at 5000 entries
+    if (violations.length > 5000) {
+        violations.splice(0, violations.length - 5000);
+    }
+    
     storage.save('violations', violations);
     console.log(`[VIOLATION] ${userId} | ${type} | ${log.messagePreview}`);
 }
@@ -175,8 +181,8 @@ function isUserBanned(userId) {
  */
 async function moderateImage(imageBuffer) {
     if (!client) {
-        console.warn('[MODERATION] Vision client is null, bypassing image moderation.');
-        return { approved: true };
+        console.error('[MODERATION] Vision client unavailable.');
+        return { approved: false, reason: 'Image moderation temporarily unavailable.', errorCode: 'ERR_MODERATION_DOWN' };
     }
     try {
         const [result] = await client.annotateImage({
@@ -190,7 +196,7 @@ async function moderateImage(imageBuffer) {
             ]
         });
 
-        const safeSearch = result.safeSearchAnnotation;
+        const safeSearch = result.safeSearchAnnotation || {};
         const faces = result.faceAnnotations || [];
         const labels = result.labelAnnotations || [];
         const textAnnotations = result.textAnnotations || [];
