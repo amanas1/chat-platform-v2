@@ -406,6 +406,8 @@ setInterval(() => {
       hasChanges = true;
       if (freshMessages.length === 0) {
         messages.delete(sessionId);
+        // Clean up orphaned session from memory when 7-day history expires
+        activeSessions.delete(sessionId);
       } else {
         messages.set(sessionId, freshMessages);
       }
@@ -1351,11 +1353,11 @@ io.on('connection', (socket) => {
     }
     
     if (discUserId) {
-      const userData = activeUsers.get(discUserId);
-      if (userData) {
-        userData.socketId = null;
-        // Don't delete yet, wait for TTL expiry
-      }
+        // Scrub user from memory to prevent memory leaks from dangling sockets
+        activeUsers.delete(discUserId);
+        
+        // Notify everyone of updated online list
+        syncGlobalPresence();
     }
     broadcastPresenceCount();
   });
