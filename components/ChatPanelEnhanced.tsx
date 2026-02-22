@@ -1065,6 +1065,25 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
          });
     }
     
+    // Listen for registration success (from server)
+    cleanups.push(socketService.addListener('user:registered', (data) => {
+      console.log('✅ Registered successfully:', data.userId);
+      const profile = { ...data.profile, id: data.userId, status: 'online' };
+      onUpdateCurrentUser(profile);
+      
+      // OPTIMISTIC: Add self to online users immediately so we appear in carousel
+      setOnlineUsers(prev => {
+          const list = prev || [];
+          if (list.find(u => u.id === data.userId)) return list;
+          return [profile, ...list];
+      });
+
+      // Fetch initial sessions
+      if (data.activeSessions) {
+          data.activeSessions.forEach(s => activeSessions.set(s.sessionId, s));
+      }
+    }));
+    
     // Listen for session creation
     cleanups.push(socketService.onSessionCreated((data) => {
       console.log("[CLIENT] Session created:", data);
