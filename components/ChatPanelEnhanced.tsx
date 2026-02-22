@@ -2499,6 +2499,32 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             </div>
                         </div>
 
+                        {/* Intent Status Selector */}
+                        <div className="bg-white/[0.02] p-4 rounded-3xl border border-white/5">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase ml-1 mb-2 block tracking-widest">{t.intentTalk ? '📌 ' + (language === 'ru' ? 'СТАТУС' : 'STATUS') : '📌 STATUS'}</label>
+                            <div className={`grid grid-cols-2 gap-2 ${isProfileLocked ? 'opacity-60 pointer-events-none' : ''}`}>
+                                {INTENT_STATUSES.map(status => {
+                                    const key = INTENT_MAP[status];
+                                    const label = (t as any)[key] || status;
+                                    const isActive = regIntentStatus === status;
+                                    return (
+                                        <button
+                                            key={status}
+                                            disabled={isProfileLocked}
+                                            onClick={() => setRegIntentStatus(status)}
+                                            className={`px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all border ${
+                                                isActive 
+                                                    ? 'bg-primary/20 border-primary/50 text-white shadow-[0_0_10px_rgba(188,111,241,0.2)]' 
+                                                    : 'bg-black/20 border-white/5 text-slate-400 hover:text-white hover:border-white/10'
+                                            }`}
+                                        >
+                                            {label}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
                         {/* Voice Intro (Condensed) */}
                         <div className="p-4 bg-gradient-to-br from-indigo-900/10 to-purple-900/10 border border-white/5 rounded-3xl flex items-center gap-4">
                             <button 
