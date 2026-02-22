@@ -499,7 +499,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   // Auto-scrolling carousel logic
   const currentSpeedRef = useRef(0);
   useEffect(() => {
-    if (view !== 'search' || !carouselRef.current) return;
+    if ((view !== 'search' && view !== 'register') || !carouselRef.current) return;
 
     const scrollContainer = carouselRef.current;
     let animationFrameId: number;
@@ -532,7 +532,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
   // Set initial scroll position to middle for bottom-to-top scroll
   useEffect(() => {
-    if (view === 'search' && carouselRef.current) {
+    if ((view === 'search' || view === 'register') && carouselRef.current) {
         const el = carouselRef.current;
         // Small timeout to ensure content is rendered
         setTimeout(() => {
@@ -2709,6 +2709,49 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                              </div>
                         )}
                     </div>
+
+                    {/* Carousel visible to guests in register view */}
+                    {onlineUsers.filter(u => u.id !== currentUser.id && u.avatar).length > 0 && (
+                        <div 
+                            ref={view === 'register' ? carouselRef : undefined}
+                            onMouseEnter={() => setIsHoveringCarousel(true)}
+                            onMouseLeave={() => setIsHoveringCarousel(false)}
+                            className="flex-1 min-h-0 overflow-y-auto no-scrollbar border-t border-white/5"
+                        >
+                            <div className="px-4 py-3">
+                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-3">
+                                    {language === 'ru' ? '👥 Сейчас в сети' : '👥 Currently online'}
+                                </p>
+                            </div>
+                            <div className="flex flex-col gap-3 px-4 pb-12">
+                                {(() => {
+                                    const list = onlineUsers.filter(u => u.id !== currentUser.id && u.avatar);
+                                    const duplicatedList = [...list, ...list];
+                                    return duplicatedList.map((user, idx) => (
+                                        <div key={`reg-${user.id}-${idx}`} className="bg-white/[0.03] border border-white/10 rounded-2xl p-3 flex items-center gap-3">
+                                            <div className="relative shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800">
+                                                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                                                <div className={`absolute bottom-0.5 left-0.5 w-2 h-2 rounded-full border border-slate-900 ${user.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-bold text-xs text-white truncate">{user.name}</span>
+                                                    <span className="text-[9px] text-slate-400">{user.age}</span>
+                                                    {user.country && <span className="text-[8px] text-slate-500">📍{user.country}</span>}
+                                                </div>
+                                                {user.intentStatus && (
+                                                    <span className="text-[8px] text-violet-400 font-bold">{user.intentStatus}</span>
+                                                )}
+                                            </div>
+                                            <span className={`text-[8px] font-bold ${user.status === 'online' ? 'text-green-400' : 'text-slate-500'}`}>
+                                                {user.status === 'online' ? '● ' + (language === 'ru' ? 'В СЕТИ' : 'ONLINE') : '○ OFF'}
+                                            </span>
+                                        </div>
+                                    ));
+                                })()}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
