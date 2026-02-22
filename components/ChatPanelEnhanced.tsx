@@ -1715,7 +1715,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             if (nameSearch && !user.name.toLowerCase().includes(nameSearch.toLowerCase())) return false;
 
             // Ensure sufficient profile
-            return user.name && user.age && user.avatar;
+            return !!(user.name && user.age); // avatar optional — guest gets fallback
          });
          
          // Sort: Online first (handled by server usually, but ensure here)
@@ -2947,10 +2947,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                                 className={`w-24 py-2 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-1 
                                                     ${sentKnocks.has(user.id) 
                                                         ? 'bg-green-500/20 text-green-500 cursor-default' 
-                                                        : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:scale-[1.02] active:scale-95'}`}
-                                            >
+                                                        : !currentUser.isAuthenticated
+                                                            ? 'bg-white/5 border border-white/10 text-slate-400 hover:border-white/20 hover:text-white active:scale-95'
+                                                            : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:scale-[1.02] active:scale-95'}`}
+                                            > 
                                                 {sentKnocks.has(user.id) ? (
                                                     <>✓ {t.sent}</>
+                                                ) : !currentUser.isAuthenticated ? (
+                                                    <>🔒 {t.knock}</>
                                                 ) : (
                                                     <>{t.knock} 👋</>
                                                 )}
