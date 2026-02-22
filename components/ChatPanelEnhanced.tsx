@@ -497,19 +497,29 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   }, [voiceSettings]);
 
   // Auto-scrolling carousel logic
+  const currentSpeedRef = useRef(0);
   useEffect(() => {
-    if (view !== 'search' || isHoveringCarousel || !carouselRef.current) return;
+    if (view !== 'search' || !carouselRef.current) return;
 
     const scrollContainer = carouselRef.current;
     let animationFrameId: number;
     let lastTime = 0;
-    const scrollSpeed = 0.5; // pixels per frame
+    const targetSpeed = isHoveringCarousel ? 0 : 0.5; // pixels per frame
 
     const scroll = (time: number) => {
       if (lastTime !== 0) {
-        scrollContainer.scrollTop += scrollSpeed;
-        if (scrollContainer.scrollTop >= scrollContainer.scrollHeight - scrollContainer.clientHeight) {
-            scrollContainer.scrollTop = 0;
+        // Smooth speed interpolation (deceleration/acceleration)
+        currentSpeedRef.current += (targetSpeed - currentSpeedRef.current) * 0.1;
+        
+        if (Math.abs(currentSpeedRef.current) > 0.01) {
+          scrollContainer.scrollTop -= currentSpeedRef.current;
+          
+          // Infinite loop: if we scroll past the top, jump to the middle
+          // Since we duplicate the list, height is 2x. 
+          // middle = scrollHeight / 2.
+          if (scrollContainer.scrollTop <= 0) {
+              scrollContainer.scrollTop = (scrollContainer.scrollHeight / 2) - 1;
+          }
         }
       }
       lastTime = time;
@@ -519,6 +529,19 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     animationFrameId = requestAnimationFrame(scroll);
     return () => cancelAnimationFrame(animationFrameId);
   }, [view, isHoveringCarousel, searchResults, onlineUsers]);
+
+  // Set initial scroll position to middle for bottom-to-top scroll
+  useEffect(() => {
+    if (view === 'search' && carouselRef.current) {
+        const el = carouselRef.current;
+        // Small timeout to ensure content is rendered
+        setTimeout(() => {
+            if (el.scrollHeight > el.clientHeight) {
+                el.scrollTop = el.scrollHeight / 2;
+            }
+        }, 100);
+    }
+  }, [view, searchResults, onlineUsers]);
 
   // Mobile touch detection for auto-scroll (MOVED TO TOP LEVEL)
   useEffect(() => {
@@ -2714,7 +2737,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                          }}
                     />
 
-                    <div className="flex flex-col h-full relative z-10 overflow-y-auto no-scrollbar">
+                    <div className="flex flex-col h-full relative z-10 overflow-hidden">
                         <div className="p-6 pb-2 shrink-0">
                             <div className="flex flex-col items-center gap-1 mb-6">
                                 {/* Lighting Controls (Search) */}
@@ -2877,11 +2900,16 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             ref={carouselRef}
                             onMouseEnter={() => setIsHoveringCarousel(true)}
                             onMouseLeave={() => setIsHoveringCarousel(false)}
-                            className="relative w-full shrink-0"
+                            className="relative w-full flex-1 overflow-y-auto no-scrollbar"
                         >
                             <div className="flex flex-col gap-3 px-4 pb-12 pt-2">
-                                {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id)).map((user) => (
-                                    <div key={user.id} className="bg-white/[0.03] border border-white/10 rounded-3xl relative group hover:bg-white/[0.06] transition-all duration-300 overflow-hidden">
+                                {(() => {
+                                    const list = ((searchResults?.length > 0 ? searchResults : onlineUsers) || [])
+                                        .filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id));
+                                    // Duplicate the list for infinite circular scrolling
+                                    const duplicatedList = [...list, ...list];
+                                    return duplicatedList.map((user, idx) => (
+                                    <div key={`${user.id}-${idx}`} className="bg-white/[0.03] border border-white/10 rounded-3xl relative group hover:bg-white/[0.06] transition-all duration-300 overflow-hidden">
                                         {/* Hide Button */}
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); handleHideUser(user.id); }}
@@ -2966,7 +2994,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                             </button>
                                         </div>
                                     </div>
-                                ))}
+                                    ));
+                                })()}
                                 {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id)).length === 0 && (
                                      <div className="w-full flex flex-col items-center justify-center text-center py-20 opacity-40">
                                         <div className="text-4xl mb-4">🔭</div>
