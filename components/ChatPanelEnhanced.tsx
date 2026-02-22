@@ -2881,82 +2881,87 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         >
                             <div className="flex flex-col gap-3 px-4 pb-12 pt-2">
                                 {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id)).map((user) => (
-                                    <div key={user.id} className="p-3 bg-white/[0.03] border border-white/10 rounded-3xl flex items-center gap-4 relative group hover:bg-white/[0.06] transition-all duration-300">
-                                        
-                                        {/* Avatar & Status */}
-                                        <div className="relative shrink-0 w-20 h-20 rounded-2xl overflow-hidden bg-slate-800 shadow-lg">
-                                            <img src={user.avatar || ''} alt={user.name} className={`w-full h-full object-cover ${user.status === 'offline' ? 'grayscale-[0.5]' : ''}`} />
-                                            <div className={`absolute bottom-1 right-1 w-3 h-3 rounded-full border-2 border-slate-900 ${user.status === 'online' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-slate-500'}`}></div>
-                                        </div>
+                                    <div key={user.id} className="bg-white/[0.03] border border-white/10 rounded-3xl relative group hover:bg-white/[0.06] transition-all duration-300 overflow-hidden">
+                                        {/* Hide Button */}
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleHideUser(user.id); }}
+                                            className="absolute top-2 right-2 p-1 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all z-10"
+                                            title={t.hide}
+                                        >
+                                            <XMarkIcon className="w-3.5 h-3.5" />
+                                        </button>
 
-                                        {/* User Info */}
-                                        <div className="flex-1 min-w-0 flex flex-col gap-1">
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="font-black text-base text-white truncate max-w-[140px] leading-tight">{user.name}</h3>
-                                                <span className="px-1.5 py-0.5 bg-white/10 rounded-md text-[10px] font-bold text-slate-300">{user.age}</span>
-                                            </div>
-                                            
-                                            {/* Location & Status Text */}
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                {user.country && (
-                                                    <div className="flex items-center gap-1 bg-black/20 px-2 py-0.5 rounded-full border border-white/5">
-                                                        <span className="text-xs">📍</span> 
-                                                        <span className="text-[9px] font-bold text-slate-300 uppercase tracking-wider truncate max-w-[80px]">{user.country}</span>
-                                                    </div>
-                                                )}
-                                                <span className={`text-[9px] font-bold uppercase tracking-widest ${user.status === 'online' ? 'text-green-400' : 'text-slate-500'}`}>
-                                                    {user.status === 'online' ? 'ONLINE' : 'OFF'}
-                                                </span>
+                                        {/* Top row: avatar + info */}
+                                        <div className="flex items-start gap-3 p-3 pb-2">
+                                            {/* Avatar */}
+                                            <div className="relative shrink-0 w-16 h-16 rounded-2xl overflow-hidden bg-slate-800 shadow-lg">
+                                                <img src={user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.id}`} alt={user.name} className={`w-full h-full object-cover ${user.status === 'offline' ? 'grayscale-[0.5]' : ''}`} />
+                                                <div className={`absolute bottom-1 left-1 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${user.status === 'online' ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-slate-500'}`} />
                                             </div>
 
-                                            <p className="text-[9px] font-medium text-slate-500 line-clamp-1 mt-0.5 italic">
-                                                {user.intentStatus || t.free}
-                                            </p>
+                                            {/* Info */}
+                                            <div className="flex-1 min-w-0 pt-0.5">
+                                                {/* Name + age + location */}
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <h3 className="font-black text-sm text-white leading-tight truncate max-w-[120px]">{user.name}</h3>
+                                                    <span className="text-[10px] font-bold text-slate-300">{user.age}</span>
+                                                    {user.country && (
+                                                        <div className="flex items-center gap-0.5">
+                                                            <span className="text-[10px]">📍</span>
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[70px]">{user.country}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Status badge + online dot */}
+                                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                    {user.intentStatus && (
+                                                        <span className="px-2 py-0.5 bg-primary/20 border border-primary/40 rounded-full text-[9px] font-black text-violet-300 uppercase tracking-wider">
+                                                            {user.intentStatus}
+                                                        </span>
+                                                    )}
+                                                    <span className={`text-[9px] font-bold uppercase tracking-widest flex items-center gap-1 ${user.status === 'online' ? 'text-green-400' : 'text-slate-500'}`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`} />
+                                                        {user.status === 'online' ? (language === 'ru' ? 'В СЕТИ' : 'ONLINE') : 'OFF'}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        {/* Actions */}
-                                         <div className="flex flex-col gap-2 shrink-0 pr-1">
-                                            {/* Hide Button (Top) */}
+                                        {/* Bottom action row */}
+                                        <div className="flex gap-2 px-3 pb-3">
+                                            {/* Voice Intro button */}
                                             <button 
-                                                onClick={(e) => { e.stopPropagation(); handleHideUser(user.id); }}
-                                                className="absolute top-2 right-2 p-1 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
-                                                title={t.hide}
+                                                onClick={() => user.voiceIntro && new Audio(user.voiceIntro).play()}
+                                                disabled={!user.voiceIntro}
+                                                className={`flex-1 h-10 rounded-xl flex items-center gap-2 px-3 transition-all ${user.voiceIntro ? 'bg-indigo-600/80 hover:bg-indigo-600 active:scale-95' : 'bg-white/5 opacity-40 cursor-not-allowed'}`}
                                             >
-                                                <XMarkIcon className="w-3.5 h-3.5" />
+                                                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                                                    <PlayIcon className="w-3 h-3 text-white" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="text-[9px] font-black text-white uppercase tracking-wider leading-none">{language === 'ru' ? 'ГОЛОС' : 'VOICE'}</p>
+                                                    <div className="flex gap-[2px] mt-0.5">
+                                                        {[3,5,4,6,3,5,4].map((h, i) => (
+                                                            <div key={i} className={`w-[2px] rounded-full ${user.voiceIntro ? 'bg-white/60' : 'bg-white/20'}`} style={{ height: `${h}px` }} />
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             </button>
 
-                                            {/* Voice Button */}
-                                            {user.voiceIntro ? (
-                                                <button 
-                                                    onClick={() => new Audio(user.voiceIntro).play()}
-                                                    className="w-8 h-8 rounded-full bg-indigo-500/20 hover:bg-indigo-500/30 flex items-center justify-center transition-all"
-                                                    title="Play Voice"
-                                                >
-                                                    <PlayIcon className="w-4 h-4 text-indigo-400" />
-                                                </button>
-                                            ) : (
-                                                <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center opacity-30 cursor-not-allowed">
-                                                    <PlayIcon className="w-4 h-4 text-slate-500" />
-                                                </div>
-                                            )}
-
-                                            {/* Knock Button */}
-                                             <button 
+                                            {/* Knock button — always orange, auth gate is in handler */}
+                                            <button 
                                                 onClick={() => handleKnock(user)} 
                                                 disabled={sentKnocks.has(user.id)} 
-                                                className={`w-24 py-2 rounded-xl font-black text-[9px] uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-1 
-                                                    ${sentKnocks.has(user.id) 
-                                                        ? 'bg-green-500/20 text-green-500 cursor-default' 
-                                                        : !currentUser.isAuthenticated
-                                                            ? 'bg-white/5 border border-white/10 text-slate-400 hover:border-white/20 hover:text-white active:scale-95'
-                                                            : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:scale-[1.02] active:scale-95'}`}
-                                            > 
+                                                className={`flex-1 h-10 rounded-xl font-black text-[11px] uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-1 
+                                                    ${sentKnocks.has(user.id)
+                                                        ? 'bg-green-500/20 text-green-400 cursor-default'
+                                                        : 'bg-gradient-to-r from-orange-500 to-red-500 text-white hover:brightness-110 active:scale-95 shadow-[0_0_12px_rgba(249,115,22,0.3)]'}`}
+                                            >
                                                 {sentKnocks.has(user.id) ? (
                                                     <>✓ {t.sent}</>
-                                                ) : !currentUser.isAuthenticated ? (
-                                                    <>🔒 {t.knock}</>
                                                 ) : (
-                                                    <>{t.knock} 👋</>
+                                                    <>{t.knock} {!currentUser.isAuthenticated ? '🔒' : '👋'}</>
                                                 )}
                                             </button>
                                         </div>
