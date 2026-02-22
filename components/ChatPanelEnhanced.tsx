@@ -2714,8 +2714,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                          }}
                     />
 
-                    <div className="flex flex-col h-full relative z-10 overflow-hidden">
-                        <div className="p-6 pb-2 no-scrollbar">
+                    <div className="flex flex-col h-full relative z-10 overflow-y-auto no-scrollbar">
+                        <div className="p-6 pb-2 shrink-0">
                             <div className="flex flex-col items-center gap-1 mb-6">
                                 {/* Lighting Controls (Search) */}
                                 <div className="flex items-end justify-center gap-12 mb-2 w-full max-w-sm relative">
@@ -2877,7 +2877,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             ref={carouselRef}
                             onMouseEnter={() => setIsHoveringCarousel(true)}
                             onMouseLeave={() => setIsHoveringCarousel(false)}
-                            className="relative w-full flex-1 overflow-y-auto no-scrollbar"
+                            className="relative w-full shrink-0"
                         >
                             <div className="flex flex-col gap-3 px-4 pb-12 pt-2">
                                 {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id)).map((user) => (
