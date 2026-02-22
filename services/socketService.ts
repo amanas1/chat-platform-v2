@@ -103,10 +103,16 @@ class SocketService {
     console.log('[AUTH] ✅ Logged out');
   }
 
-  requestDeletion(callback: (data: { success: boolean; deletionRequestedAt?: number }) => void) {
+  deleteAccount(callback: () => void) {
     if (!this.socket) return;
-    this.socket.emit('user:delete_request');
-    this.socket.once('user:delete_requested', (data) => callback(data));
+    this.socket.emit('user:delete_account');
+    this.socket.once('user:deleted_confirmed', () => callback());
+  }
+
+  onUserRestored(callback: (profile: UserProfile) => void): () => void {
+    if (!this.socket) return () => {};
+    this.socket.on('user:restored', callback);
+    return () => this.socket?.off('user:restored', callback);
   }
   
   private emit(event: string, data: any) {
@@ -212,7 +218,7 @@ class SocketService {
   }
   
   // Messaging
-  sendMessage(sessionId: string, encryptedPayload: string, messageType: 'text' | 'audio', metadata?: any, ackCallback?: (response: { success: boolean; messageId?: string; deliveredTo?: number; error?: string }) => void) {
+  sendMessage(sessionId: string, encryptedPayload: string, messageType: 'text' | 'audio' | 'sticker', metadata?: any, ackCallback?: (response: { success: boolean; messageId?: string; deliveredTo?: number; error?: string }) => void) {
     if (!this.socket) {
         console.error("Socket not initialized in sendMessage");
         if (ackCallback) ackCallback({ success: false, error: 'Socket not initialized' });

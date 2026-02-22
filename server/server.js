@@ -722,6 +722,38 @@ io.on('connection', (socket) => {
 
     // 30-Day Lockdown Enforcement - REMOVED for Reversion
     let userRecord = persistentUsers.get(profile.id);
+    
+    // --- RESTORE LOGIC (by ID or Fingerprint) ---
+    // 1. If found by ID and it's deleted, restore it
+    if (userRecord && userRecord.accountStatus === 'deleted') {
+        userRecord.accountStatus = 'active';
+        userRecord.last_login_at = Date.now();
+        persistentUsers.set(profile.id, userRecord);
+        savePersistentUsers();
+        console.log(`[USER] Restored deleted account by ID: ${profile.id}`);
+        socket.emit('user:restored', userRecord);
+        if (callback) callback({ error: { message: 'Account restored' } });
+        return;
+    }
+    
+    // 2. If not found by ID, but fingerprint matches a deleted account, restore it
+    if (!userRecord && profile.fingerprint) {
+        for (const [id, record] of persistentUsers.entries()) {
+            if (record.fingerprint === profile.fingerprint && record.accountStatus === 'deleted') {
+                record.accountStatus = 'active';
+                record.last_login_at = Date.now();
+                persistentUsers.set(id, record);
+                savePersistentUsers();
+                
+                console.log(`[USER] Restored deleted account ${id} for fingerprint ${profile.fingerprint}`);
+                socket.emit('user:restored', record);
+                if (callback) callback({ error: { message: 'Account restored' } });
+                return;
+            }
+        }
+    }
+    
+    // Normal update/create flow
     if (userRecord) {
         const now = Date.now();
         
@@ -831,8 +863,7 @@ io.on('connection', (socket) => {
             // Ensure we don't leak sensitive internal fields if any
         };
     }).filter(user => {
-        if (user.id === boundUserId) return false; // Don't show self
-        if (user.hideFromSearch) return false; // Hide users who opted out
+        if (user.hideFromSearch && user.id !== boundUserId) return false; // Hide users who opted out, except if it's the current user themselves
         
         // Basic filtering
         if (filters.name && !user.name.toLowerCase().includes(filters.name.toLowerCase())) {
@@ -878,8 +909,12 @@ io.on('connection', (socket) => {
     // 1. Remove from activeUsers
     activeUsers.delete(boundUserId);
     
-    // 2. Remove from persistentUsers
-    persistentUsers.delete(boundUserId);
+    // 2. SOFT DELETE (Instead of hard delete)
+    const user = persistentUsers.get(boundUserId);
+    if (user) {
+        user.accountStatus = 'deleted';
+        persistentUsers.set(boundUserId, user);
+    }
     
     // 3. Clean up sessions + messages where user is a participant
     for (const [sessionId, session] of activeSessions.entries()) {
@@ -889,18 +924,10 @@ io.on('connection', (socket) => {
         }
     }
     
-    // 4. Clean up registration log
-    for (const [key, val] of registrationLog.entries()) {
-        if (val === boundUserId) {
-            registrationLog.delete(key);
-        }
-    }
-    
-    // 5. Save all persistence
+    // 4. Save persistence
     savePersistentUsers();
     saveSessions();
     saveMessages();
-    saveRegistrationLog();
     
     console.log(`[USER] Account ${boundUserId} permanently deleted.`);
     

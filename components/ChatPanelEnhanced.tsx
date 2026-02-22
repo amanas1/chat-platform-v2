@@ -18,6 +18,7 @@ import { socketService } from '../services/socketService';
 import { encryptionService } from '../services/encryptionService';
 import { geolocationService, LocationData } from '../services/geolocationService';
 import { TRANSLATIONS, COUNTRIES_DATA, PRESET_AVATARS } from '../constants';
+import StickerPicker from './StickerPicker';
 const AvatarCreator = React.lazy(() => import('./AvatarCreator').then(module => ({ default: module.AvatarCreator })));
 
 interface ChatPanelProps {
@@ -384,9 +385,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [isPlayerOpen, setIsPlayerOpen] = useState(true);
   const [isVolumeOpen, setIsVolumeOpen] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [lastSelfMsgId, setLastSelfMsgId] = useState<string | null>(null);
     const [showFlagged, setShowFlagged] = useState<Record<string, boolean>>({});
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [showStickerPicker, setShowStickerPicker] = useState(false);
 
   // Profile Lockdown Logic (30 Days)
   const isProfileLocked = useMemo(() => {
@@ -1010,6 +1013,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       alert(data.message || 'Your profile has been temporarily suspended for review.');
     }));
 
+    // RESTORE DELETED ACCOUNT
+    cleanups.push(socketService.onUserRestored((restoredProfile) => {
+      console.log('✅ Account restored successfully:', restoredProfile);
+      localStorage.setItem('streamflow_user_profile', JSON.stringify(restoredProfile));
+      alert(language === 'ru' ? 'Добро пожаловать обратно! Ваш аккаунт успешно восстановлен.' : 'Welcome back! Your account has been restored.');
+      window.location.reload();
+    }));
+
     // RE-REGISTER ON RECONNECT (Fix for server restarts) — with cleanup
     cleanups.push(socketService.onConnect(() => {
         if (currentUser && currentUser.id) {
@@ -1180,6 +1191,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
               text = encryptionService.decrypt(message.encryptedPayload, message.sessionId);
           } else if (message.messageType === 'audio' && message.encryptedPayload) {
               audioBase64 = encryptionService.decryptBinary(message.encryptedPayload, message.sessionId);
+          } else if (message.messageType === 'sticker' && message.encryptedPayload) {
+              text = encryptionService.decrypt(message.encryptedPayload, message.sessionId); // Sticker URL is text
           }
       } catch (e) {
           console.error(`[CRYPTO] Decryption failed for msg ${message.id}`, e);
@@ -1597,27 +1610,12 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   };
 
   const handleDeleteAccount = () => {
-    // Show premium hint instead of browser alert
-    if (deleteHintTimeoutRef.current) clearTimeout(deleteHintTimeoutRef.current);
-    setShowDeleteHint(true);
-    deleteHintTimeoutRef.current = setTimeout(() => setShowDeleteHint(false), 4000);
-
-    // If already requested, don't do server call
-    if (currentUser.deletionRequestedAt && deletionDaysRemaining) {
-        return;
+    if (window.confirm(language === 'ru' ? 'Вы уверены, что хотите удалить аккаунт? Вы сможете восстановить его позже с этого же устройства.' : 'Are you sure you want to delete your account? You can restore it later from this device.')) {
+        socketService.deleteAccount(() => {
+            localStorage.clear();
+            window.location.reload();
+        });
     }
-
-    // Proceed with server call immediately (UI hint already shown above)
-    socketService.requestDeletion((data) => {
-      if (data.success) {
-          const updatedUser = { 
-              ...currentUser, 
-              deletionRequestedAt: data.deletionRequestedAt 
-          };
-          onUpdateCurrentUser(updatedUser);
-          localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
-      }
-    });
   };
 
   const handleRegistrationComplete = () => {
@@ -1759,8 +1757,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     if (searchGender !== 'any') filters.gender = searchGender;
     
     socketService.searchUsers(filters, (results) => {
-      // Filter out self from search results
-      setSearchResults(results.filter(u => u.id !== currentUser.id));
+      // Keep self in search results so the "This is You" card is visible
+      setSearchResults(results);
     });
   };
 
@@ -1887,13 +1885,42 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     socketService.sendMessage(
         activeSession.sessionId,
         encrypted,
-        'text'
+        'text',
+        { text: textContent }
     );
     
     setInputText('');
   };
 
-
+  const handleSendSticker = (stickerUrl: string) => {
+    if (!activeSession) return;
+    
+    // Encrypt the URL itself
+    const encrypted = encryptionService.encrypt(stickerUrl, activeSession.sessionId);
+    
+    // OPTIMISTIC UI
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMsg: any = {
+        id: tempId,
+        sessionId: activeSession.sessionId,
+        senderId: currentUser.id,
+        encryptedPayload: encrypted,
+        messageType: 'sticker',
+        metadata: { text: stickerUrl, optimistic: true },
+        timestamp: Date.now(),
+        expiresAt: Date.now() + 60000
+    };
+    
+    setMessages(prev => [...prev, optimisticMsg]);
+    scrollToBottom();
+    
+    socketService.sendMessage(
+        activeSession.sessionId,
+        encrypted,
+        'sticker',
+        { text: stickerUrl }
+    );
+  };
 
   const startRecording = async (e: React.PointerEvent) => {
     e.preventDefault();
@@ -2711,7 +2738,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     </div>
 
                     {/* Carousel visible to guests in register view */}
-                    {onlineUsers.filter(u => u.id !== currentUser.id && u.avatar).length > 0 && (
+                    {onlineUsers.filter(u => u.avatar).length > 0 && (
                         <div 
                             ref={view === 'register' ? carouselRef : undefined}
                             onMouseEnter={() => setIsHoveringCarousel(true)}
@@ -2725,17 +2752,24 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             </div>
                             <div className="flex flex-col gap-3 px-4 pb-12">
                                 {(() => {
-                                    const list = onlineUsers.filter(u => u.id !== currentUser.id && u.avatar);
+                                    const list = onlineUsers.filter(u => u.avatar);
                                     const duplicatedList = [...list, ...list];
-                                    return duplicatedList.map((user, idx) => (
-                                        <div key={`reg-${user.id}-${idx}`} className="bg-white/[0.03] border border-white/10 rounded-2xl p-3 flex items-center gap-3">
-                                            <div className="relative shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800">
+                                    return duplicatedList.map((user, idx) => {
+                                        const isMe = user.id === currentUser.id;
+                                        return (
+                                        <div key={`reg-${user.id}-${idx}`} className={`bg-white/[0.03] border ${isMe ? 'border-blue-500/30' : 'border-white/10'} rounded-2xl p-3 flex items-center gap-3`}>
+                                            <div className={`relative shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800 ${isMe ? 'ring-2 ring-blue-500/50' : ''}`}>
                                                 <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
                                                 <div className={`absolute bottom-0.5 left-0.5 w-2 h-2 rounded-full border border-slate-900 ${user.status === 'online' ? 'bg-green-500' : 'bg-slate-500'}`} />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-1.5">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
                                                     <span className="font-bold text-xs text-white truncate">{user.name}</span>
+                                                    {isMe && (
+                                                        <span className="text-[8px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-bold border border-blue-500/30 whitespace-nowrap leading-none mt-0.5">
+                                                            {language === 'ru' ? 'Это Вы онлайн' : 'You are online'}
+                                                        </span>
+                                                    )}
                                                     <span className="text-[9px] text-slate-400">{user.age}</span>
                                                     {user.country && <span className="text-[8px] text-slate-500">📍{user.country}</span>}
                                                 </div>
@@ -2747,7 +2781,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                                 {user.status === 'online' ? '● ' + (language === 'ru' ? 'В СЕТИ' : 'ONLINE') : '○ OFF'}
                                             </span>
                                         </div>
-                                    ));
+                                    )});
                                 })()}
                             </div>
                         </div>
@@ -2948,41 +2982,50 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             <div className="flex flex-col gap-3 px-4 pb-12 pt-2">
                                 {(() => {
                                     const list = ((searchResults?.length > 0 ? searchResults : onlineUsers) || [])
-                                        .filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id));
+                                        .filter(u => !hiddenUsers.has(u.id));
                                     // Duplicate the list for infinite circular scrolling
                                     const duplicatedList = [...list, ...list];
-                                    return duplicatedList.map((user, idx) => (
-                                    <div key={`${user.id}-${idx}`} className="bg-white/[0.03] border border-white/10 rounded-3xl relative group hover:bg-white/[0.06] transition-all duration-300 overflow-hidden">
-                                        {/* Hide Button */}
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); handleHideUser(user.id); }}
-                                            className="absolute top-2 right-2 p-1 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all z-10"
-                                            title={t.hide}
-                                        >
-                                            <XMarkIcon className="w-3.5 h-3.5" />
-                                        </button>
+                                    return duplicatedList.map((user, idx) => {
+                                        const isMe = user.id === currentUser.id;
+                                        return (
+                                        <div key={`${user.id}-${idx}`} className={`bg-white/[0.03] border ${isMe ? 'border-blue-500/30 ring-1 ring-blue-500/20' : 'border-white/10'} rounded-3xl relative group hover:bg-white/[0.06] transition-all duration-300 overflow-hidden`}>
+                                            {/* Hide Button */}
+                                            {!isMe && (
+                                                <button 
+                                                    onClick={(e) => { e.stopPropagation(); handleHideUser(user.id); }}
+                                                    className="absolute top-2 right-2 p-1 text-white/20 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all z-10"
+                                                    title={t.hide}
+                                                >
+                                                    <XMarkIcon className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
 
-                                        {/* Top row: avatar + info */}
-                                        <div className="flex items-start gap-3 p-3 pb-2">
-                                            {/* Avatar */}
-                                            <div className="relative shrink-0 w-16 h-16 rounded-2xl overflow-hidden bg-slate-800 shadow-lg">
-                                                <img src={user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.id}`} alt={user.name} className={`w-full h-full object-cover ${user.status === 'offline' ? 'grayscale-[0.5]' : ''}`} />
-                                                <div className={`absolute bottom-1 left-1 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${user.status === 'online' ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-slate-500'}`} />
-                                            </div>
-
-                                            {/* Info */}
-                                            <div className="flex-1 min-w-0 pt-0.5">
-                                                {/* Name + age + location */}
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <h3 className="font-black text-sm text-white leading-tight truncate max-w-[120px]">{user.name}</h3>
-                                                    <span className="text-[10px] font-bold text-slate-300">{user.age}</span>
-                                                    {user.country && (
-                                                        <div className="flex items-center gap-0.5">
-                                                            <span className="text-[10px]">📍</span>
-                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[70px]">{user.country}</span>
-                                                        </div>
-                                                    )}
+                                            {/* Top row: avatar + info */}
+                                            <div className="flex items-start gap-3 p-3 pb-2">
+                                                {/* Avatar */}
+                                                <div className={`relative shrink-0 w-16 h-16 rounded-2xl overflow-hidden bg-slate-800 shadow-lg ${isMe ? 'ring-2 ring-blue-500/50' : ''}`}>
+                                                    <img src={user.avatar || `https://api.dicebear.com/7.x/adventurer/svg?seed=${user.id}`} alt={user.name} className={`w-full h-full object-cover ${user.status === 'offline' ? 'grayscale-[0.5]' : ''}`} />
+                                                    <div className={`absolute bottom-1 left-1 w-2.5 h-2.5 rounded-full border-2 border-slate-900 ${user.status === 'online' ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.8)]' : 'bg-slate-500'}`} />
                                                 </div>
+
+                                                {/* Info */}
+                                                <div className="flex-1 min-w-0 pt-0.5">
+                                                    {/* Name + age + location */}
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <h3 className="font-black text-sm text-white leading-tight truncate max-w-[120px]">{user.name}</h3>
+                                                        {isMe && (
+                                                            <span className="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded-sm uppercase tracking-wider font-bold border border-blue-500/30 whitespace-nowrap leading-none mt-0.5">
+                                                                {language === 'ru' ? 'Это Вы онлайн' : 'You are online'}
+                                                            </span>
+                                                        )}
+                                                        <span className="text-[10px] font-bold text-slate-300">{user.age}</span>
+                                                        {user.country && (
+                                                            <div className="flex items-center gap-0.5">
+                                                                <span className="text-[10px]">📍</span>
+                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate max-w-[70px]">{user.country}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
 
                                                 {/* Status badge + online dot */}
                                                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -3037,9 +3080,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                             </button>
                                         </div>
                                     </div>
-                                    ));
+                                    );
+                                });
                                 })()}
-                                {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => u.id !== currentUser.id && !hiddenUsers.has(u.id)).length === 0 && (
+                                {((searchResults?.length > 0 ? searchResults : onlineUsers) || []).filter(u => !hiddenUsers.has(u.id)).length === 0 && (
                                      <div className="w-full flex flex-col items-center justify-center text-center py-20 opacity-40">
                                         <div className="text-4xl mb-4">🔭</div>
                                         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">{t.noUsersFound}</p>
@@ -3198,7 +3242,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         </div>
                                     ) : (
                                         <>
-                                            {msg.messageType === 'text' && msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
+                                            {msg.messageType === 'text' && msg.text && (() => {
+                                                const isOnlyEmojis = /^(\p{Emoji_Presentation}|\p{Extended_Pictographic}|\s)+$/u.test(msg.text) && /[^\s]/.test(msg.text);
+                                                return <p className={`leading-relaxed whitespace-pre-wrap ${isOnlyEmojis ? 'text-[5rem] leading-none text-center block w-full py-2 my-2' : ''}`}>{msg.text}</p>;
+                                            })()}
+                                            {msg.messageType === 'sticker' && msg.text && (
+                                                <img src={msg.text} alt="Sticker" className="w-32 h-32 object-contain block my-1" loading="lazy" />
+                                            )}
                                             {msg.messageType === 'audio' && (
                                                 msg.audioBase64 ? (
                                                     <div className="flex items-center gap-3 py-1 min-w-[160px] pr-2">
@@ -3248,6 +3298,12 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 )}
                 {isRecording && (<div className="absolute inset-x-2 -top-16 h-14 bg-red-600/90 backdrop-blur-md rounded-2xl flex items-center justify-between px-6 text-white animate-in slide-in-from-bottom border border-red-400/30 shadow-2xl z-50"><div className="flex items-center gap-3"><div className="w-3 h-3 bg-white rounded-full animate-ping"></div><span className="font-bold text-xs uppercase tracking-widest">{recordingTime}s {t.recording}</span></div><button onPointerUp={stopRecording} className="text-[10px] font-black bg-white text-red-600 px-4 py-2 rounded-xl hover:scale-105 transition-transform shadow-lg">{t.send}</button></div>)}
                 {showEmojiPicker && (<div className="absolute bottom-24 left-2 right-2 bg-[#1e293b] p-3 rounded-[2rem] h-64 overflow-y-auto no-scrollbar grid grid-cols-8 gap-1 border border-white/10 shadow-2xl z-50 animate-in slide-in-from-bottom-5">{EMOJIS.map(e => <button key={e} onClick={() => { setInputText(p => p + e); setShowEmojiPicker(false); }} className="text-2xl hover:bg-white/10 rounded-lg p-1 transition-colors">{e}</button>)}</div>)}
+                {showStickerPicker && (
+                    <StickerPicker 
+                        onSelect={(url) => handleSendSticker(url)}
+                        onClose={() => setShowStickerPicker(false)}
+                    />
+                )}
                 <div className="flex items-center gap-1.5 md:gap-2">
                     
                     <div className="flex-1 min-w-0 bg-white/5 border border-white/5 rounded-[1.5rem] flex items-center px-1.5 md:px-2 min-h-[46px] md:min-h-[50px] hover:bg-white/10 transition-all">
@@ -3259,8 +3315,18 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             className="flex-1 min-w-0 bg-transparent border-none outline-none py-2 md:py-3 px-2 md:px-3 text-sm text-white placeholder:text-slate-500 font-medium" 
                         />
                         <button 
-                            onClick={() => setShowEmojiPicker(!showEmojiPicker)} 
-                            className="p-1.5 md:p-2 text-slate-400 hover:text-yellow-400 transition-colors active:scale-90 shrink-0"
+                            onClick={() => { setShowStickerPicker(!showStickerPicker); setShowEmojiPicker(false); }} 
+                            className={`p-1.5 md:p-2 transition-colors active:scale-90 shrink-0 ${showStickerPicker ? 'text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`}
+                            title="Стикеры"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 md:w-6 h-6">
+                              <path fillRule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12.75 6a.75.75 0 00-1.5 0v6c0 .414.336.75.75.75h4.5a.75.75 0 000-1.5h-3.75V6z" clipRule="evenodd" />
+                            </svg>
+                        </button>
+                        <button 
+                            onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowStickerPicker(false); }} 
+                            className={`p-1.5 md:p-2 transition-colors active:scale-90 shrink-0 ${showEmojiPicker ? 'text-yellow-400' : 'text-slate-400 hover:text-yellow-400'}`}
+                            title="Эмодзи"
                         >
                             <FaceSmileIcon className="w-5 h-5 md:w-6 h-6" />
                         </button>
