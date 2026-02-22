@@ -228,11 +228,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     volume, onVolumeChange, visualMode, favorites, onToggleFavorite, randomMode, onToggleRandomMode, onShare,
     onPendingKnocksChange, detectedLocation: passedLocation, onRequireLogin, onLightsToggle
 }) => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
+
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [showDeleteHint, setShowDeleteHint] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
 
   // Knock Flow States
   const [isWaitingForPartner, setIsWaitingForPartner] = useState(false);
@@ -302,8 +302,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       window.speechSynthesis.speak(utterance);
   };
 
-  // Refs
-  // messagesEndRef is defined below, removing duplicate
+
   const [isDemoOpen, setIsDemoOpen] = useState(false);
   const [isRegDemoOpen, setIsRegDemoOpen] = useState(false);
   const [showDemoMenu, setShowDemoMenu] = useState(false);
@@ -385,8 +384,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [isPlayerOpen, setIsPlayerOpen] = useState(true);
   const [isVolumeOpen, setIsVolumeOpen] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-    const [isMuted, setIsMuted] = useState(false);
-    const [mutedUntil, setMutedUntil] = useState<number | null>(null);
     const [showFlagged, setShowFlagged] = useState<Record<string, boolean>>({});
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -438,14 +435,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }
   }, [currentUser.id, currentUser.name, currentUser.age, currentUser.gender, currentUser.avatar, currentUser.intentStatus, currentUser.voiceIntro]);
   const [profileExpiresAt, setProfileExpiresAt] = useState<number | null>(null);
-  const [isLightsOn, setIsLightsOn] = useState(false); // Cozy Lighting Mode
-  const [expirationWarning, setExpirationWarning] = useState(false);
+  const [isLightsOn, setIsLightsOn] = useState(false);
   const [violationMessage, setViolationMessage] = useState<string | null>(null);
   const [onlineStats, setOnlineStats] = useState({ totalOnline: 0, chatOnline: 0 });
-  
-  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-
-  const [otpError, setOtpError] = useState<string | null>(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
   // View state: Default to search if profile complete, else register
@@ -504,7 +496,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     voiceSettingsRef.current = voiceSettings;
   }, [voiceSettings]);
 
-  // Auto-scrolling carousel logic
   // Auto-scrolling carousel logic
   useEffect(() => {
     if (view !== 'search' || isHoveringCarousel || !carouselRef.current) return;
@@ -683,7 +674,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [notificationToast, setNotificationToast] = useState<{ senderName: string; text: string; senderId: string; avatar?: string } | null>(null);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ... (Call State) ...
 
   // Helper: Banner Notification
   const showBannerNotification = (title: string, body: string) => {
@@ -754,8 +744,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const recordingIntervalRef = useRef<number | null>(null);
   const preRecordingVolumeRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
   const availableCitiesSearch = useMemo(() => [], []);
 
   const scrollToBottom = () => {
@@ -882,7 +870,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     
     // Listen for profile expiration warning
     cleanups.push(socketService.onProfileExpiring((data) => {
-      setExpirationWarning(true);
       const minutes = Math.floor(data.expiresIn / 60000);
       alert(`⚠️ ${t.profileExpiringWarning.replace('{minutes}', minutes.toString())}`);
     }));
@@ -1136,7 +1123,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
         setNotificationToast({
             senderName,
-            text: message.messageType === 'text' ? '[message]' : t.sentFile,
+            text: message.messageType === 'text' ? '[message]' : (message.messageType === 'audio' ? (language === 'ru' ? 'Голосовое сообщение' : 'Voice message') : t.newMsg),
             senderId: message.senderId,
             avatar: senderAvatar
         });
@@ -1212,7 +1199,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                const senderName = currentActiveSession?.partnerProfile?.name || t.partner;
                showBannerNotification(
                    t.newMsg, 
-                   `${senderName}: ${decrypted.messageType === 'text' ? (decrypted.text?.substring(0, 30) + '...') : t.sentFile}`
+                   `${senderName}: ${decrypted.messageType === 'text' ? (decrypted.text?.substring(0, 30) + '...') : (decrypted.messageType === 'audio' ? (language === 'ru' ? 'Голосовое сообщение' : 'Voice message') : t.newMsg)}`
                );
           }
 
@@ -1230,7 +1217,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
              if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
              setNotificationToast({
                  senderName,
-                 text: decrypted.messageType === 'text' ? (decrypted.text || '') : t.sentFile,
+                 text: decrypted.messageType === 'text' ? (decrypted.text || '') : (decrypted.messageType === 'audio' ? (language === 'ru' ? 'Голосовое сообщение' : 'Voice message') : t.newMsg),
                  senderId: message.senderId,
                  avatar: senderAvatar
              });
@@ -1262,8 +1249,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     // Listen for message errors (Moderation & Session Sync)
     cleanups.push(socketService.addListener('message:error', (data) => {
         if (data.mutedUntil) {
-            setIsMuted(true);
-            setMutedUntil(data.mutedUntil);
             alert(t.restrictedSpam);
         } else if (data.message === 'Invalid session') {
             console.error("[CHAT] ❌ Invalid Session detected. Attempting auto-recovery...");
@@ -1313,8 +1298,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
     // Listen for Auth Errors Global (Rate Limits)
     cleanups.push(socketService.onAuthError((data) => {
-        setOtpError(data.message);
-        setIsVerifyingOtp(false);
+        console.warn('[AUTH] Auth error:', data.message);
     }));
 
     // DEBUG: Monitor Disconnects
@@ -1331,8 +1315,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         console.log(`[SOCKET] ✅ Client connected: ${socketService.serverUrl}`);
     }));
 
-    // AI Voice Mode Helper (Refactored out)
-
 
 
     // Listen for report acknowledgment
@@ -1348,7 +1330,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         setView('chat');
     }));
 
-    // Listen for knock accepted (Sender side)
     // Listen for knock accepted (Sender side)
     cleanups.push(socketService.onKnockAccepted((data) => {
         // ONE-TIME BANNER LOGIC: Check if already acknowledged
@@ -1379,12 +1360,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         playNotificationSound('knock'); 
         announceNotification(`${t.knockAccepted} ${data.partnerProfile.name} ${t.partnerWaiting}`);
             
-        // Timeout removed - we want them to click "Start Chat"
-        // But maybe we auto-dismiss the banner after 10s if ignored?
-        // No, let's keep it until they interact or close it.
     }));
-
-    // Duplicate listener removed - consolidated above
     
     return () => {
       // Cleanup all event listeners (NOT disconnect!)
@@ -1751,10 +1727,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
      return cleanup;
   }, [searchAgeFrom, searchAgeTo, searchGender, currentUser.id]);
 
-  const handleAvatarSetup = (_e: React.ChangeEvent<HTMLInputElement>) => {
-    // Photo upload removed - use preset avatars or AvatarCreator
-    setShowAvatarModal(true);
-  };
+
 
   const handleSearch = () => {
     const filters: any = {};
