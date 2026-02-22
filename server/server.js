@@ -665,6 +665,9 @@ io.on('connection', (socket) => {
   broadcastPresenceCount(socket); // Send current count immediately to the new client
   broadcastPresenceCount(); // Then update everyone else
   
+  // Send current user list immediately to the new socket (so carousel is populated)
+  socket.emit('presence:list', getAllParticipants());
+  
   let boundUserId = null;
 
   // WRAPPER FOR SAFE ASYNC HANDLING TO PREVENT CRASHES
