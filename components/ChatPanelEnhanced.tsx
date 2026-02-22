@@ -2,10 +2,10 @@
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 import { 
     XMarkIcon, PaperAirplaneIcon, UsersIcon, 
-    MicrophoneIcon, FaceSmileIcon, PaperClipIcon, 
-    PlayIcon, PauseIcon, CameraIcon, SearchIcon, ClockIcon,
+    MicrophoneIcon, FaceSmileIcon, 
+    PlayIcon, PauseIcon, SearchIcon, ClockIcon,
     NextIcon, PreviousIcon, VolumeIcon, ChevronDownIcon, ChevronUpIcon,
-    HeartIcon, PhoneIcon, VideoCameraIcon, ArrowLeftIcon, UserIcon, ChatBubbleIcon,
+    HeartIcon, ArrowLeftIcon, UserIcon, ChatBubbleIcon,
     BellIcon, NoSymbolIcon, LifeBuoyIcon, SpeakIcon, GlobeIcon, ArrowRightOnRectangleIcon, AdjustmentsIcon, ShuffleIcon, ShareIcon
 } from './Icons';
 import { ChatMessage, UserProfile, Language, RadioStation, ChatSession, VisualMode } from '../types';
@@ -107,87 +107,7 @@ const SMART_PROMPTS: Record<string, any> = {
   }
 };
 
-const stylizeAvatar = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target?.result as string;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const SIZE = 384;
-                canvas.width = SIZE;
-                canvas.height = SIZE;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return reject('No context');
 
-                const min = Math.min(img.width, img.height);
-                const sx = (img.width - min) / 2;
-                const sy = (img.height - min) / 2;
-                ctx.drawImage(img, sx, sy, min, min, 0, 0, SIZE, SIZE);
-
-                const imageData = ctx.getImageData(0, 0, SIZE, SIZE);
-                const data = imageData.data;
-                for (let i = 0; i < data.length; i += 4) {
-                    data[i] = Math.floor(data[i] / 64) * 64;
-                    data[i+1] = Math.floor(data[i+1] / 64) * 64;
-                    data[i+2] = Math.floor(data[i+2] / 64) * 64;
-                }
-                ctx.putImageData(imageData, 0, 0);
-                resolve(canvas.toDataURL('image/webp', 0.6));
-            };
-            img.onerror = (err) => reject(err);
-        };
-        reader.onerror = (err) => reject(err);
-    });
-};
-
-const processChatImage = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const objectUrl = URL.createObjectURL(file);
-        const img = new Image();
-        img.src = objectUrl;
-
-        img.onload = () => {
-            // Revoke immediately to free memory
-            URL.revokeObjectURL(objectUrl);
-
-            const canvas = document.createElement('canvas');
-            // Limit max dimension to 800px for smaller AES payload (mobile memory safety)
-            const MAX_SIZE = 800;
-                let width = img.width;
-                let height = img.height;
-                
-                if (width > height) {
-                    if (width > MAX_SIZE) {
-                        height *= MAX_SIZE / width;
-                        width = MAX_SIZE;
-                    }
-                } else {
-                    if (height > MAX_SIZE) {
-                        width *= MAX_SIZE / height;
-                        height = MAX_SIZE;
-                    }
-                }
-                
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return reject('No context');
-
-                // Standard draw without filters
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // Use JPEG with 0.5 quality for smaller footprint during crypto operations
-                resolve(canvas.toDataURL('image/jpeg', 0.5));
-            };
-            img.onerror = (err) => {
-                URL.revokeObjectURL(objectUrl);
-                reject(err);
-            };
-        });
-};
 
 interface DrumPickerProps {
   options: string[];
@@ -237,7 +157,7 @@ const DrumPicker: React.FC<DrumPickerProps> = ({ options, value, onChange, label
 
 // Message TTL countdown component
 const MessageTTLIndicator = ({ msg }: { msg: any }) => {
-    const ttl = (msg.messageType === 'image' || msg.messageType === 'audio' || msg.messageType === 'video') ? 30 : 60;
+    const ttl = msg.messageType === 'audio' ? 30 : 60;
     const [remaining, setRemaining] = useState(ttl);
     
     useEffect(() => {
@@ -524,7 +444,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const [onlineStats, setOnlineStats] = useState({ totalOnline: 0, chatOnline: 0 });
   
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
-  const [isFileUploading, setIsFileUploading] = useState(false);
+
   const [otpError, setOtpError] = useState<string | null>(null);
   const [showAvatarModal, setShowAvatarModal] = useState(false);
 
@@ -829,23 +749,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       window.speechSynthesis.speak(utterance);
   };
 
-  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'ringing' | 'connected'>('idle');
-  const [callPartner, setCallPartner] = useState<UserProfile | null>(null);
-  const [isMicPreparing, setIsMicPreparing] = useState(false);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingIntervalRef = useRef<number | null>(null);
   const preRecordingVolumeRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const ringtoneRef = useRef<HTMLAudioElement | null>(null);
-  const pendingCandidates = useRef<RTCIceCandidate[]>([]);
 
   const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
   const availableCitiesSearch = useMemo(() => [], []);
@@ -949,7 +857,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         const now = Date.now();
         const filtered = prev.filter(msg => {
           const age = now - msg.timestamp;
-          if (msg.messageType === 'image' || msg.messageType === 'audio' || msg.messageType === 'video') {
+          if (msg.messageType === 'audio') {
             return age < 30000; // 30s for media
           }
           return age < 60000; // 60s for text
@@ -963,44 +871,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     return () => clearInterval(pruneInterval);
   }, []);
 
-  // Ringtone Management
-  useEffect(() => {
-     if (callStatus === 'ringing' || callStatus === 'calling') {
-         console.log(`🔔 Ringtone started (${callStatus})`);
-         if (!ringtoneRef.current) {
-             ringtoneRef.current = new Audio('/sounds/call.mp3');
-             ringtoneRef.current.loop = true;
-         }
-         // For 'calling' we might want a slightly different volume or start delay
-         ringtoneRef.current.volume = 0.5;
-         ringtoneRef.current.play().catch(err => console.error("Ringtone play error", err));
-     } else {
-         if (ringtoneRef.current) {
-             console.log("🔕 Ringtone stopped");
-             ringtoneRef.current.pause();
-             ringtoneRef.current.currentTime = 0;
-         }
-     }
-     
-     return () => {
-         if (ringtoneRef.current) {
-             ringtoneRef.current.pause();
-             ringtoneRef.current.currentTime = 0;
-         }
-     };
-  }, [callStatus]);
 
-  // Audio Stream Effect
-  useEffect(() => {
-    if (remoteStream) {
-        console.log("[UI] Setting remote stream to audio element", remoteStream.getTracks());
-        const audioEl = document.getElementById('remote-audio') as HTMLAudioElement;
-        if (audioEl) {
-            audioEl.srcObject = remoteStream;
-            audioEl.play().catch(e => console.error("Auto-play failed", e));
-        }
-    }
-  }, [remoteStream]);
 
   // Socket.IO connection setup
   useEffect(() => {
@@ -1215,9 +1086,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
               text: msg.messageType === 'text' && msg.encryptedPayload 
                 ? encryptionService.decrypt(msg.encryptedPayload, data.sessionId)
                 : undefined,
-              image: msg.messageType === 'image' && msg.encryptedPayload
-                ? encryptionService.decryptBinary(msg.encryptedPayload, data.sessionId)
-                : undefined,
               audioBase64: msg.messageType === 'audio' && msg.encryptedPayload
                 ? encryptionService.decryptBinary(msg.encryptedPayload, data.sessionId)
                 : undefined,
@@ -1249,14 +1117,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         historical: isHistorical
       });
 
-      // CRASH PREVENTION: Validate Image Payloads
-      // Mobile Safari/Chrome can crash if rendering a corrupted base64 string
-      if (message.messageType === 'image') {
-          try {
-             const payload = message.encryptedPayload || ''; // It's encrypted here, but if we decrypt later...
-             // Wait, logic below decrypts it. We need to wrap that.
-          } catch (e) { console.error("Message pre-check failed", e); return; }
-      }
+
       
       const isForActiveSession = currentActiveSession && message.sessionId === currentActiveSession.sessionId;
       
@@ -1303,17 +1164,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       }
       
       // Decrypt message SAFELY
-      let text, image, audioBase64;
+      let text, audioBase64;
       try {
           if (message.messageType === 'text' && message.encryptedPayload) {
               text = encryptionService.decrypt(message.encryptedPayload, message.sessionId);
-          } else if (message.messageType === 'image' && message.encryptedPayload) {
-              image = encryptionService.decryptBinary(message.encryptedPayload, message.sessionId);
-              // CRASH PREVENTION: post-decryption check
-              if (!image.startsWith('data:image')) {
-                  console.warn(`[CLIENT] ⚠️ Invalid image header for msg ${message.id}`);
-                  image = undefined; // Drop it
-              }
           } else if (message.messageType === 'audio' && message.encryptedPayload) {
               audioBase64 = encryptionService.decryptBinary(message.encryptedPayload, message.sessionId);
           }
@@ -1325,7 +1179,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       const decrypted = {
         ...message,
         text,
-        image,
         audioBase64,
         flagged: message.metadata?.flagged || false
       };
@@ -1403,108 +1256,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     cleanups.push(socketService.onMessagesDeleted((data) => {
       if (activeSessionRef.current && data.sessionId === activeSessionRef.current.sessionId) {
         setMessages(prev => prev.slice(-data.remainingCount));
-      }
-    }));
-    
-    // Listen for WebRTC signals
-    cleanups.push(socketService.onSignalReceived(async ({ fromUserId, signal }) => {
-      if (currentUser.blockedUsers.includes(fromUserId)) return;
-      
-      if (signal.type === 'offer') {
-         // Incoming call
-         if (callStatus !== 'idle') return;
-         
-         // Try to find partner in online users OR active sessions OR pending knocks
-         let partner = onlineUsers.find(u => u.id === fromUserId);
-         if (!partner) {
-             const session = Array.from(activeSessions.values()).find(s => s.partnerId === fromUserId);
-             if (session) partner = session.partnerProfile || getPartnerFromSession(session);
-         }
-         
-         // Fallback: Look in pending knocks or create temporary profile
-         if (!partner) {
-             const knock = pendingKnocks.find(k => k.fromUserId === fromUserId);
-             if (knock && knock.fromUser) {
-                 partner = knock.fromUser;
-             } else {
-                 // Final fallback so call works even if user info missing
-                 partner = {
-                     id: fromUserId,
-                     name: 'Incoming Call...',
-                     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=unknown',
-                     age: 0,
-                     country: 'Unknown',
-                     city: '',
-                     gender: 'male',
-                     status: 'online',
-                     safetyLevel: 'green',
-                     blockedUsers: [],
-                     bio: '',
-                     hasAgreedToRules: true,
-                     isAuthenticated: true,
-                     filters: { minAge: 18, maxAge: 99, countries: [], languages: [], genders: ['any'], soundEnabled: true },
-                     chatSettings: { 
-                         notificationsEnabled: true, 
-                         notificationVolume: 0.8, 
-                         notificationSound: 'default',
-                         bannerNotificationsEnabled: false,
-                         voiceNotificationsEnabled: false,
-                         notificationVoice: 'female'
-                     }
-                 };
-             }
-         }
-
-         if (partner) {
-             setCallPartner(partner);
-             setCallStatus('ringing');
-             playNotificationSound('knock'); 
-             
-             const pc = createPeerConnection(fromUserId);
-             peerConnectionRef.current = pc;
-             pendingCandidates.current = []; // Reset queue
-             
-             await pc.setRemoteDescription(new RTCSessionDescription(signal));
-             
-             // Process queued candidates
-             if (pendingCandidates.current.length > 0) {
-                 console.log(`[WEBRTC] Processing ${pendingCandidates.current.length} queued candidates`);
-                 for (const candidate of pendingCandidates.current) {
-                     await pc.addIceCandidate(candidate).catch(e => console.warn("Queue ICE error:", e));
-                 }
-                 pendingCandidates.current = [];
-             }
-         }
-      } else if (signal.type === 'answer') {
-          if (callStatus === 'calling' && peerConnectionRef.current) {
-              await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(signal));
-              setCallStatus('connected');
-              
-              // Process queued candidates
-              if (pendingCandidates.current.length > 0) {
-                  console.log(`[WEBRTC] Processing ${pendingCandidates.current.length} queued candidates (answer)`);
-                  for (const candidate of pendingCandidates.current) {
-                      await peerConnectionRef.current.addIceCandidate(candidate).catch(e => console.warn("Queue ICE error:", e));
-                  }
-                  pendingCandidates.current = [];
-              }
-          }
-      } else if (signal.candidate) {
-          if (peerConnectionRef.current) {
-              if (peerConnectionRef.current.remoteDescription) {
-                 try {
-                     await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(signal.candidate));
-                 } catch (e) {
-                     console.warn("ICE Candidate error (ignoring):", e);
-                 }
-              } else {
-                  // Queue candidate if remote description not set
-                  console.log("[WEBRTC] Queueing ICE candidate (no remote desc)");
-                  pendingCandidates.current.push(new RTCIceCandidate(signal.candidate));
-              }
-          }
-      } else if (signal.type === 'bye') {
-          endCall(false);
       }
     }));
     
@@ -2000,10 +1751,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
      return cleanup;
   }, [searchAgeFrom, searchAgeTo, searchGender, currentUser.id]);
 
-  const handleAvatarSetup = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    stylizeAvatar(file).then(setRegAvatar);
+  const handleAvatarSetup = (_e: React.ChangeEvent<HTMLInputElement>) => {
+    // Photo upload removed - use preset avatars or AvatarCreator
+    setShowAvatarModal(true);
   };
 
   const handleSearch = () => {
@@ -2147,81 +1897,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     setInputText('');
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    if (!activeSession) {
-        alert(t.noActiveSession || 'Error: No active session');
-        return;
-    }
-    
-    if (file.size > 10 * 1024 * 1024) { // 10MB photo limit
-      alert(t.photoSizeError || 'Photo must be under 10MB');
-      return;
-    }
-    
-    try {
-      setIsFileUploading(true);
-      console.log("[UPLOAD] Processing file:", file.name, file.type, file.size);
-      
-      // FIX: Use simple compression for chat, NOT stylizeAvatar (filters)
-      const compressedBase64 = await processChatImage(file);
-      console.log("[UPLOAD] Compression success. Length:", compressedBase64.length);
-      
-      const encrypted = encryptionService.encryptBinary(compressedBase64, activeSession.sessionId);
-      console.log("[UPLOAD] Encrypted payload length:", encrypted.length);
-      
-      // OPTIMISTIC UI: Add photo locally before server ACK
-      const tempId = `temp_${Date.now()}`;
-      const optimisticMsg: any = {
-          id: tempId,
-          sessionId: activeSession.sessionId,
-          senderId: currentUser.id,
-          image: compressedBase64,
-          messageType: 'image',
-          metadata: { optimistic: true },
-          timestamp: Date.now(),
-          expiresAt: Date.now() + 60000
-      };
-      
-      setMessages(prev => [...prev, optimisticMsg]);
-      scrollToBottom();
 
-      // Send with ACK callback for delivery confirmation
-      socketService.sendMessage(
-        activeSession.sessionId,
-        encrypted,
-        'image',
-        undefined,
-        (ack) => {
-          if (ack && ack.success) {
-            console.log(`[UPLOAD] ✅ Server confirmed: messageId=${ack.messageId}, deliveredTo=${ack.deliveredTo}`);
-            // Remove optimistic placeholder on success (server will broadcast real message soon)
-            setMessages(prev => prev.filter(m => m.id !== tempId));
-          } else {
-            const errorMsg = ack?.error || 'Unknown error';
-            console.error(`[UPLOAD] ❌ Server rejected photo: ${errorMsg}`);
-            alert(`${t.photoNotDelivered}: ${errorMsg}`);
-            // Remove optimistic placeholder on failure
-            setMessages(prev => prev.filter(m => m.id !== tempId));
-          }
-        }
-      );
-      
-      console.log("[UPLOAD] Message sent to socket");
-      
-      // Clear inputs
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (cameraInputRef.current) cameraInputRef.current.value = '';
-    } catch (error: any) {
-      console.error("Image compression/upload failed", error);
-      alert(`${t.uploadFailed}: ${error.message || 'Unknown error'}`);
-    } finally {
-      setIsFileUploading(false);
-    }
-    
-  };
 
   const startRecording = async (e: React.PointerEvent) => {
     e.preventDefault();
@@ -2278,243 +1954,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }
   };
 
-  // --- WebRTC Logic ---
-  // --- WebRTC Logic (Minimal Skeleton) ---
-  const createPeerConnection = (partnerId: string) => {
-      console.log("🔗 Creating PeerConnection...");
-      const pc = new RTCPeerConnection({
-          iceServers: [
-              { urls: 'stun:stun.l.google.com:19302' },
-              { urls: 'stun:stun1.l.google.com:19302' }
-          ]
-      });
-      
-      pc.onicecandidate = (event) => {
-          if (event.candidate) {
-              console.log("❄️ ICE candidate generated");
-              socketService.sendSignal(partnerId, { candidate: event.candidate });
-          }
-      };
-      
-      pc.ontrack = (event) => {
-          console.log(`📥 Remote track received: ${event.track.kind}`);
-          
-          let stream = event.streams[0];
-          if (!stream) {
-              console.log("⚠️ No stream in ontrack, creating one from tracks");
-              stream = new MediaStream([event.track]);
-          }
-          
-          setRemoteStream(stream);
-          
-          const audioEl = document.getElementById('remote-audio') as HTMLAudioElement;
-          if (audioEl) {
-              console.log("[WEBRTC] Attaching stream to remote-audio element");
-              audioEl.srcObject = stream;
-              audioEl.muted = false;
-              audioEl.volume = 1.0;
-              
-              const playPromise = audioEl.play();
-              if (playPromise !== undefined) {
-                  playPromise
-                      .then(() => console.log("🔊 Remote audio playback started successfully"))
-                      .catch(e => {
-                          console.error("❌ Remote audio playback failed (interaction required?):", e);
-                          // We usually show the overlay button in this case
-                      });
-              }
-          } else {
-              console.error("❌ Could not find remote-audio element in DOM");
-          }
-      };
-      
-      pc.onconnectionstatechange = () => {
-          console.log(`🔄 Connection state: ${pc.connectionState}`);
-          if (pc.connectionState === 'connected') {
-              setCallStatus('connected');
-          } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-              console.error("[WEBRTC] Connection failed or closed");
-          }
-      };
-      
-      pc.oniceconnectionstatechange = () => console.log(`❄️ ICE Connection state: ${pc.iceConnectionState}`);
-      
-      return pc;
-  };
-
-  const initiateCall = async () => {
-      if (!callPartner) {
-          console.error("[CALL] Cannot initiate call - no call partner set");
-          return;
-      }
-      
-      console.log(`[CALL] 🔵 Initiating call to ${callPartner.name} (${callPartner.id})`);
-      console.log(`[CALL] Browser: ${navigator.userAgent}`);
-      console.log(`[CALL] MediaDevices available: ${!!navigator.mediaDevices}`);
-      
-      try {
-          // Request microphone access with timeout
-          setIsMicPreparing(true);
-          console.log("[CALL] 🎤 Requesting microphone access...");
-          
-          const getUserMediaWithTimeout = (constraints: MediaStreamConstraints, timeout = 10000) => {
-              return Promise.race([
-                  navigator.mediaDevices.getUserMedia(constraints),
-                  new Promise<MediaStream>((_, reject) => 
-                      setTimeout(() => reject(new Error('getUserMedia timeout - user may have denied permission or device is unavailable')), timeout)
-                  )
-              ]);
-          };
-          
-          const stream = await getUserMediaWithTimeout({ audio: true });
-          setIsMicPreparing(false);
-          console.log("[CALL] ✅ getUserMedia success - Audio tracks:", stream.getAudioTracks().length);
-          stream.getAudioTracks().forEach((track, idx) => {
-              console.log(`[CALL]   Track ${idx}: ${track.label} (enabled: ${track.enabled}, muted: ${track.muted})`);
-          });
-          
-          setLocalStream(stream);
-          localStreamRef.current = stream;
-          setCallStatus('calling');
-          
-          console.log("[CALL] 🔗 Creating peer connection...");
-          const pc = createPeerConnection(callPartner.id);
-          peerConnectionRef.current = pc;
-          
-          stream.getTracks().forEach((track, idx) => {
-              console.log(`[CALL] 📡 Adding local track ${idx} to peer connection`);
-              pc.addTrack(track, stream);
-          });
-
-          console.log("[CALL] 📝 Creating offer...");
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          console.log("[CALL] ✅ Local description set");
-          console.log("[CALL] 📤 Sending offer to", callPartner.id);
-          
-          socketService.sendSignal(callPartner.id, { type: 'offer', sdp: offer.sdp });
-          console.log("[CALL] ✅ Offer sent successfully");
-      } catch (err: any) {
-          console.error("[CALL] ❌ Call initiation failed:", err);
-          console.error("[CALL] Error name:", err.name);
-          console.error("[CALL] Error message:", err.message);
-          console.error("[CALL] Error stack:", err.stack);
-          
-          let userMessage = "Failed to start call. ";
-          if (err.name === 'NotAllowedError' || err.message?.includes('denied')) {
-              userMessage += "Microphone permission was denied. Please allow microphone access and try again.";
-          } else if (err.name === 'NotFoundError') {
-              userMessage += "No microphone found. Please connect a microphone and try again.";
-          } else if (err.message?.includes('timeout')) {
-              userMessage += "Request timed out. Please check your microphone permissions and try again.";
-          } else {
-              userMessage += err.message || "Unknown error occurred.";
-          }
-          
-          alert(userMessage);
-          setIsMicPreparing(false);
-          setCallStatus('idle');
-          setCallPartner(null);
-      }
-  };
-
-  const acceptCall = async () => {
-      if (!callPartner) {
-          console.error("[CALL] Cannot accept call - no call partner set");
-          return;
-      }
-      if (!peerConnectionRef.current) {
-          console.error("[CALL] Cannot accept call - no peer connection exists");
-          return;
-      }
-      
-      console.log(`[CALL] 🟢 Accepting call from ${callPartner.name} (${callPartner.id})`);
-      console.log(`[CALL] Browser: ${navigator.userAgent}`);
-      
-      try {
-          setIsMicPreparing(true);
-          console.log("[CALL] 🎤 Requesting microphone access for answer...");
-          
-          const getUserMediaWithTimeout = (constraints: MediaStreamConstraints, timeout = 10000) => {
-              return Promise.race([
-                  navigator.mediaDevices.getUserMedia(constraints),
-                  new Promise<MediaStream>((_, reject) => 
-                      setTimeout(() => reject(new Error('getUserMedia timeout - user may have denied permission or device is unavailable')), timeout)
-                  )
-              ]);
-          };
-          
-          const stream = await getUserMediaWithTimeout({ audio: true });
-          setIsMicPreparing(false);
-          console.log("[CALL] ✅ getUserMedia success (answer) - Audio tracks:", stream.getAudioTracks().length);
-          stream.getAudioTracks().forEach((track, idx) => {
-              console.log(`[CALL]   Track ${idx}: ${track.label} (enabled: ${track.enabled}, muted: ${track.muted})`);
-          });
-          
-          setLocalStream(stream);
-          localStreamRef.current = stream;
-          
-          const pc = peerConnectionRef.current;
-          stream.getTracks().forEach((track, idx) => {
-              console.log(`[CALL] 📡 Adding local track ${idx} to peer connection (answer)`);
-              pc.addTrack(track, stream);
-          });
-          
-          console.log("[CALL] 📝 Creating answer...");
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          console.log("[CALL] ✅ Local description set (answer)");
-          console.log("[CALL] 📤 Sending answer to", callPartner.id);
-          
-          socketService.sendSignal(callPartner.id, { type: 'answer', sdp: answer.sdp });
-          console.log("[CALL] ✅ Answer sent successfully");
-          setCallStatus('connected');
-      } catch (err: any) {
-          console.error("[CALL] ❌ Call acceptance failed:", err);
-          console.error("[CALL] Error name:", err.name);
-          console.error("[CALL] Error message:", err.message);
-          console.error("[CALL] Error stack:", err.stack);
-          
-          let userMessage = "Failed to accept call. ";
-          if (err.name === 'NotAllowedError' || err.message?.includes('denied')) {
-              userMessage += "Microphone permission was denied. Please allow microphone access and try again.";
-          } else if (err.name === 'NotFoundError') {
-              userMessage += "No microphone found. Please connect a microphone and try again.";
-          } else if (err.message?.includes('timeout')) {
-              userMessage += "Request timed out. Please check your microphone permissions and try again.";
-          } else {
-              userMessage += err.message || "Unknown error occurred.";
-          }
-          
-          alert(userMessage);
-          setIsMicPreparing(false);
-          endCall(true);
-      }
-  };
-  
-  const endCall = (notify = true) => {
-      console.log("[CALL] Ending call");
-      if (notify && callPartner) {
-          socketService.sendSignal(callPartner.id, { type: 'bye' });
-      }
-      
-      if (peerConnectionRef.current) {
-          peerConnectionRef.current.close();
-          peerConnectionRef.current = null;
-      }
-      
-      if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach(t => t.stop());
-          localStreamRef.current = null;
-      }
-      
-      setLocalStream(null);
-      setRemoteStream(null);
-      setCallStatus('idle');
-      setCallPartner(null);
-  };
-
-  // --- End WebRTC ---
 
 
   const getPartnerFromSession = (session: any) => onlineUsers.find(u => u.id === session.partnerId) || session.partnerProfile;
@@ -2564,13 +2003,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </button>
                             )}
                         </div>
-                        {/* <button onClick={() => {
-                          if (partnerDetails) {
-                            setCallPartner(partnerDetails);
-                            setTimeout(() => initiateCall(), 0);
-                          }
-                        }} className="p-2.5 text-slate-300 hover:text-primary transition-colors hover:bg-white/5 rounded-full" title={t.voiceCall}><PhoneIcon className="w-5 h-5" /></button>
-                        <button disabled className="p-2.5 text-slate-500 cursor-not-allowed opacity-50 rounded-full" title={t.videoComingSoon}><VideoCameraIcon className="w-5 h-5" /></button> */}
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors ml-1"><XMarkIcon className="w-6 h-6" /></button>
                     </div>
                 </>
@@ -3027,19 +2459,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         onClick={() => setShowAvatarModal(true)}
                                         className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary shadow-xl rounded-full flex items-center justify-center border-4 border-[#0f172a] text-white hover:scale-110 transition-transform"
                                     >
-                                        <CameraIcon className="w-5 h-5" />
+                                        <span className="text-lg">✏️</span>
                                     </button>
                                 )}
-                                <input 
-                                    type="file" 
-                                    ref={fileInputRef} 
-                                    onChange={(e) => {
-                                        handleAvatarSetup(e);
-                                        setShowAvatarModal(false); // Close modal after selection
-                                    }} 
-                                    className="hidden" 
-                                    accept="image/*" 
-                                />
                             </div>
                         </div>
 
@@ -3633,9 +3055,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                                 text: msg.messageType === 'text' && msg.encryptedPayload 
                                                     ? encryptionService.decrypt(msg.encryptedPayload, session.sessionId)
                                                     : undefined,
-                                                image: msg.messageType === 'image' && msg.encryptedPayload
-                                                    ? encryptionService.decryptBinary(msg.encryptedPayload, session.sessionId)
-                                                    : undefined,
                                                 audioBase64: msg.messageType === 'audio' && msg.encryptedPayload
                                                     ? encryptionService.decryptBinary(msg.encryptedPayload, session.sessionId)
                                                     : undefined,
@@ -3700,16 +3119,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                     ) : (
                                         <>
                                             {msg.messageType === 'text' && msg.text && <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>}
-                                            {msg.messageType === 'image' && (
-                                                msg.image ? (
-                                                    <div className="relative"><img src={msg.image} alt="Shared Photo" className="rounded-xl max-w-full mt-1 object-cover" /></div>
-                                                ) : (
-                                                    <div className="flex flex-col items-center gap-1.5 p-3 bg-red-500/10 border border-red-500/20 rounded-xl mt-1">
-                                                        <span className="text-[10px] font-black uppercase tracking-widest text-red-400 opacity-80">PHOTO ERROR</span>
-                                                        <span className="text-[8px] text-slate-500 uppercase tracking-tighter">Decryption failed</span>
-                                                    </div>
-                                                )
-                                            )}
                                             {msg.messageType === 'audio' && (
                                                 msg.audioBase64 ? (
                                                     <div className="flex items-center gap-3 py-1 min-w-[160px] pr-2">
@@ -3760,12 +3169,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 {isRecording && (<div className="absolute inset-x-2 -top-16 h-14 bg-red-600/90 backdrop-blur-md rounded-2xl flex items-center justify-between px-6 text-white animate-in slide-in-from-bottom border border-red-400/30 shadow-2xl z-50"><div className="flex items-center gap-3"><div className="w-3 h-3 bg-white rounded-full animate-ping"></div><span className="font-bold text-xs uppercase tracking-widest">{recordingTime}s {t.recording}</span></div><button onPointerUp={stopRecording} className="text-[10px] font-black bg-white text-red-600 px-4 py-2 rounded-xl hover:scale-105 transition-transform shadow-lg">{t.send}</button></div>)}
                 {showEmojiPicker && (<div className="absolute bottom-24 left-2 right-2 bg-[#1e293b] p-3 rounded-[2rem] h-64 overflow-y-auto no-scrollbar grid grid-cols-8 gap-1 border border-white/10 shadow-2xl z-50 animate-in slide-in-from-bottom-5">{EMOJIS.map(e => <button key={e} onClick={() => { setInputText(p => p + e); setShowEmojiPicker(false); }} className="text-2xl hover:bg-white/10 rounded-lg p-1 transition-colors">{e}</button>)}</div>)}
                 <div className="flex items-center gap-1.5 md:gap-2">
-                    <button 
-                        onClick={() => fileInputRef.current?.click()} 
-                        className="p-2 md:p-3 text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-full transition-colors active:scale-90 shrink-0"
-                    >
-                        <PaperClipIcon className="w-5 h-5 md:w-6 h-6" />
-                    </button>
                     
                     <div className="flex-1 min-w-0 bg-white/5 border border-white/5 rounded-[1.5rem] flex items-center px-1.5 md:px-2 min-h-[46px] md:min-h-[50px] hover:bg-white/10 transition-all">
                         <input 
@@ -3780,12 +3183,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                             className="p-1.5 md:p-2 text-slate-400 hover:text-yellow-400 transition-colors active:scale-90 shrink-0"
                         >
                             <FaceSmileIcon className="w-5 h-5 md:w-6 h-6" />
-                        </button>
-                        <button 
-                            onClick={() => cameraInputRef.current?.click()} 
-                            className="p-1.5 md:p-2 text-slate-400 hover:text-white transition-colors active:scale-90 shrink-0"
-                        >
-                            <CameraIcon className="w-5 h-5 md:w-6 h-6" />
                         </button>
                     </div>
                     
@@ -3807,18 +3204,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         </button>
                     )}
                 </div>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} /><input type="file" ref={cameraInputRef} className="hidden" accept="image/*" capture="environment" onChange={handleFileUpload} />
                 
-                {isFileUploading && (
-                    <div className="absolute inset-0 bg-black/60 z-50 flex items-center justify-center backdrop-blur-sm animate-in fade-in duration-200">
-                        <div className="flex flex-col items-center gap-2">
-                            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-                            <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                                {t.sending}
-                            </span>
-                        </div>
-                    </div>
-                )}
             </div>
         )}
 
@@ -3878,109 +3264,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
         </div>
 
-        {/* CALL OVERLAY */}
-         {(callStatus !== 'idle' || isMicPreparing) && callPartner && (
-            <div className="absolute inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center animate-in fade-in duration-300">
-                
-                {/* Remote Video (Full Screen) */}
-                <video 
-                    id="remote-video"
-                    autoPlay 
-                    playsInline 
-                    className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${callStatus === 'connected' ? 'opacity-100' : 'opacity-0'}`}
-                />
-                
-                {/* Local Video (PIP) */}
-                {localStream && (
-                    <div className="absolute top-4 right-4 w-32 h-48 bg-black rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl z-20">
-                        <video 
-                            ref={v => { if(v) v.srcObject = localStream }}
-                            autoPlay 
-                            playsInline 
-                            muted // Always mute local video to prevent echo
-                            className="w-full h-full object-cover mirror-mode" 
-                            style={{ transform: 'scaleX(-1)' }}
-                        />
-                    </div>
-                )}
 
-                <div className="relative z-10 flex flex-col items-center">
-                    {(callStatus !== 'connected' || isMicPreparing) && (
-                        <div className="mb-8 relative">
-                            <img src={callPartner.avatar} className="w-32 h-32 rounded-full object-cover border-4 border-white/10 shadow-2xl animate-pulse" />
-                            <div className="absolute -bottom-2 -right-2 bg-black/50 px-3 py-1 rounded-full text-[10px] font-mono text-white/70 backdrop-blur-md">
-                                {isMicPreparing ? t.requestingMic : 
-                                 (callStatus === 'calling' ? t.calling : 
-                                  (callStatus === 'ringing' ? t.ringing : ''))}
-                            </div>
-                        </div>
-                    )}
-                    
-                    <h2 className={`text-2xl font-bold text-white mb-2 text-shadow ${callStatus === 'connected' ? 'opacity-0 hover:opacity-100 transition-opacity' : ''}`}>{callPartner.name}</h2>
-                    
-                    <div id="call-debug" className="text-[10px] items-center text-white/50 font-mono mb-4 bg-black/40 px-2 py-1 rounded hidden md:block backdrop-blur-md">
-                        {isMicPreparing ? 'Media access...' : (callStatus === 'connected' ? 'Connected' : 'Handshaking...')}
-                    </div>
-
-                    {callStatus === 'connected' && (
-                        <p className="text-[10px] text-white/30 italic mb-4 max-w-[200px] text-center">
-                            {t.micNotice}
-                        </p>
-                    )}
-                
-                {callStatus === 'connected' && (
-                    <button 
-                        onClick={() => {
-                            const videoEl = document.getElementById('remote-video') as HTMLVideoElement;
-                            const audioEl = document.getElementById('remote-audio') as HTMLAudioElement;
-                            if (remoteStream) {
-                                console.log("[UI] Manually re-attaching stream and playing audio/video");
-                                if (videoEl) {
-                                    videoEl.srcObject = null;
-                                    setTimeout(() => { videoEl.srcObject = remoteStream; videoEl.play().catch(e => console.error("Video play error", e)); }, 100);
-                                }
-                                if (audioEl) {
-                                    audioEl.srcObject = null;
-                                    setTimeout(() => { 
-                                        audioEl.srcObject = remoteStream; 
-                                        audioEl.muted = false;
-                                        audioEl.volume = 1.0;
-                                        audioEl.play().catch(e => console.error("Audio play error", e)); 
-                                    }, 100);
-                                }
-                                alert(t.streamAttached);
-                            } else {
-                                alert(t.noStreamFound);
-                            }
-                        }}
-                        className="mb-8 px-6 py-3 bg-cyan-500 hover:bg-cyan-400 rounded-full text-xs font-black text-black uppercase transition-all shadow-[0_0_20px_rgba(6,182,212,0.5)] hover:scale-105 z-50 animate-bounce"
-                    >
-                        📸 ENABLE VIDEO / AUDIO
-                    </button>
-                )}
-                
-                <div className="flex items-center gap-8 relative z-20">
-                    {callStatus === 'ringing' ? (
-                        <>
-                            <button onClick={() => endCall(true)} className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-red-500/30">
-                                <PhoneIcon className="w-8 h-8 rotate-[135deg]" />
-                            </button>
-                            <button onClick={acceptCall} className="w-16 h-16 rounded-full bg-green-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-green-500/30 animate-bounce">
-                                <VideoCameraIcon className="w-8 h-8" />
-                            </button>
-                        </>
-                    ) : (
-                        <button onClick={() => endCall(true)} className="w-16 h-16 rounded-full bg-red-500 text-white flex items-center justify-center hover:scale-110 transition-transform shadow-lg shadow-red-500/30">
-                             <PhoneIcon className="w-8 h-8 rotate-[135deg]" />
-                        </button>
-                    )}
-                </div>
-                </div>
-                
-                {/* Fallback Audio Element (just in case) */}
-                <audio id="remote-audio" autoPlay playsInline className="hidden" />
-            </div>
-        )}
 
 
 
