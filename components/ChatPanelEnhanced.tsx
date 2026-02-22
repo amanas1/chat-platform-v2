@@ -1715,7 +1715,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             if (nameSearch && !user.name.toLowerCase().includes(nameSearch.toLowerCase())) return false;
 
             // Ensure sufficient profile
-            return !!(user.name && user.age); // avatar optional — guest gets fallback
+            return !!(user.name && user.age && user.avatar); // avatar required to appear in carousel
          });
          
          // Sort: Online first (handled by server usually, but ensure here)
