@@ -1,26 +1,22 @@
 {
   "name": "auradiochat-server",
   "version": "1.0.0",
-  "description": "Socket.IO server for AU RadioChat chat application",
+  "private": true,
+  "description": "Minimal Socket.IO server for AU RadioChat",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
-    "build": "echo 'No build step required for server'"
+    "dev": "node server.js"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@google-cloud/vision": "^5.3.4",
-    "axios": "^1.13.5",
-    "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
-    "exif-parser": "^0.1.12",
     "express": "^4.21.2",
-    "multer": "^2.0.2",
-    "resend": "^6.9.1",
+    "node-fetch": "^3.3.2",
     "socket.io": "^4.8.3"
   }
 }

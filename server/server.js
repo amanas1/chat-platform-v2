@@ -1,9 +1,10 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import path from 'path';
+import 'dotenv/config';
+import fetch from 'node-fetch';
 
 const app = express();
 const server = http.createServer(app);
@@ -54,11 +55,11 @@ const getVisibleUsers = (requestingUserId) => {
 
 // --- HTTP ROUTES ---
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
-app.get('/api/test', (req, res) => res.json({ status: 'active', version: '3.0.0-minimal' }));
+app.get('/api/test', (req, res) => res.json({ status: 'active', version: '3.0.0-minimal-esm' }));
 app.get('/api/location', async (req, res) => {
   try {
     const forwarded = req.headers['x-forwarded-for'];
-    const ip = forwarded ? forwarded.split(',')[0].trim() : req.socket.remoteAddress;
+    const ip = forwarded ? forwarded.split(',')[0].trim() : (req.socket?.remoteAddress || '8.8.8.8');
     const response = await fetch(`https://ip-api.com/json/${ip}?fields=status,country,city,query`);
     const data = await response.json();
     res.json(data.status === 'success' ? data : { country: 'Unknown', city: 'Unknown' });
@@ -241,4 +242,4 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Minimal Backend on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Minimal Backend (ESM) on port ${PORT}`));
