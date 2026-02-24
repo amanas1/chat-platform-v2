@@ -232,6 +232,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
 
   const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
+  const isMountedRef = useRef(true);
+  const lastPresenceUpdate = useRef(0);
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [showDeleteHint, setShowDeleteHint] = useState(false);
 
@@ -882,7 +884,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
         return filtered;
       });
     }, 1000);
-    return () => clearInterval(pruneInterval);
+    return () => {
+        isMountedRef.current = false;
+        clearInterval(pruneInterval);
+    };
   }, []);
 
 
@@ -906,9 +911,12 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       // No manual redirect to auth, App.tsx handles re-auth/re-init
     }));
     
-    // Listen for online users
+    // Listen for online users (Throttled 5s for 100k concurrency)
     cleanups.push(socketService.onPresenceList((users) => {
-      setOnlineUsers(users);
+      const now = Date.now();
+      if (now - lastPresenceUpdate.current < 5000) return;
+      lastPresenceUpdate.current = now;
+      if (isMountedRef.current) setOnlineUsers(users);
     }));
 
     // Mobile: Reconnect on visibility change
@@ -996,7 +1004,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }));
 
     // ANTI-SPAM: Listen for knock errors (daily limit, blocks, etc.)
-    cleanups.push(socketService.addListener('knock:error', (data: { message: string; reason?: string; remaining?: number }) => {
+    cleanups.push(socketService.onEvent('knock:error', (data: { message: string; reason?: string; remaining?: number }) => {
       console.warn('[KNOCK] Error:', data);
       if (data.reason === 'DAILY_LIMIT') {
         alert(data.message || 'Daily knock limit reached.');
@@ -1066,7 +1074,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }
     
     // Listen for registration success (from server)
-    cleanups.push(socketService.addListener('user:registered', (data) => {
+    cleanups.push(socketService.onEvent('user:registered', (data) => {
       console.log('✅ Registered successfully:', data.userId);
       const profile = { ...data.profile, id: data.userId, status: 'online' };
       onUpdateCurrentUser(profile);
@@ -1302,7 +1310,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }));
     
     // Listen for message errors (Moderation & Session Sync)
-    cleanups.push(socketService.addListener('message:error', (data) => {
+    cleanups.push(socketService.onEvent('message:error', (data) => {
         if (data.mutedUntil) {
             alert(t.restrictedSpam);
         } else if (data.message === 'Invalid session') {
@@ -1344,7 +1352,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }));
 
     // Listen for registration errors (Bans)
-    cleanups.push(socketService.addListener('user:error', (data) => {
+    cleanups.push(socketService.onEvent('user:error', (data) => {
         if (data.code === 'DELETION_LOCKED') return; // Silent ignore, handled by UI hint
         alert(`${data.message}\n${data.reason || ''}`);
         // No redirect to auth, just stay in register view
@@ -1373,7 +1381,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
 
     // Listen for report acknowledgment
-    cleanups.push(socketService.addListener('report:acknowledged', () => {
+    cleanups.push(socketService.onEvent('report:acknowledged', () => {
         alert(t.reportSent);
     }));
 

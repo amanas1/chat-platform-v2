@@ -597,6 +597,7 @@ export default function App(): React.JSX.Element {
   const currentStationRef = useRef<RadioStation | null>(null);
   const isPlayingRef = useRef(false);
   const isRandomModeRef = useRef(false);
+  const isMountedRef = useRef(true);
   const handleNextStationRef = useRef<() => void>(() => {});
   const handlePreviousStationRef = useRef<() => void>(() => {});
   const handlePlayStationRef = useRef<(s: RadioStation) => void>(() => {});
@@ -816,28 +817,30 @@ export default function App(): React.JSX.Element {
   }, [triggerLocationDetection]);
 
   const handlePlayStation = useCallback((station: RadioStation) => {
-    currentStationRef.current = station; // Instant ref update for Media Session stability
+    const rid = ++loadRequestIdRef.current;
+    currentStationRef.current = station; 
     
-    // Scroll to top
     setTimeout(() => {
+        if (rid !== loadRequestIdRef.current) return;
         if (visualizerRef.current) {
             visualizerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else if (mainContentRef.current) {
             mainContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
         }
-        // Always try global scroll as fallback for mobile browser bars
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 150);
+
     audioEngine.prepareForSwitch();
     initAudioContext();
     audioEngine.resume();
     
-    // Clear any pending load timeout
     if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
 
-    setCurrentStation(station);
-    setIsPlaying(true);
-    setIsBuffering(true);
+    if (isMountedRef.current) {
+        setCurrentStation(station);
+        setIsPlaying(true);
+        setIsBuffering(true);
+    }
     
     if (audioRef.current) {
         audioRef.current.src = station.url_resolved;
@@ -845,27 +848,29 @@ export default function App(): React.JSX.Element {
         audioRef.current.playbackRate = fxSettings.speed; 
         audioRef.current.play().catch(() => {});
 
-        // Set 3-second timeout to check if station is "alive"
         loadTimeoutRef.current = window.setTimeout(() => {
+            if (rid !== loadRequestIdRef.current) return;
             console.warn(`[RADIO] Station ${station.name} is too slow. Filtering and skipping.`);
             
-            setStations(prev => {
-                const currentIndex = prev.findIndex(s => s.stationuuid === station.stationuuid);
-                const newList = prev.filter(s => s.stationuuid !== station.stationuuid);
+            if (isMountedRef.current) {
+                setStations(prev => {
+                    const currentIndex = prev.findIndex(s => s.stationuuid === station.stationuuid);
+                    const newList = prev.filter(s => s.stationuuid !== station.stationuuid);
+                    
+                    if (newList.length > 0) {
+                        const nextIndex = currentIndex % newList.length;
+                        setTimeout(() => handlePlayStation(newList[nextIndex]), 10);
+                    }
+                    return newList;
+                });
                 
-                if (newList.length > 0) {
-                    const nextIndex = currentIndex % newList.length;
-                    setTimeout(() => handlePlayStation(newList[nextIndex]), 10);
+                if (audioRef.current) {
+                    audioRef.current.pause();
+                    audioRef.current.src = "";
                 }
-                return newList;
-            });
-            
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.src = "";
+                setIsPlaying(false);
+                setIsBuffering(false);
             }
-            setIsPlaying(false);
-            setIsBuffering(false);
         }, 3000);
     }
   }, [initAudioContext, fxSettings.speed]);
@@ -1173,8 +1178,10 @@ export default function App(): React.JSX.Element {
       });
     }
 
-    // 2. Set Playback State
-    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    // 2. Set Playback State with fallback check
+    if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
   }, [currentStation, isPlaying]);
 
   // Persistent Media Session Handlers (registered once)
@@ -1236,27 +1243,39 @@ export default function App(): React.JSX.Element {
     });
 
     return () => {
-        // Cleanup handlers if needed
+        isMountedRef.current = false;
         Object.keys(handlers).forEach(action => {
             try { navigator.mediaSession.setActionHandler(action as MediaSessionAction, null); } catch(e){}
         });
+        socketService.disconnect();
+        audioEngine.suspend();
     };
   }, []); // Only once
 
+  const lastStatsUpdate = useRef(0);
+  const lastPresenceUpdate = useRef(0);
+
   useEffect(() => {
-    // 1. Online Stats
+    // 1. Online Stats (Throttled 2s)
     const unsubStats = socketService.on('users:online_count', (stats: any) => {
-        setOnlineStats(stats);
+        const now = Date.now();
+        if (now - lastStatsUpdate.current < 2000) return;
+        lastStatsUpdate.current = now;
+        if (isMountedRef.current) setOnlineStats(stats);
     });
 
-    // 2. Presence List (Map/Global processing)
+    // 2. Presence List (Throttled 5s, optimized mapping)
     const unsubPresence = socketService.on('users:presence_list', (users: any[]) => {
+         const now = Date.now();
+         if (now - lastPresenceUpdate.current < 5000) return;
+         lastPresenceUpdate.current = now;
+
          const stats: Record<string, number> = {};
-         users.forEach(u => {
+         for (const u of users) {
              const c = u.detectedCountry || u.country || 'Global';
              stats[c] = (stats[c] || 0) + 1;
-         });
-         setCountryStats(stats);
+         }
+         if (isMountedRef.current) setCountryStats(stats);
          
          if (currentUser.id) {
              const myUserParams = users.find(u => u.id === currentUser.id);
@@ -1296,8 +1315,7 @@ export default function App(): React.JSX.Element {
             }, 300);
         }
     }
-    const requestId = Date.now();
-    loadRequestIdRef.current = requestId;
+    const rid = ++loadRequestIdRef.current;
     setViewMode(mode); setSelectedCategory(category); setIsLoading(true); setVisibleCount(INITIAL_CHUNK); setStations([]);
     setIsAiCurating(false); 
     try {
@@ -1306,18 +1324,26 @@ export default function App(): React.JSX.Element {
         const favUuids = savedFavs ? JSON.parse(savedFavs) : [];
         const data = favUuids.length ? await fetchStationsByUuids(favUuids) : [];
         const dedupedPrev = dedupeStations(data);
-        if (loadRequestIdRef.current === requestId) { setStations(dedupedPrev); setIsLoading(false); if (dedupedPrev.length > 0 && autoPlay) handlePlayStation(dedupedPrev[0]); }
+        if (rid === loadRequestIdRef.current && isMountedRef.current) { 
+            setStations(dedupedPrev); 
+            setIsLoading(false); 
+            if (dedupedPrev.length > 0 && autoPlay) handlePlayStation(dedupedPrev[0]); 
+        }
       } else if (category) {
         const fastData = await fetchStationsByTag(category.id, 10);
         const dedupedFast = dedupeStations(fastData);
-        if (loadRequestIdRef.current === requestId) { setStations(dedupedFast); setIsLoading(false); if (dedupedFast.length > 0 && autoPlay) handlePlayStation(dedupedFast[0]); }
+        if (rid === loadRequestIdRef.current && isMountedRef.current) { 
+            setStations(dedupedFast); 
+            setIsLoading(false); 
+            if (dedupedFast.length > 0 && autoPlay) handlePlayStation(dedupedFast[0]); 
+        }
         let fetchLimit = (category.id === 'chinese' || category.id === 'vietnam' || category.id === 'oriental' || category.id === 'love' || category.id === 'slow') ? 250 : 120; 
         fetchStationsByTag(category.id, fetchLimit).then(fullData => { 
             const dedupedFull = dedupeStations(fullData);
-            if (loadRequestIdRef.current === requestId && dedupedFull.length > 0) setStations(dedupedFull); 
+            if (rid === loadRequestIdRef.current && isMountedRef.current && dedupedFull.length > 0) setStations(dedupedFull); 
         }).catch(() => {});
       }
-    } catch (e) { if (loadRequestIdRef.current === requestId) setIsLoading(false); }
+    } catch (e) { if (rid === loadRequestIdRef.current && isMountedRef.current) setIsLoading(false); }
   }, [handlePlayStation]);
 
   useEffect(() => { loadCategory(GENRES[0], 'genres', false); }, [loadCategory]);
