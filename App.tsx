@@ -828,6 +828,7 @@ export default function App(): React.JSX.Element {
         // Always try global scroll as fallback for mobile browser bars
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 150);
+    audioEngine.prepareForSwitch();
     initAudioContext();
     audioEngine.resume();
     
