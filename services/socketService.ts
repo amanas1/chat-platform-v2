@@ -89,12 +89,12 @@ class SocketService {
       console.error('Connection error:', error);
       this.reconnectAttempts++;
       
-      // Secondary Fallback: If we fail to connect to the primary SERVER_URL, 
-      // and it's not already the ACTIVE_PRODUCTION_URL, try the direct active URL.
-      if (this.reconnectAttempts === 2 && SERVER_URL !== ACTIVE_PRODUCTION_URL) {
-        console.warn("🔄 Primary connection failing. Attempting Automated Fallback to safe production URL...");
-        this.disconnect();
+      // If we fail consistently and haven't tried the production backup,
+      // we switch the URL and re-connect.
+      if (this.reconnectAttempts === 5 && SERVER_URL !== ACTIVE_PRODUCTION_URL) {
+        console.warn("🔄 Switching base URL to active production and re-connecting...");
         SERVER_URL = ACTIVE_PRODUCTION_URL;
+        this.disconnect();
         this.connect();
       }
     });

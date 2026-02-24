@@ -708,7 +708,10 @@ export default function App(): React.JSX.Element {
                  if (isSafeMode) {
                      console.log('[AUDIO] Launching in Safe Mode (Direct Path)');
                  } else {
-                     const source = ctx.createMediaElementSource(audioRef.current);
+                     if (!sourceNodeRef.current) {
+                         sourceNodeRef.current = ctx.createMediaElementSource(audioRef.current);
+                     }
+                     const source = sourceNodeRef.current;
                      const reverb = ctx.createConvolver();
                      reverbNodeRef.current = reverb;
                      
@@ -1319,8 +1322,11 @@ export default function App(): React.JSX.Element {
     if (!('mediaSession' in navigator)) return;
 
     const handlers: Record<string, MediaSessionActionHandler> = {
-      play: () => {
+      play: async () => {
           console.log('[MediaSession] Play Triggered');
+          if (audioContextRef.current?.state === 'suspended') {
+              await audioContextRef.current.resume();
+          }
           if (togglePlayRef.current) togglePlayRef.current();
       },
       pause: () => {
