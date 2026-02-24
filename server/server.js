@@ -34,7 +34,7 @@ const blocks = new Map();
 
 // --- UTILS & BROADCASTS ---
 const broadcastPresenceCount = () => {
-  io.emit('presence:count', { 
+  io.emit('users:online_count', { 
     totalOnline: io.engine.clientsCount, 
     chatOnline: activeUsers.size 
   });
@@ -58,7 +58,7 @@ const broadcastPresenceList = () => {
   activeUsers.forEach((userData, userId) => {
     if (userData?.socketId) {
       const visible = getVisibleUsers(userId);
-      io.to(userData.socketId).emit('presence:list', visible);
+      io.to(userData.socketId).emit('users:presence_list', visible);
     }
   });
 };
@@ -89,7 +89,7 @@ setInterval(() => {
       expired.forEach(msg => {
         session.participants.forEach(pid => {
           const p = activeUsers.get(pid);
-          if (p?.socketId) io.to(p.socketId).emit('message:expired', { messageId: msg.id, sessionId });
+          if (p?.socketId) io.to(p.socketId).emit('chat:message_expired', { messageId: msg.id, sessionId });
         });
       });
     }
@@ -178,7 +178,7 @@ io.on('connection', (socket) => {
 
     const sessionId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
     sessions.set(sessionId, { participants: [boundUserId, p.fromUserId] });
-    if (me.socketId) io.to(me.socketId).emit('session:created', { sessionId, partnerId: p.fromUserId, partnerProfile: partner.profile });
+    if (me.socketId) io.to(me.socketId).emit('chat:history', { sessionId, partnerId: p.fromUserId, partnerProfile: partner.profile });
     if (partner.socketId) io.to(partner.socketId).emit('knock:accepted', { sessionId, partnerId: boundUserId, partnerProfile: me.profile });
   });
 
@@ -186,7 +186,7 @@ io.on('connection', (socket) => {
     if (!boundUserId || !p?.sessionId) return;
     const session = sessions.get(p.sessionId);
     if (session?.participants.includes(boundUserId)) {
-      socket.emit('session:created', { sessionId: p.sessionId, participants: session.participants });
+      socket.emit('chat:history', { sessionId: p.sessionId, participants: session.participants });
     }
   });
 
@@ -210,7 +210,7 @@ io.on('connection', (socket) => {
     if (sm.length > MAX_MESSAGES) sm.shift();
     session.participants.forEach(pid => {
       const usr = activeUsers.get(pid);
-      if (usr?.socketId) io.to(usr.socketId).emit('message:received', msg);
+      if (usr?.socketId) io.to(usr.socketId).emit('chat:message', msg);
     });
     if (typeof ack === 'function') ack({ success: true, messageId: msg.id });
   });

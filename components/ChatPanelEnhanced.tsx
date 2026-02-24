@@ -2898,7 +2898,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                                     </span>
                                     <span className="text-[10px] font-black text-green-400 uppercase tracking-widest">
-                                        {t.onlineStatsPrefix}{onlineStats.totalOnline + 42}
+                                        {t.onlineStatsPrefix}{onlineStats.totalOnline}
                                     </span>
                                 </div>
                                 <h3 className="text-xl md:text-2xl font-black text-white text-center leading-tight mt-2">
@@ -3162,7 +3162,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-indigo-500"></span>
                                     </span>
                                     <span className="text-[9px] font-black text-indigo-300 uppercase tracking-widest">
-                                        {t.onlineStatsPrefix}{onlineStats.totalOnline + 15} {t.onlineCountLabel}
+                                        {t.onlineStatsPrefix}{onlineStats.totalOnline} {t.onlineCountLabel}
                                     </span>
                                 </div>
 
