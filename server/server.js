@@ -41,7 +41,6 @@ const broadcastPresenceCount = () => {
 };
 
 const getVisibleUsers = (requestingUserId) => {
-  if (!requestingUserId) return [];
   const userBlocks = blocks.get(requestingUserId) || new Set();
   
   return Array.from(activeUsers.values())
@@ -200,6 +199,15 @@ io.on('connection', (socket) => {
 
     const blocked = blocks.get(boundUserId)?.has(fromUserId) || blocks.get(fromUserId)?.has(boundUserId);
     if (blocked) return;
+
+    // Prevent double session creation
+    let existingSessionId = null;
+    sessions.forEach((s, id) => {
+      if (s.participants.includes(boundUserId) && s.participants.includes(fromUserId)) {
+        existingSessionId = id;
+      }
+    });
+    if (existingSessionId) return;
 
     const sessionId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
     sessions.set(sessionId, { participants: [boundUserId, fromUserId] });
