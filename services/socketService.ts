@@ -2,14 +2,26 @@ import { io, Socket } from 'socket.io-client';
 import { UserProfile, ChatMessage, ChatSession } from '../types';
 
 /**
- * Get Socket.IO server URL
- * ONLY uses: 1) VITE_SOCKET_URL env variable, 2) localhost fallback
- * NO window.location, NO origin, NO platform detection
+ * Get Socket.IO server URL with Self-Healing Fallbacks
+ * 
+ * Logic:
+ * 1. If VITE_SOCKET_URL is the known "dead" production URL, use the active one.
+ * 2. If VITE_SOCKET_URL is missing, use the active one.
+ * 3. Fallback to localhost only if not in production.
  */
-const SERVER_URL = import.meta.env.VITE_SOCKET_URL;
+const ACTIVE_PRODUCTION_URL = 'https://streamflow-main-2-production.up.railway.app';
+const DEAD_PRODUCTION_URL = 'https://streamflow-backend-production.up.railway.app';
 
-if (!SERVER_URL) {
-  console.error("🚨 CRITICAL: VITE_SOCKET_URL is missing in this environment!");
+let SERVER_URL = import.meta.env.VITE_SOCKET_URL || ACTIVE_PRODUCTION_URL;
+
+// Self-Healing: Redirect from dead domain to active domain
+if (SERVER_URL.includes('streamflow-backend-production')) {
+  console.warn("⚠️ Redirecting from defunct backend URL to active production backend.");
+  SERVER_URL = ACTIVE_PRODUCTION_URL;
+}
+
+if (!import.meta.env.VITE_SOCKET_URL) {
+  console.info("ℹ️ VITE_SOCKET_URL missing, using default production backend:", ACTIVE_PRODUCTION_URL);
 }
 
 class SocketService {
@@ -76,6 +88,15 @@ class SocketService {
     this.socket.on('connect_error', (error) => {
       console.error('Connection error:', error);
       this.reconnectAttempts++;
+      
+      // Secondary Fallback: If we fail to connect to the primary SERVER_URL, 
+      // and it's not already the ACTIVE_PRODUCTION_URL, try the direct active URL.
+      if (this.reconnectAttempts === 2 && SERVER_URL !== ACTIVE_PRODUCTION_URL) {
+        console.warn("🔄 Primary connection failing. Attempting Automated Fallback to safe production URL...");
+        this.disconnect();
+        SERVER_URL = ACTIVE_PRODUCTION_URL;
+        this.connect();
+      }
     });
   }
   
