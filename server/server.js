@@ -2,7 +2,6 @@ import express from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import path from 'path';
 import 'dotenv/config';
 import fetch from 'node-fetch';
 
@@ -14,6 +13,7 @@ const PORT = process.env.PORT || 3001;
 const MESSAGE_TTL = 30000; // 30 seconds
 const MAX_MESSAGES = 50;
 const REPORT_THRESHOLD = 3;
+const CLEANUP_INTERVAL = 5000; // 5 seconds
 
 const allowedOrigins = [
   'https://auradiochat.com',
@@ -23,7 +23,6 @@ const allowedOrigins = [
   'http://localhost:5173'
 ];
 
-// --- MIDDLEWARE ---
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 app.use(express.json());
 
@@ -34,7 +33,7 @@ const messages = new Map();    // sessionId -> Message[]
 const reports = new Map();     // userId -> Set<reporterId>
 const blocks = new Map();      // userId -> Set<blockedUserId>
 
-// --- UTILS ---
+// --- UTILS & BROADCASTS ---
 const broadcastPresenceCount = () => {
   io.emit('presence:count', { 
     totalOnline: io.engine.clientsCount, 
@@ -47,15 +46,46 @@ const getVisibleUsers = (requestingUserId) => {
   return Array.from(activeUsers.values())
     .map(u => ({ ...u.profile, status: 'online' }))
     .filter(u => {
+      if (!requestingUserId) return true;
       const isBlockedByMe = userBlocks.has(u.id);
       const amIBlockedByThem = blocks.get(u.id)?.has(requestingUserId);
       return !isBlockedByMe && !amIBlockedByThem;
     });
 };
 
+const broadcastPresenceList = () => {
+  activeUsers.forEach((userData, userId) => {
+    const visible = getVisibleUsers(userId);
+    io.to(userData.socketId).emit('presence:list', visible);
+  });
+};
+
+// --- GLOBAL CLEANUP ---
+setInterval(() => {
+  const now = Date.now();
+  messages.forEach((sessionMsgs, sessionId) => {
+    const session = sessions.get(sessionId);
+    if (!session) {
+      messages.delete(sessionId);
+      return;
+    }
+
+    const expired = sessionMsgs.filter(m => m.expiresAt <= now);
+    if (expired.length > 0) {
+      messages.set(sessionId, sessionMsgs.filter(m => m.expiresAt > now));
+      expired.forEach(msg => {
+        session.participants.forEach(pid => {
+          const p = activeUsers.get(pid);
+          if (p?.socketId) io.to(p.socketId).emit('message:expired', { messageId: msg.id, sessionId });
+        });
+      });
+    }
+  });
+}, CLEANUP_INTERVAL);
+
 // --- HTTP ROUTES ---
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
-app.get('/api/test', (req, res) => res.json({ status: 'active', version: '3.0.0-minimal-esm' }));
+app.get('/api/test', (req, res) => res.json({ status: 'active', version: '4.0.0-refined' }));
 app.get('/api/location', async (req, res) => {
   try {
     const forwarded = req.headers['x-forwarded-for'];
@@ -89,7 +119,7 @@ io.on('connection', (socket) => {
     if (callback) callback(regData);
     socket.emit('user:registered', regData);
     
-    io.emit('presence:list', getVisibleUsers(null));
+    broadcastPresenceList();
     broadcastPresenceCount();
   });
 
@@ -107,10 +137,8 @@ io.on('connection', (socket) => {
   socket.on('knock:send', ({ targetUserId }) => {
     if (!boundUserId) return;
     const target = activeUsers.get(targetUserId);
-    const userBlocks = blocks.get(boundUserId);
-    const targetBlocks = blocks.get(targetUserId);
+    if (blocks.get(boundUserId)?.has(targetUserId) || blocks.get(targetUserId)?.has(boundUserId)) return;
 
-    if (userBlocks?.has(targetUserId) || targetBlocks?.has(boundUserId)) return;
     if (target?.socketId) {
       io.to(target.socketId).emit('knock:received', {
         knockId: `k_${Date.now()}`,
@@ -123,7 +151,11 @@ io.on('connection', (socket) => {
 
   socket.on('knock:accept', ({ fromUserId }) => {
     if (!boundUserId) return;
-    const sessionId = [boundUserId, fromUserId].sort().join('_');
+    
+    const blocked = blocks.get(boundUserId)?.has(fromUserId) || blocks.get(fromUserId)?.has(boundUserId);
+    if (blocked) return;
+
+    const sessionId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
     sessions.set(sessionId, { participants: [boundUserId, fromUserId] });
     
     const partner = activeUsers.get(fromUserId);
@@ -167,17 +199,6 @@ io.on('connection', (socket) => {
     });
 
     if (ack) ack({ success: true, messageId: message.id });
-
-    setTimeout(() => {
-      const msgs = messages.get(sessionId);
-      if (msgs) {
-        messages.set(sessionId, msgs.filter(m => m.id !== message.id));
-        session.participants.forEach(pid => {
-          const p = activeUsers.get(pid);
-          if (p?.socketId) io.to(p.socketId).emit('message:expired', { messageId: message.id, sessionId });
-        });
-      }
-    }, MESSAGE_TTL);
   });
 
   socket.on('messages:get', ({ sessionId }) => {
@@ -201,7 +222,7 @@ io.on('connection', (socket) => {
       }
       activeUsers.delete(targetUserId);
       reports.delete(targetUserId);
-      io.emit('presence:list', getVisibleUsers(null));
+      broadcastPresenceList();
     }
   });
 
@@ -210,17 +231,20 @@ io.on('connection', (socket) => {
     if (!blocks.has(boundUserId)) blocks.set(boundUserId, new Set());
     blocks.get(boundUserId).add(targetUserId);
     
-    const sessionId = [boundUserId, targetUserId].sort().join('_');
-    if (sessions.has(sessionId)) {
-      sessions.delete(sessionId);
-      messages.delete(sessionId);
-      [boundUserId, targetUserId].forEach(uid => {
-        const u = activeUsers.get(uid);
-        if (u?.socketId) io.to(u.socketId).emit('session:close', { sessionId });
-      });
-    }
+    // Close any sessions between these users
+    sessions.forEach((session, sessionId) => {
+      if (session.participants.includes(boundUserId) && session.participants.includes(targetUserId)) {
+        session.participants.forEach(pid => {
+          const u = activeUsers.get(pid);
+          if (u?.socketId) io.to(u.socketId).emit('session:close', { sessionId });
+        });
+        sessions.delete(sessionId);
+        messages.delete(sessionId);
+      }
+    });
+
     socket.emit('user:blocked', { targetUserId });
-    socket.emit('presence:list', getVisibleUsers(boundUserId));
+    broadcastPresenceList();
   });
 
   socket.on('session:close', ({ sessionId }) => {
@@ -237,9 +261,9 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     if (boundUserId) activeUsers.delete(boundUserId);
+    broadcastPresenceList();
     broadcastPresenceCount();
-    io.emit('presence:list', getVisibleUsers(null));
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Minimal Backend (ESM) on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Minimal Backend (Refined) on port ${PORT}`));
