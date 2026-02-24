@@ -6,6 +6,7 @@ import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENT
 import { fetchStationsByTag, fetchStationsByUuids } from './services/radioService';
 import { curateStationList, isAiAvailable } from './services/geminiService';
 import { socketService } from './services/socketService';
+import { audioEngine } from './services/AudioEngine';
 import AudioVisualizer from './components/AudioVisualizer';
 import DancingAvatar from './components/DancingAvatar';
 import RainEffect from './components/RainEffect';
@@ -584,15 +585,6 @@ export default function App(): React.JSX.Element {
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const ambienceRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserNodeRef = useRef<AnalyserNode | null>(null);
-  const pannerNodeRef = useRef<StereoPannerNode | null>(null);
-  const filtersRef = useRef<BiquadFilterNode[]>([]);
-  
-  const dryGainNodeRef = useRef<GainNode | null>(null);
-  const wetGainNodeRef = useRef<GainNode | null>(null);
-  const reverbNodeRef = useRef<ConvolverNode | null>(null);
-  const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
 
   const pannerIntervalRef = useRef<number | null>(null);
   const loadRequestIdRef = useRef<number>(0);
@@ -693,185 +685,61 @@ export default function App(): React.JSX.Element {
     };
   }, [sidebarOpen]);
 
-  // Lazy Audio Context Initialization
-  const initAudioContextFn = useCallback(() => {
-    if (audioContextRef.current && audioContextRef.current.state === 'running') return;
-    
-    if (!audioContextRef.current) {
-        try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ 
-                latencyHint: 'playback'
-            });
-            audioContextRef.current = ctx;
-
-            if (audioRef.current) {
-                 if (isSafeMode) {
-                     console.log('[AUDIO] Launching in Safe Mode (Direct Path)');
-                 } else {
-                     if (!sourceNodeRef.current) {
-                         sourceNodeRef.current = ctx.createMediaElementSource(audioRef.current);
-                     }
-                     const source = sourceNodeRef.current;
-                     const reverb = ctx.createConvolver();
-                     reverbNodeRef.current = reverb;
-                     
-                     const rate = ctx.sampleRate;
-                     const isMobile = window.innerWidth < 768;
-                     const length = rate * (isMobile ? 0.5 : 1.2); 
-                     const decay = 2.0;
-                     const impulse = ctx.createBuffer(2, length, rate);
-                     for (let channel = 0; channel < 2; channel++) {
-                        const data = impulse.getChannelData(channel);
-                        for (let i = 0; i < length; i++) {
-                            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
-                        }
-                     }
-                     reverb.buffer = impulse;
-
-                     const dryGain = ctx.createGain(); 
-                     const wetGain = ctx.createGain(); 
-                     wetGain.gain.value = 0; 
-                     dryGainNodeRef.current = dryGain;
-                     wetGainNodeRef.current = wetGain;
-                     
-                     const frequencies = isMobile 
-                        ? [64, 250, 1000, 4000, 12000] 
-                        : [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
-                     
-                     const filters = frequencies.map(freq => {
-                        const f = ctx.createBiquadFilter();
-                        f.type = 'peaking';
-                        f.frequency.value = freq;
-                        f.Q.value = 1;
-                        f.gain.value = 0;
-                        return f;
-                     });
-                     filtersRef.current = filters;
-
-                     const panner = ctx.createStereoPanner();
-                     pannerNodeRef.current = panner;
-
-                     const analyser = ctx.createAnalyser();
-                     analyser.fftSize = 2048; 
-                     analyserNodeRef.current = analyser;
-
-                     sourceNodeRef.current = source;
-
-                     // Initial connection based on mode
-                     if (isSafeMode) {
-                        source.connect(ctx.destination);
-                     } else {
-                        source.connect(dryGain);
-                        source.connect(reverb);
-                        reverb.connect(wetGain);
-
-                        dryGain.connect(filters[0]);
-                        wetGain.connect(filters[0]); 
-
-                        let node: AudioNode = filters[0];
-                        for (let i = 1; i < filters.length; i++) {
-                           node.connect(filters[i]);
-                           node = filters[i];
-                        }
-
-                        node.connect(panner);
-                        panner.connect(analyser);
-                        analyser.connect(ctx.destination);
-                     }
-                     
-                     if (wetGainNodeRef.current && dryGainNodeRef.current) {
-                          wetGainNodeRef.current.gain.value = fxSettings.reverb;
-                          dryGainNodeRef.current.gain.value = 1 - (fxSettings.reverb * 0.4); 
-                     }
-                 }
-            }
-        } catch (e) {
-            console.error("Audio Context Init Failed", e);
-        }
+  // Idempotent Audio Engine Initialization
+  const initAudioContextFn = useCallback(async () => {
+    if (!audioRef.current) return;
+    try {
+        await audioEngine.init(audioRef.current);
+        audioEngine.setVolume(volume);
+        audioEngine.setFX(fxSettings.reverb);
+        audioEngine.setSafeMode(isSafeMode);
+    } catch (e) {
+        console.error("Audio Engine Init Failed", e);
     }
-
-    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-        audioContextRef.current.resume();
-    }
-  }, [fxSettings, isSafeMode]); // isSafeMode included for initial connect logic
+  }, [volume, fxSettings.reverb, isSafeMode]);
   
-  // Call init only on user interaction (handled in togglePlay)
   const initAudioContext = initAudioContextFn; 
 
-  // Auto-Suspend AudioContext when paused for 10s or tab hidden
+  // Engine Synchronizers
   useEffect(() => {
-    let suspendTimer: NodeJS.Timeout;
-    
-    if (!isPlaying) {
-        suspendTimer = setTimeout(() => {
-            if (audioContextRef.current && audioContextRef.current.state === 'running') {
-                console.log("[Audio] Suspending Context to save battery...");
-                audioContextRef.current.suspend();
-            }
-        }, 10000);
+    audioEngine.setVolume(volume);
+  }, [volume]);
+
+  useEffect(() => {
+    audioEngine.setFX(fxSettings.reverb); 
+    if (audioRef.current) {
+        audioRef.current.playbackRate = fxSettings.speed;
     }
+  }, [fxSettings]);
 
-    return () => clearTimeout(suspendTimer);
-  }, [isPlaying]);
+  useEffect(() => {
+    audioEngine.setSafeMode(isSafeMode);
+  }, [isSafeMode]);
 
-  // Handle visibility change for Automatic Safe Mode and suspension
+  // Handle visibility change for suspension
   useEffect(() => {
       const handleVisChange = () => {
           const hidden = document.hidden;
           setIsAppVisible(!hidden);
-
-          if (hidden) {
-              if (audioContextRef.current && audioContextRef.current.state === 'running') {
-                   if (!isPlaying) audioContextRef.current.suspend();
-              }
-          } else {
-              if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
-                  audioContextRef.current.resume();
-              }
+          if (hidden && !isPlaying) {
+              audioEngine.suspend();
+          } else if (!hidden) {
+              audioEngine.resume();
           }
       };
       document.addEventListener('visibilitychange', handleVisChange);
       return () => document.removeEventListener('visibilitychange', handleVisChange);
   }, [isPlaying]);
 
-  // Handle seamless transition between Safe Mode and Full FX
   useEffect(() => {
-      const source = sourceNodeRef.current;
-      const ctx = audioContextRef.current;
-      const dryGain = dryGainNodeRef.current;
-      const reverb = reverbNodeRef.current;
-      
-      if (!ctx || !source) return;
-
-      try {
-          source.disconnect();
-          if (isSafeMode) {
-              console.log('[AUDIO] Background detected: Activating Safe Mode...');
-              source.connect(ctx.destination);
-          } else {
-              console.log('[AUDIO] Foreground detected: Activating Full FX...');
-              if (dryGain && reverb) {
-                  source.connect(dryGain);
-                  source.connect(reverb);
-              } else {
-                  // Fallback if graph not fully set up
-                  source.connect(ctx.destination);
-              }
-          }
-      } catch (e) {
-          console.warn('[AUDIO] Failed to switch modes seamlessly', e);
-      }
-  }, [isSafeMode]);
-
-  useEffect(() => {
-      if (wetGainNodeRef.current && dryGainNodeRef.current) {
-          wetGainNodeRef.current.gain.value = fxSettings.reverb;
-          dryGainNodeRef.current.gain.value = 1 - (fxSettings.reverb * 0.4); 
-      }
-      if (audioRef.current) {
-          audioRef.current.playbackRate = fxSettings.speed;
-      }
-  }, [fxSettings]);
+    let suspendTimer: NodeJS.Timeout;
+    if (!isPlaying) {
+        suspendTimer = setTimeout(() => {
+            audioEngine.suspend();
+        }, 10000);
+    }
+    return () => clearTimeout(suspendTimer);
+  }, [isPlaying]);
 
   useEffect(() => {
     if (sleepTimer !== null && sleepTimer > 0) {
@@ -961,7 +829,7 @@ export default function App(): React.JSX.Element {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 150);
     initAudioContext();
-    if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
+    audioEngine.resume();
     
     // Clear any pending load timeout
     if (loadTimeoutRef.current) clearTimeout(loadTimeoutRef.current);
@@ -974,16 +842,6 @@ export default function App(): React.JSX.Element {
         audioRef.current.src = station.url_resolved;
         audioRef.current.crossOrigin = "anonymous";
         audioRef.current.playbackRate = fxSettings.speed; 
-        
-        // RE-INITIALIZE Audio Graph logic for Safe Mode
-        // If isSafeMode is true, we should probably DISCONNECT the audio element from the context
-        // to ensure the OS plays it directly.
-        if (isSafeMode) {
-            console.log('[AUDIO] Launching in Safe Mode (Direct Path)');
-            // Note: If previously connected to a context, we might need a fresh audio element or careful disconnection.
-            // On mobile, the safest way to "bypass" is to not call createMediaElementSource.
-        }
-
         audioRef.current.play().catch(() => {});
 
         // Set 3-second timeout to check if station is "alive"
@@ -1035,7 +893,7 @@ export default function App(): React.JSX.Element {
     setIsIdleView(false);
   }, []);
 
-  const togglePlay = useCallback(() => {
+  const togglePlay = useCallback(async () => {
     if (!audioRef.current) return;
     if (!currentStation) {
         if (stations.length) handlePlayStation(stations[0]);
@@ -1045,7 +903,7 @@ export default function App(): React.JSX.Element {
       audioRef.current.pause();
     } else {
       initAudioContext(); // Ensure context is ready/resumed
-      if (audioContextRef.current?.state === 'suspended') audioContextRef.current.resume();
+      await audioEngine.resume();
       audioRef.current.play().catch(() => {});
     }
   }, [currentStation, isPlaying, handlePlayStation, stations]);
@@ -1177,17 +1035,18 @@ export default function App(): React.JSX.Element {
   }, [isLoading, stations.length, visibleCount]);
 
   useEffect(() => {
+    let angle = 0;
+    let pannerInterval: number;
+    
     if (ambience.is8DEnabled) {
-        let angle = 0;
-        if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current);
-        pannerIntervalRef.current = window.setInterval(() => {
-           if (pannerNodeRef.current) { angle += 0.02 * ambience.spatialSpeed; pannerNodeRef.current.pan.value = Math.sin(angle); }
+        pannerInterval = window.setInterval(() => {
+           angle += 0.02 * ambience.spatialSpeed;
+           audioEngine.setSpatialPan(Math.sin(angle));
         }, 30);
     } else {
-        if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current);
-        if (pannerNodeRef.current) pannerNodeRef.current.pan.value = 0;
+        audioEngine.setSpatialPan(0);
     }
-    return () => { if (pannerIntervalRef.current) clearInterval(pannerIntervalRef.current); };
+    return () => { if (pannerInterval) clearInterval(pannerInterval); };
   }, [ambience.is8DEnabled, ambience.spatialSpeed]);
 
   useEffect(() => {
@@ -1228,7 +1087,7 @@ export default function App(): React.JSX.Element {
       });
   }, [ambience.rainVolume, ambience.rainVariant, ambience.fireVolume, ambience.cityVolume, ambience.vinylVolume]);
 
-  useEffect(() => { filtersRef.current.forEach((f, i) => { if (eqGains[i] !== undefined) f.gain.value = eqGains[i]; }); }, [eqGains]);
+  useEffect(() => { audioEngine.setEQ(eqGains); }, [eqGains]);
   useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
   
   useEffect(() => {
@@ -1324,9 +1183,7 @@ export default function App(): React.JSX.Element {
     const handlers: Record<string, MediaSessionActionHandler> = {
       play: async () => {
           console.log('[MediaSession] Play Triggered');
-          if (audioContextRef.current?.state === 'suspended') {
-              await audioContextRef.current.resume();
-          }
+          await audioEngine.resume();
           if (togglePlayRef.current) togglePlayRef.current();
       },
       pause: () => {
@@ -1386,38 +1243,36 @@ export default function App(): React.JSX.Element {
   }, []); // Only once
 
   useEffect(() => {
-    // Subscribe to presence updates (only active if socket is connected via initAuth)
-    const cleanupPresence = socketService.onPresenceCount((stats) => {
+    // 1. Online Stats
+    const unsubStats = socketService.on('users:online_count', (stats: any) => {
         setOnlineStats(stats);
     });
 
-    const cleanupPresenceList = socketService.onPresenceList((users) => {
+    // 2. Presence List (Map/Global processing)
+    const unsubPresence = socketService.on('users:presence_list', (users: any[]) => {
          const stats: Record<string, number> = {};
          users.forEach(u => {
-             // Prefer detectedCountry (IP based) or fallback to profile country
              const c = u.detectedCountry || u.country || 'Global';
              stats[c] = (stats[c] || 0) + 1;
          });
          setCountryStats(stats);
          
-         // FALLBACK: If we still don't have a location, but we see a major country in the stats (which might include us if backend detected us), use it.
-         // Or improved logic: If we are "Unknown", and the backend sends us in the list with a country, GRAFT it.
          if (currentUser.id) {
              const myUserParams = users.find(u => u.id === currentUser.id);
-             if (myUserParams && (myUserParams.country !== 'Unknown' || myUserParams.detectedCountry)) {
-                 const bestCountry = myUserParams.detectedCountry || myUserParams.country;
-                 if (bestCountry && bestCountry !== 'Unknown' && (!detectedLocation || detectedLocation.country === 'Unknown')) {
-                     console.log('[GEO] 📡 Grafting location from Socket Presence:', bestCountry);
-                     setDetectedLocation({ country: bestCountry, city: 'Unknown', countryCode: 'Unknown' });
+             if (myUserParams && (bestCountry(myUserParams) !== 'Unknown')) {
+                 const country = bestCountry(myUserParams);
+                 if (country && (!detectedLocation || detectedLocation.country === 'Unknown')) {
+                     setDetectedLocation({ country, city: 'Unknown', countryCode: 'Unknown' });
                  }
              }
          }
     });
 
-    // Handle incoming knocks
+    const bestCountry = (u: any) => u.detectedCountry || u.country;
+
     return () => {
-      cleanupPresence();
-      cleanupPresenceList();
+      unsubStats();
+      unsubPresence();
     };
   }, [currentUser.id, detectedLocation]);
 
@@ -1530,7 +1385,7 @@ export default function App(): React.JSX.Element {
             <div ref={visualizerRef} className="mb-8">
                 <div className="p-10 h-56 rounded-[2.5rem] relative overflow-hidden flex flex-col justify-end animated-player-border">
                     <div className={`absolute inset-0 bg-gradient-to-r ${selectedCategory.color} opacity-20 mix-blend-overlay`}></div>
-                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={analyserNodeRef.current} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} danceStyle={danceStyle} /></div>
+                    <div className="absolute inset-x-0 bottom-0 top-0 z-0 opacity-40"><AudioVisualizer analyserNode={audioEngine.getAnalyser()} isPlaying={isPlaying} variant={visualizerVariant} settings={vizSettings} visualMode={visualMode} danceStyle={danceStyle} /></div>
                     {/* Category name removed for clean visualizer look */}
                 </div>
                 {/* Trust Line */}
@@ -2122,7 +1977,7 @@ export default function App(): React.JSX.Element {
             onNextStation={handleNextStation} 
             onPrevStation={handlePreviousStation} 
             currentStation={currentStation} 
-            analyserNode={analyserNodeRef.current} 
+            analyserNode={audioEngine.getAnalyser()} 
             volume={volume} 
             onVolumeChange={setVolume} 
             visualMode={visualMode} 
