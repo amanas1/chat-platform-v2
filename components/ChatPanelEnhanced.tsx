@@ -395,9 +395,19 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
   // Profile Lockdown Logic (30 Days)
   const isProfileLocked = useMemo(() => {
-    if (!currentUser.registrationTimestamp || !currentUser.name || !currentUser.age) return false;
+    // If name is "Guest" or missing, it's not a real profile yet - NEVER lock
+    if (!currentUser.name || currentUser.name === 'Guest' || !currentUser.age) return false;
+    
+    // Establishing a new profile: No lock until at least something is saved
+    if (!currentUser.registrationTimestamp) return false;
+
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
     const elapsed = Date.now() - currentUser.registrationTimestamp;
+    
+    // Only lock if the profile is truly established (older than 1 hour) 
+    // to allow immediate correction of typos/wrong avatars
+    if (elapsed < 3600000) return false; 
+
     return elapsed < thirtyDaysMs;
   }, [currentUser.registrationTimestamp, currentUser.name, currentUser.age]);
 
