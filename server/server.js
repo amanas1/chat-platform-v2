@@ -4,7 +4,6 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import 'dotenv/config';
 
-
 const app = express();
 const server = http.createServer(app);
 
@@ -42,22 +41,42 @@ const broadcastPresenceCount = () => {
 };
 
 const getVisibleUsers = (requestingUserId) => {
+  if (!requestingUserId) return [];
   const userBlocks = blocks.get(requestingUserId) || new Set();
+  
   return Array.from(activeUsers.values())
+    .filter(u => u?.profile?.id)
     .map(u => ({ ...u.profile, status: 'online' }))
     .filter(u => {
-      if (!requestingUserId) return true;
-      const isBlockedByMe = userBlocks.has(u.id);
-      const amIBlockedByThem = blocks.get(u.id)?.has(requestingUserId);
+      const targetUserId = u.id;
+      if (targetUserId === requestingUserId) return true;
+      
+      const isBlockedByMe = userBlocks.has(targetUserId);
+      const amIBlockedByThem = blocks.get(targetUserId)?.has(requestingUserId);
       return !isBlockedByMe && !amIBlockedByThem;
     });
 };
 
 const broadcastPresenceList = () => {
   activeUsers.forEach((userData, userId) => {
-    const visible = getVisibleUsers(userId);
-    io.to(userData.socketId).emit('presence:list', visible);
+    if (userData?.socketId) {
+      const visible = getVisibleUsers(userId);
+      io.to(userData.socketId).emit('presence:list', visible);
+    }
   });
+};
+
+const closeSession = (sessionId) => {
+  const session = sessions.get(sessionId);
+  if (!session) return;
+
+  session.participants.forEach(pid => {
+    const p = activeUsers.get(pid);
+    if (p?.socketId) io.to(p.socketId).emit('session:close', { sessionId });
+  });
+
+  sessions.delete(sessionId);
+  messages.delete(sessionId);
 };
 
 // --- GLOBAL CLEANUP ---
@@ -85,7 +104,7 @@ setInterval(() => {
 
 // --- HTTP ROUTES ---
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
-app.get('/api/test', (req, res) => res.json({ status: 'active', version: '4.0.0-refined-global-fetch' }));
+app.get('/api/test', (req, res) => res.json({ status: 'active', version: '5.0.0-hardened' }));
 app.get('/api/location', async (req, res) => {
   try {
     const forwarded = req.headers['x-forwarded-for'];
@@ -112,11 +131,18 @@ io.on('connection', (socket) => {
 
   socket.on('user:register', (profile, callback) => {
     if (!profile?.id) return;
+    
+    // Prevent ghost users: disconnect old socket if exists
+    const existing = activeUsers.get(profile.id);
+    if (existing?.socketId && existing.socketId !== socket.id) {
+      io.sockets.sockets.get(existing.socketId)?.disconnect(true);
+    }
+
     boundUserId = profile.id;
     activeUsers.set(boundUserId, { profile, socketId: socket.id });
     
     const regData = { userId: boundUserId, profile };
-    if (callback) callback(regData);
+    if (typeof callback === 'function') callback(regData);
     socket.emit('user:registered', regData);
     
     broadcastPresenceList();
@@ -125,21 +151,35 @@ io.on('connection', (socket) => {
 
   socket.on('users:search', (filters) => {
     if (!boundUserId) return;
+    const safeFilters = filters || {};
     let list = getVisibleUsers(boundUserId);
     
-    if (filters.name) list = list.filter(u => u.name.toLowerCase().includes(filters.name.toLowerCase()));
-    if (filters.gender && filters.gender !== 'any') list = list.filter(u => u.gender === filters.gender);
-    if (filters.country && filters.country !== 'any') list = list.filter(u => u.country === filters.country);
+    if (safeFilters.name) {
+      const searchName = String(safeFilters.name).toLowerCase();
+      list = list.filter(u => u.name && u.name.toLowerCase().includes(searchName));
+    }
+    if (safeFilters.gender && safeFilters.gender !== 'any') {
+      list = list.filter(u => u.gender === safeFilters.gender);
+    }
+    if (safeFilters.country && safeFilters.country !== 'any') {
+      list = list.filter(u => u.country === safeFilters.country);
+    }
     
     socket.emit('users:search:results', list);
   });
 
-  socket.on('knock:send', ({ targetUserId }) => {
-    if (!boundUserId) return;
+  socket.on('knock:send', (payload) => {
+    if (!boundUserId || !payload?.targetUserId) return;
+    const { targetUserId } = payload;
+    
     const target = activeUsers.get(targetUserId);
-    if (blocks.get(boundUserId)?.has(targetUserId) || blocks.get(targetUserId)?.has(boundUserId)) return;
+    if (!target) return;
 
-    if (target?.socketId) {
+    const myBlocks = blocks.get(boundUserId);
+    const targetBlocks = blocks.get(targetUserId);
+    if (myBlocks?.has(targetUserId) || targetBlocks?.has(boundUserId)) return;
+
+    if (target.socketId) {
       io.to(target.socketId).emit('knock:received', {
         knockId: `k_${Date.now()}`,
         fromUserId: boundUserId,
@@ -149,31 +189,37 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('knock:accept', ({ fromUserId }) => {
-    if (!boundUserId) return;
+  socket.on('knock:accept', (payload) => {
+    if (!boundUserId || !payload?.fromUserId) return;
+    const { fromUserId } = payload;
     
+    // Hardening: validate target, blocks, and online status
+    const partner = activeUsers.get(fromUserId);
+    const me = activeUsers.get(boundUserId);
+    if (!partner || !me) return;
+
     const blocked = blocks.get(boundUserId)?.has(fromUserId) || blocks.get(fromUserId)?.has(boundUserId);
     if (blocked) return;
 
     const sessionId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
     sessions.set(sessionId, { participants: [boundUserId, fromUserId] });
     
-    const partner = activeUsers.get(fromUserId);
-    const me = activeUsers.get(boundUserId);
-
-    if (me?.socketId) io.to(me.socketId).emit('session:created', { sessionId, partnerId: fromUserId, partnerProfile: partner?.profile });
-    if (partner?.socketId) io.to(partner.socketId).emit('knock:accepted', { sessionId, partnerId: boundUserId, partnerProfile: me?.profile });
+    if (me.socketId) io.to(me.socketId).emit('session:created', { sessionId, partnerId: fromUserId, partnerProfile: partner.profile });
+    if (partner.socketId) io.to(partner.socketId).emit('knock:accepted', { sessionId, partnerId: boundUserId, partnerProfile: me.profile });
   });
 
-  socket.on('session:join', ({ sessionId }) => {
-    const session = sessions.get(sessionId);
+  socket.on('session:join', (payload) => {
+    if (!boundUserId || !payload?.sessionId) return;
+    const session = sessions.get(payload.sessionId);
     if (session?.participants.includes(boundUserId)) {
-      socket.emit('session:created', { sessionId, participants: session.participants });
+      socket.emit('session:created', { sessionId: payload.sessionId, participants: session.participants });
     }
   });
 
-  socket.on('message:send', ({ sessionId, encryptedPayload, messageType, metadata }, ack) => {
-    if (!boundUserId) return;
+  socket.on('message:send', (payload, ack) => {
+    if (!boundUserId || !payload?.sessionId || !payload?.encryptedPayload) return;
+    const { sessionId, encryptedPayload, messageType, metadata } = payload;
+    
     const session = sessions.get(sessionId);
     if (!session?.participants.includes(boundUserId)) return;
 
@@ -182,8 +228,8 @@ io.on('connection', (socket) => {
       sessionId,
       senderId: boundUserId,
       encryptedPayload,
-      messageType,
-      metadata,
+      messageType: messageType || 'text',
+      metadata: metadata || {},
       timestamp: Date.now(),
       expiresAt: Date.now() + MESSAGE_TTL
     };
@@ -198,18 +244,23 @@ io.on('connection', (socket) => {
       if (p?.socketId) io.to(p.socketId).emit('message:received', message);
     });
 
-    if (ack) ack({ success: true, messageId: message.id });
+    if (typeof ack === 'function') ack({ success: true, messageId: message.id });
   });
 
-  socket.on('messages:get', ({ sessionId }) => {
-    const session = sessions.get(sessionId);
+  socket.on('messages:get', (payload) => {
+    if (!boundUserId || !payload?.sessionId) return;
+    const session = sessions.get(payload.sessionId);
     if (session?.participants.includes(boundUserId)) {
-      socket.emit('messages:list', { sessionId, messages: (messages.get(sessionId) || []).filter(m => m.expiresAt > Date.now()) });
+      const now = Date.now();
+      const list = (messages.get(payload.sessionId) || []).filter(m => m.expiresAt > now);
+      socket.emit('messages:list', { sessionId: payload.sessionId, messages: list });
     }
   });
 
-  socket.on('user:report', ({ targetUserId }) => {
-    if (!boundUserId || boundUserId === targetUserId) return;
+  socket.on('user:report', (payload) => {
+    if (!boundUserId || !payload?.targetUserId || boundUserId === payload.targetUserId) return;
+    const { targetUserId } = payload;
+    
     if (!reports.has(targetUserId)) reports.set(targetUserId, new Set());
     const targetReports = reports.get(targetUserId);
     targetReports.add(boundUserId);
@@ -218,28 +269,34 @@ io.on('connection', (socket) => {
       const target = activeUsers.get(targetUserId);
       if (target?.socketId) {
         io.to(target.socketId).emit('user:error', { message: 'Account terminated due to community reports.' });
-        io.sockets.sockets.get(target.socketId)?.disconnect();
+        io.sockets.sockets.get(target.socketId)?.disconnect(true);
       }
+      
+      // Ban Cleanup: Remove from activeUsers, reports, blocks, and sessions
       activeUsers.delete(targetUserId);
       reports.delete(targetUserId);
+      blocks.delete(targetUserId);
+      blocks.forEach(set => set.delete(targetUserId));
+
+      sessions.forEach((session, sId) => {
+        if (session.participants.includes(targetUserId)) closeSession(sId);
+      });
+
       broadcastPresenceList();
+      broadcastPresenceCount();
     }
   });
 
-  socket.on('user:block', ({ targetUserId }) => {
-    if (!boundUserId) return;
+  socket.on('user:block', (payload) => {
+    if (!boundUserId || !payload?.targetUserId) return;
+    const { targetUserId } = payload;
+    
     if (!blocks.has(boundUserId)) blocks.set(boundUserId, new Set());
     blocks.get(boundUserId).add(targetUserId);
     
-    // Close any sessions between these users
-    sessions.forEach((session, sessionId) => {
+    sessions.forEach((session, sId) => {
       if (session.participants.includes(boundUserId) && session.participants.includes(targetUserId)) {
-        session.participants.forEach(pid => {
-          const u = activeUsers.get(pid);
-          if (u?.socketId) io.to(u.socketId).emit('session:close', { sessionId });
-        });
-        sessions.delete(sessionId);
-        messages.delete(sessionId);
+        closeSession(sId);
       }
     });
 
@@ -247,23 +304,25 @@ io.on('connection', (socket) => {
     broadcastPresenceList();
   });
 
-  socket.on('session:close', ({ sessionId }) => {
-    const session = sessions.get(sessionId);
+  socket.on('session:close', (payload) => {
+    if (!boundUserId || !payload?.sessionId) return;
+    const session = sessions.get(payload.sessionId);
     if (session?.participants.includes(boundUserId)) {
-      session.participants.forEach(pid => {
-        const p = activeUsers.get(pid);
-        if (p?.socketId) io.to(p.socketId).emit('session:close', { sessionId });
-      });
-      sessions.delete(sessionId);
-      messages.delete(sessionId);
+      closeSession(payload.sessionId);
     }
   });
 
   socket.on('disconnect', () => {
-    if (boundUserId) activeUsers.delete(boundUserId);
+    if (boundUserId) {
+      // Memory Leak Prevention: Cleanup user sessions
+      sessions.forEach((session, sId) => {
+        if (session.participants.includes(boundUserId)) closeSession(sId);
+      });
+      activeUsers.delete(boundUserId);
+    }
     broadcastPresenceList();
     broadcastPresenceCount();
   });
 });
 
-server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Minimal Backend (Refined) on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 Minimal Backend (Hardened) on port ${PORT}`));
