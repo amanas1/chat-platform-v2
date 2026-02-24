@@ -3,7 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import 'dotenv/config';
-import fetch from 'node-fetch';
+
 
 const app = express();
 const server = http.createServer(app);
@@ -85,7 +85,7 @@ setInterval(() => {
 
 // --- HTTP ROUTES ---
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
-app.get('/api/test', (req, res) => res.json({ status: 'active', version: '4.0.0-refined' }));
+app.get('/api/test', (req, res) => res.json({ status: 'active', version: '4.0.0-refined-global-fetch' }));
 app.get('/api/location', async (req, res) => {
   try {
     const forwarded = req.headers['x-forwarded-for'];
