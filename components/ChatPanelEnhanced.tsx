@@ -3033,8 +3033,8 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 {(() => {
                                     const list = ((searchResults?.length > 0 ? searchResults : onlineUsers) || [])
                                         .filter(u => !hiddenUsers.has(u.id));
-                                    // Duplicate the list for infinite circular scrolling
-                                    const duplicatedList = [...list, ...list];
+                                    // Duplicate the list for infinite circular scrolling ONLY if there are enough users
+                                    const duplicatedList = list.length > 2 ? [...list, ...list] : list;
                                     return duplicatedList.map((user, idx) => {
                                         const isMe = user.id === currentUser.id;
                                         return (

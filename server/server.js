@@ -147,7 +147,7 @@ io.on('connection', (socket) => {
     }
     if (sf.gender && sf.gender !== 'any') list = list.filter(u => u.gender === sf.gender);
     if (sf.country && sf.country !== 'any') list = list.filter(u => u.country === sf.country);
-    socket.emit('users:search:results', list);
+    socket.emit('users:results', list);
   });
 
   socket.on('knock:send', (p) => {
