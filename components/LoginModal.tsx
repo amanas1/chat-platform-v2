@@ -3,7 +3,7 @@ import {
     signInWithGoogle 
 } from '../auth';
 import { Language } from '../types';
-import { TRANSLATIONS } from '../constants';
+import { TRANSLATIONS } from '../types/constants';
 
 interface LoginModalProps {
     isOpen: boolean;

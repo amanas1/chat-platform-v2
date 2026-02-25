@@ -1,6 +1,5 @@
-import { CategoryInfo, UserProfile, Achievement, PassportData } from './types';
-import { CloudIcon, FireIcon, MusicNoteIcon, GlobeIcon, MoonIcon, HeartIcon } from './components/Icons';
-import React from 'react';
+import { CategoryInfo, UserProfile, Achievement, PassportData } from '.';
+import { CloudIcon, FireIcon, MusicNoteIcon, GlobeIcon, MoonIcon, HeartIcon } from '../components/Icons';
 
 // Radio browser API mirrors
 // Radio browser API mirrors - using central round-robin endpoint

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { CameraIcon, XMarkIcon, UserIcon, AdjustmentsIcon, CheckIcon, FaceSmileIcon, StarIcon } from './Icons';
 import { getAvatarTerm } from './AvatarTranslations';
-import { PRESET_AVATARS } from '../constants';
+import { PRESET_AVATARS } from '../types/constants';
 
 // DiceBear Avataaars Options
 const AVATAR_OPTIONS = {

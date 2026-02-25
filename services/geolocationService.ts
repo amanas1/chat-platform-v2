@@ -3,7 +3,7 @@
  * Handles browser geolocation, IP-based fallback, and location validation
  */
 
-import { normalizeCountryName } from '../constants';
+import { normalizeCountryName } from '../types/constants';
 
 export interface LocationData {
   country: string;

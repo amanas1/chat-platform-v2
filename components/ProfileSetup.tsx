@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { UserProfile, Language } from '../types';
-import { TRANSLATIONS, COUNTRIES_DATA } from '../constants';
+import { TRANSLATIONS, COUNTRIES_DATA } from '../types/constants';
 import { UserIcon, XMarkIcon, CameraIcon } from './Icons';
 const AvatarCreator = React.lazy(() => import('./AvatarCreator').then(module => ({ default: module.AvatarCreator })));
 import VoiceBioRecorder from './VoiceBioRecorder';

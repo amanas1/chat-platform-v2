@@ -3,7 +3,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useLocation, useParams } from 'react-router-dom';
 import { Language } from '../../types';
-import { TRANSLATIONS } from '../../constants';
+import { TRANSLATIONS } from '../../types/constants';
 
 interface SEOHeadProps {
     language: Language;

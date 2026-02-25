@@ -21,7 +21,6 @@ import {
 const ToolsPanel = React.lazy(() => import('./ToolsPanel'));
 const ChatPanel = React.lazy(() => import('./ChatPanelEnhanced'));
 const ManualModal = React.lazy(() => import('./ManualModal'));
-const TutorialOverlay = React.lazy(() => import('./TutorialOverlay'));
 const FeedbackModal = React.lazy(() => import('./FeedbackModal'));
 const ShareModal = React.lazy(() => import('./ShareModal'));
 const LoginModal = React.lazy(() => import('./LoginModal'));
@@ -346,7 +345,7 @@ export default function App(): React.JSX.Element {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
-  const [tutorialOpen, setTutorialOpen] = useState(false);
+
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
@@ -393,7 +392,7 @@ export default function App(): React.JSX.Element {
       }
   };
 
-  const [highlightFeature, setHighlightFeature] = useState<string | null>(null);
+
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
 
   const [sleepTimer, setSleepTimer] = useState<number | null>(null); 
@@ -1360,7 +1359,6 @@ export default function App(): React.JSX.Element {
 
   const handleShowFeature = (featureId: string) => {
       setManualOpen(false);
-      setHighlightFeature(featureId);
   };
   
   const visibleStations = useMemo(() => stations.slice(0, visibleCount), [stations, visibleCount]);
@@ -1927,7 +1925,7 @@ export default function App(): React.JSX.Element {
               danceStyle={danceStyle} setDanceStyle={setDanceStyle}
               autoDance={autoDance} setAutoDance={setAutoDance}
               randomMode={isRandomMode} setRandomMode={setIsRandomMode}
-              onStartTutorial={() => { setToolsOpen(false); setTutorialOpen(true); }} 
+              onStartTutorial={() => { setToolsOpen(false); }} 
               onOpenManual={() => { setToolsOpen(false); setManualOpen(true); }} 
               onOpenProfile={() => { setToolsOpen(false); setChatOpen(true); }} 
                 ambience={ambience} 
@@ -1946,7 +1944,7 @@ export default function App(): React.JSX.Element {
                 onGlobalReset={() => { if(window.confirm(t.resetConfirm)){ localStorage.clear(); window.location.reload(); } }}
             />
         </Suspense>
-        <Suspense fallback={null}><ManualModal isOpen={manualOpen} onClose={() => setManualOpen(false)} language={language} onShowFeature={handleShowFeature} /><TutorialOverlay isOpen={tutorialOpen || !!highlightFeature} onClose={() => { setTutorialOpen(false); setHighlightFeature(null); }} language={language} highlightFeature={highlightFeature} /></Suspense>
+        <Suspense fallback={null}><ManualModal isOpen={manualOpen} onClose={() => setManualOpen(false)} language={language} onShowFeature={handleShowFeature} /></Suspense>
         <Suspense fallback={null}><FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} language={language} currentUserId={currentUser.id} /></Suspense>
         <Suspense fallback={null}><LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} language={language} /></Suspense>
 

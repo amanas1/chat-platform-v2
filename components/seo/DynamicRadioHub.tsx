@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { GENRES, COUNTRIES_DATA, TRANSLATIONS } from '../../constants';
+import { GENRES, COUNTRIES_DATA, TRANSLATIONS } from '../../types/constants';
 import { RadioStation, Language } from '../../types';
 import { fetchStationsByTag, fetchStationsByCountry } from '../../services/radioService';
 import { HeartIcon } from '../../components/Icons';
-import { PAGE_TRANSLATIONS } from '../../translations/pageTranslations';
 
 interface DynamicHubProps {
     setLanguage: (lang: any) => void;
@@ -32,7 +31,7 @@ const DynamicRadioHub: React.FC<DynamicHubProps> = ({ setLanguage, onPlay, curre
     }, [urlLang, setLanguage]);
 
     const activeLanguage = (urlLang as Language) || language || 'en';
-    const t = PAGE_TRANSLATIONS[activeLanguage] || PAGE_TRANSLATIONS.en;
+    const t = TRANSLATIONS[activeLanguage] || TRANSLATIONS.en;
     const ui = TRANSLATIONS[activeLanguage] || TRANSLATIONS.en;
 
     // Parse Slug Strategy

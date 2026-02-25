@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Language } from '../../types';
-import { PAGE_TRANSLATIONS } from '../../translations/pageTranslations';
+import { TRANSLATIONS as PAGE_TRANSLATIONS } from '../../types/constants';
 
 interface SEOContentProps {
     language: Language;

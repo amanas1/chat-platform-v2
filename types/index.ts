@@ -237,7 +237,7 @@ export type KnockState = 'idle' | 'sending' | 'received' | 'accepted' | 'rejecte
 export interface LocationData {
   country: string;
   city: string;
-  countryCode: string;
+  countryCode?: string;
   region?: string;
   lat?: number;
   lon?: number;

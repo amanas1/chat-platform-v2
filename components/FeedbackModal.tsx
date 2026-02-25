@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { XMarkIcon, EnvelopeIcon } from './Icons';
-import { TRANSLATIONS } from '../constants';
+import { TRANSLATIONS } from '../types/constants';
 import { Language } from '../types';
 
 interface FeedbackModalProps {

@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Language } from '../../types';
-import { PAGE_TRANSLATIONS } from '../../translations/pageTranslations';
+import { TRANSLATIONS as PAGE_TRANSLATIONS } from '../../types/constants';
 
 const PageWrapper: React.FC<{ title: string; description: string; children: React.ReactNode; backText: string }> = ({ title, description, children, backText }) => (
     <div className="py-20 px-6 md:px-20 max-w-5xl mx-auto min-h-screen animate-in fade-in duration-700">

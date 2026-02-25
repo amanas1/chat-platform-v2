@@ -4,7 +4,7 @@ import {
   ThemeName, BaseTheme, Language, VisualizerVariant, VisualizerSettings, 
   AmbienceState, PassportData, AlarmConfig, FxSettings, AudioProcessSettings 
 } from '../types';
-import { TRANSLATIONS, GLOBAL_PRESETS } from '../constants';
+import { TRANSLATIONS, GLOBAL_PRESETS } from '../types/constants';
 import { 
   XMarkIcon, AdjustmentsIcon, MoonIcon, PaletteIcon, 
   SwatchIcon, CloudIcon, MusicNoteIcon, ClockIcon, FireIcon, BellIcon, ChatBubbleIcon

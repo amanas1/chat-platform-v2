@@ -2,8 +2,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { GENRES, COUNTRIES_DATA, TRANSLATIONS } from '../../constants';
-import { PAGE_TRANSLATIONS } from '../../translations/pageTranslations';
+import { GENRES, COUNTRIES_DATA, TRANSLATIONS } from '../../types/constants';
 import { Language } from '../../types';
 
 interface DirectoryPageProps {
@@ -11,7 +10,7 @@ interface DirectoryPageProps {
 }
 
 export const DirectoryPage: React.FC<DirectoryPageProps> = ({ language = 'en' }) => {
-    const t = PAGE_TRANSLATIONS[language] || PAGE_TRANSLATIONS.en;
+    const t = TRANSLATIONS[language] || TRANSLATIONS.en;
     const ui = TRANSLATIONS[language] || TRANSLATIONS.en;
     
     // Top 20 Countries by population/interest

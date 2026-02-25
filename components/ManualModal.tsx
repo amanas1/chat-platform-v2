@@ -1,9 +1,8 @@
 
 import React from 'react';
 import { Language } from '../types';
-import { TRANSLATIONS } from '../constants';
+import { TRANSLATIONS } from '../types/constants';
 import { XMarkIcon, MusicNoteIcon, UsersIcon, AdjustmentsIcon, PaletteIcon, PlayIcon, CloudIcon, GlobeIcon, BellIcon, LifeBuoyIcon, MoonIcon, MapIcon, RocketIcon } from './Icons';
-import EncyclopediaView from './EncyclopediaView';
 
 interface ManualModalProps {
   isOpen: boolean;
@@ -132,12 +131,9 @@ const ManualModal: React.FC<ManualModalProps> = ({ isOpen, onClose, language, on
               </button>
           </div>
           
-          {showEncyclopedia ? (
               <div className="flex-1 overflow-hidden flex flex-col">
-                <EncyclopediaView onBack={() => setShowEncyclopedia(false)} language={language} />
+                  {/* Features placeholder or removed Encyclopedia content */}
               </div>
-          ) : (
-              <>
                 <div className="p-8 overflow-y-auto no-scrollbar space-y-8 flex-1">
                     <p className="text-slate-300 text-xl leading-relaxed font-medium">{t.manualIntro}</p>
                     
@@ -186,10 +182,8 @@ const ManualModal: React.FC<ManualModalProps> = ({ isOpen, onClose, language, on
                         </a>
                     </div>
                     
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold opacity-50">© 2026 AU RadioChat Engine • Administration</p>
-                </div>
-              </>
-          )}
+                  <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold opacity-50">© 2026 AU RadioChat Engine • Administration</p>
+              </div>
       </div>
     </div>
   );
