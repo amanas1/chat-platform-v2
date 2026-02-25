@@ -11,6 +11,8 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 const MESSAGE_TTL = 30000;
 const MAX_MESSAGES = 50;
+const MAX_ROOMS = 1000;
+const MAX_SESSIONS = 5000;
 const REPORT_THRESHOLD = 3;
 const CLEANUP_INTERVAL = 5000;
 
@@ -31,8 +33,30 @@ const sessions = new Map();
 const messages = new Map();
 const reports = new Map();
 const blocks = new Map();
+const rooms = new Map();
+const rateLimits = new Map(); // userId -> { eventType: [timestamps] }
 
-// --- UTILS & BROADCASTS ---
+// --- UTILS, LOGGING & BROADCASTS ---
+const sysLog = (event, data) => {
+  console.log(`[SYS] ${new Date().toISOString()} | ${event} | ${JSON.stringify(data)}`);
+};
+
+const checkRateLimit = (userId, type, limit, windowMs) => {
+  if (!rateLimits.has(userId)) rateLimits.set(userId, {});
+  const userLimits = rateLimits.get(userId);
+  if (!userLimits[type]) userLimits[type] = [];
+  const now = Date.now();
+  userLimits[type] = userLimits[type].filter(ts => now - ts < windowMs);
+  if (userLimits[type].length >= limit) return false;
+  userLimits[type].push(now);
+  return true;
+};
+
+const sanitizeInput = (str) => {
+  if (typeof str !== 'string') return null;
+  const cleaned = str.replace(/<[^>]*>?/gm, '').trim().substring(0, 300);
+  return cleaned.length > 0 ? cleaned : null;
+};
 const broadcastPresenceCount = () => {
   io.emit('presence:count', { 
     totalOnline: io.engine.clientsCount, 
@@ -77,6 +101,8 @@ const closeSession = (sessionId) => {
 // --- GLOBAL CLEANUP ---
 setInterval(() => {
   const now = Date.now();
+  
+  // Clean private sessions
   messages.forEach((sessionMsgs, sessionId) => {
     const session = sessions.get(sessionId);
     if (!session) {
@@ -93,6 +119,32 @@ setInterval(() => {
         });
       });
     }
+  });
+
+  // Clean public rooms
+  rooms.forEach((roomData, roomId) => {
+    const expired = roomData.messages.filter(m => m.expiresAt <= now);
+    if (expired.length > 0) {
+      roomData.messages = roomData.messages.filter(m => m.expiresAt > now);
+      expired.forEach(msg => {
+        io.to(roomId).emit('room:message:expired', { messageId: msg.id, roomId });
+      });
+    }
+
+    // Safety constraint: Delete empty rooms
+    if (roomData.participants.size === 0 && roomData.messages.length === 0) {
+      rooms.delete(roomId);
+    }
+  });
+
+  // Purge old rate limits to prevent memory leak
+  rateLimits.forEach((userLimits, userId) => {
+    let hasRecent = false;
+    Object.keys(userLimits).forEach(type => {
+      userLimits[type] = userLimits[type].filter(ts => now - ts < 300000); // 5 min
+      if (userLimits[type].length > 0) hasRecent = true;
+    });
+    if (!hasRecent) rateLimits.delete(userId);
   });
 }, CLEANUP_INTERVAL);
 
@@ -125,16 +177,50 @@ io.on('connection', (socket) => {
 
   socket.on('user:register', (profile, callback) => {
     if (!profile?.id) return;
+    
+    if (!checkRateLimit(profile.id, 'user:register', 1, 3000)) {
+      socket.emit('user:error', { message: 'Rate limit exceeded.' });
+      return;
+    }
+
+    let reconnected = false;
     const existing = activeUsers.get(profile.id);
     if (existing?.socketId && existing.socketId !== socket.id) {
       io.sockets.sockets.get(existing.socketId)?.disconnect(true);
+      reconnected = true;
+    } else if (existing) {
+      reconnected = true;
     }
+
     boundUserId = profile.id;
     activeUsers.set(boundUserId, { profile, socketId: socket.id });
     if (typeof callback === 'function') callback({ userId: boundUserId, profile });
     socket.emit('user:registered', { userId: boundUserId, profile });
     broadcastPresenceList();
     broadcastPresenceCount();
+
+    if (reconnected) {
+      rooms.forEach((room, roomId) => {
+        if (room.participants.has(boundUserId)) {
+          socket.join(roomId);
+          if (room.messages && room.messages.length > 0) {
+            room.messages.forEach(msg => socket.emit('room:message', msg));
+          }
+        }
+      });
+      sessions.forEach((session, sessionId) => {
+        if (session.participants.includes(boundUserId)) {
+          const partnerId = session.participants.find(id => id !== boundUserId) || boundUserId;
+          const partnerProfile = activeUsers.get(partnerId)?.profile;
+          socket.emit('session:restore', { 
+            sessionId,
+            partnerId,
+            partnerProfile,
+            messages: messages.get(sessionId) || []
+          });
+        }
+      });
+    }
   });
 
   socket.on('users:search', (filters) => {
@@ -152,6 +238,12 @@ io.on('connection', (socket) => {
 
   socket.on('knock:send', (p) => {
     if (!boundUserId || !p?.targetUserId) return;
+    
+    if (!checkRateLimit(boundUserId, 'knock:send', 3, 10000)) {
+      socket.emit('user:error', { message: 'Rate limit exceeded.' });
+      return;
+    }
+
     const target = activeUsers.get(p.targetUserId);
     if (!target) return;
     if (blocks.get(boundUserId)?.has(p.targetUserId) || blocks.get(p.targetUserId)?.has(boundUserId)) return;
@@ -172,9 +264,23 @@ io.on('connection', (socket) => {
     if (!partner || !me) return;
     if (blocks.get(boundUserId)?.has(p.fromUserId) || blocks.get(p.fromUserId)?.has(boundUserId)) return;
     
-    let existing = false;
-    sessions.forEach(s => { if (s.participants.includes(boundUserId) && s.participants.includes(p.fromUserId)) existing = true; });
-    if (existing) return;
+    let existingSessionId = null;
+    sessions.forEach((s, sId) => { 
+      if (s.participants.includes(boundUserId) && s.participants.includes(p.fromUserId)) {
+        existingSessionId = sId;
+      }
+    });
+
+    if (existingSessionId) {
+      if (me.socketId) io.to(me.socketId).emit('session:created', { sessionId: existingSessionId, partnerId: p.fromUserId, partnerProfile: partner.profile });
+      if (partner.socketId) io.to(partner.socketId).emit('knock:accepted', { sessionId: existingSessionId, partnerId: boundUserId, partnerProfile: me.profile });
+      return;
+    }
+
+    if (sessions.size >= MAX_SESSIONS) {
+      socket.emit('server:busy', { message: 'Server capacity reached.' });
+      return;
+    }
 
     const sessionId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
     sessions.set(sessionId, { participants: [boundUserId, p.fromUserId] });
@@ -211,18 +317,27 @@ io.on('connection', (socket) => {
 
   socket.on('message:send', (p, ack) => {
     if (!boundUserId || !p?.sessionId) return;
-    if (!p.encryptedPayload && !p.text && !p.audio && !p.sticker) return;
+    
+    if (!checkRateLimit(boundUserId, 'message:send', 5, 5000)) {
+      socket.emit('user:error', { message: 'Rate limit exceeded.' });
+      return;
+    }
+
+    const cleanText = sanitizeInput(p.text);
+    if (!p.encryptedPayload && !cleanText && !p.audio && !p.sticker) return;
+
     const session = sessions.get(p.sessionId);
     if (!session?.participants.includes(boundUserId)) return;
+    
     const msg = {
       id: `m_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       sessionId: p.sessionId,
       senderId: boundUserId,
       encryptedPayload: p.encryptedPayload || null,
-      text: p.text || null,
+      text: cleanText,
       sticker: p.sticker || null,
       audio: p.audio || null,
-      messageType: p.messageType || 'text',
+      type: p.messageType || 'text',
       metadata: p.metadata || {},
       timestamp: Date.now(),
       expiresAt: Date.now() + MESSAGE_TTL
@@ -258,6 +373,7 @@ io.on('connection', (socket) => {
     const tr = reports.get(p.targetUserId);
     tr.add(boundUserId);
     if (tr.size >= REPORT_THRESHOLD) {
+      sysLog('user_banned', { targetId: p.targetUserId, reporters: Array.from(tr) });
       const t = activeUsers.get(p.targetUserId);
       if (t?.socketId) {
         io.to(t.socketId).emit('user:error', { message: 'Account terminated due to community reports.' });
@@ -287,9 +403,99 @@ io.on('connection', (socket) => {
     if (sessions.get(p.sessionId)?.participants.includes(boundUserId)) closeSession(p.sessionId);
   });
 
+  socket.on('room:join', (p) => {
+    if (!boundUserId || !p?.roomId) return;
+    
+    if (!checkRateLimit(boundUserId, 'room:join', 5, 5000)) {
+      socket.emit('user:error', { message: 'Rate limit exceeded.' });
+      return;
+    }
+
+    if (!rooms.has(p.roomId) && rooms.size >= MAX_ROOMS) {
+      socket.emit('server:busy', { message: 'Server capacity reached for public rooms.' });
+      return;
+    }
+
+    socket.join(p.roomId);
+    if (!rooms.has(p.roomId)) {
+      rooms.set(p.roomId, { participants: new Set(), messages: [] });
+    }
+    const room = rooms.get(p.roomId);
+    room.participants.add(boundUserId);
+    
+    socket.emit('room:joined', { roomId: p.roomId });
+    
+    // Usually rooms will send the recent history on join; although requirement says no history storage, 
+    // it mentioned to return MAX_MESSAGES. We will just emit the current active ones.
+    if (room.messages.length > 0) {
+       room.messages.forEach(msg => socket.emit('room:message', msg));
+    }
+  });
+
+  socket.on('room:leave', (p) => {
+    if (!boundUserId || !p?.roomId) return;
+    socket.leave(p.roomId);
+    
+    const room = rooms.get(p.roomId);
+    if (room) {
+      room.participants.delete(boundUserId);
+      if (room.participants.size === 0 && room.messages.length === 0) {
+        rooms.delete(p.roomId);
+      }
+    }
+  });
+
+  socket.on('room:message', (p) => {
+    if (!boundUserId || !p?.roomId || !p?.text) return;
+
+    if (!checkRateLimit(boundUserId, 'room:message', 5, 5000)) {
+      socket.emit('user:error', { message: 'Rate limit exceeded.' });
+      return;
+    }
+    
+    const cleanText = sanitizeInput(p.text);
+    if (!cleanText) return;
+
+    const room = rooms.get(p.roomId);
+    if (!room) return;
+    if (!room.participants.has(boundUserId)) return;
+    
+    const msg = {
+      id: `m_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      roomId: p.roomId,
+      senderId: boundUserId,
+      text: cleanText,
+      type: 'text',
+      timestamp: Date.now(),
+      expiresAt: Date.now() + 10000 // 10s TTL for public rooms
+    };
+    
+    room.messages.push(msg);
+    if (room.messages.length > MAX_MESSAGES) room.messages.shift();
+    
+    io.to(p.roomId).emit('room:message', msg);
+  });
+
   socket.on('disconnect', () => {
     if (boundUserId) {
-      sessions.forEach((s, sId) => { if (s.participants.includes(boundUserId)) closeSession(sId); });
+      sessions.forEach((s, sId) => { 
+        if (s.participants.includes(boundUserId)) {
+          const bothOffline = s.participants.every(pid => pid === boundUserId || !activeUsers.has(pid));
+          if (bothOffline) {
+            closeSession(sId);
+          }
+        }
+      });
+      
+      rooms.forEach((room, roomId) => {
+        if (room.participants.has(boundUserId)) {
+          room.participants.delete(boundUserId);
+          if (room.participants.size === 0 && room.messages.length === 0) {
+            rooms.delete(roomId);
+          }
+        }
+      });
+
       activeUsers.delete(boundUserId);
     }
     broadcastPresenceList();
