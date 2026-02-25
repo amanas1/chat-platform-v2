@@ -4,7 +4,7 @@ import { Helmet } from 'react-helmet-async';
 import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from '../types';
 import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, GLOBAL_PRESETS } from '../types/constants';
 import { fetchStationsByTag, fetchStationsByUuids } from '../services/radioService';
-import { socketService } from '../services/socketService';
+import socketService from '../services/socketService';
 import { audioEngine } from '../services/AudioEngine';
 import AudioVisualizer from './AudioVisualizer';
 import DancingAvatar from './DancingAvatar';

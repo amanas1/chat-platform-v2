@@ -14,7 +14,7 @@ import { UserProfile, ChatMessage, KnockState, Language, LocationData, RadioStat
 import AudioVisualizer from './AudioVisualizer';
 import DancingAvatar from './DancingAvatar';
 
-import { socketService } from '../services/socketService';
+import socketService from '../services/socketService';
 import { geolocationService } from '../services/geolocationService';
 import { TRANSLATIONS, COUNTRIES_DATA, PRESET_AVATARS } from '../types/constants';
 import StickerPicker from './StickerPicker';

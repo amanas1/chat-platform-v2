@@ -417,4 +417,5 @@ class SocketManager {
   public onEvent = (ev: string, cb: Function) => this.on(ev, cb);
 }
 
-export const socketService = SocketManager.getInstance();
+const socketService = SocketManager.getInstance();
+export default socketService;

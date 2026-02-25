@@ -19,9 +19,15 @@ const firebaseConfig = {
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+let app: any;
+let auth: any;
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+} catch (e) {
+  console.warn("Firebase failed to init:", e);
+  auth = { onAuthStateChanged: () => () => {}, currentUser: null };
+}
 
-// Initialize Firebase Auth
-export const auth = getAuth(app);
+export { auth };
 export default app;
