@@ -876,6 +876,23 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     }
   }, [activeSessions]);
   
+  // REACTIVE SYNC: Instantly update self-card in online/search lists when profile changes
+  useEffect(() => {
+    if (!currentUser.id) return;
+    
+    // Patch onlineUsers
+    setOnlineUsers(prev => {
+      if (!prev || prev.length === 0) return prev;
+      return prev.map(u => u.id === currentUser.id ? { ...u, ...currentUser } : u);
+    });
+    
+    // Patch searchResults
+    setSearchResults(prev => {
+      if (!prev || prev.length === 0) return prev;
+      return prev.map(u => u.id === currentUser.id ? { ...u, ...currentUser } : u);
+    });
+  }, [currentUser.id, currentUser.name, currentUser.avatar]);
+  
   // Message pruning for ephemeral chat (30s media, 60s text, 50 cap)
   useEffect(() => {
     const pruneInterval = setInterval(() => {
