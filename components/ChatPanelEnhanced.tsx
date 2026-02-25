@@ -1089,12 +1089,15 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       const profile = { ...data.profile, id: data.userId, status: 'online' };
       onUpdateCurrentUser(profile);
       
-      // OPTIMISTIC: Add self to online users immediately so we appear in carousel
+      // OPTIMISTIC: Add/Update self in online users immediately so we appear in carousel with NEW avatar
       setOnlineUsers(prev => {
           const list = prev || [];
-          if (list.find(u => u.id === data.userId)) return list;
-          return [profile, ...list];
+          const others = list.filter(u => u.id !== data.userId);
+          return [profile, ...others];
       });
+      
+      // Reset throttle so the next server broadcast (triggered by our registration) is accepted immediately
+      lastPresenceUpdate.current = 0;
 
       // Fetch initial sessions
       if (data.activeSessions) {
@@ -1713,6 +1716,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       free_until: currentUser.free_until,
       accountStatus: currentUser.accountStatus
     };
+
+    // Reset presence throttle to ensure immediate UI update when server broadcasts new list
+    lastPresenceUpdate.current = 0;
     
     onUpdateCurrentUser(updatedUser);
     localStorage.setItem('streamflow_user_profile', JSON.stringify(updatedUser));
@@ -1788,6 +1794,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
 
   const handleSearch = () => {
+    // Reset presence throttle to ensure immediate UI update with new search results
+    lastPresenceUpdate.current = 0;
+    
+    if (!currentUser.id) {
+      console.warn("Cannot perform search: currentUser.id is not available.");
+      return;
+    }
     const filters: any = {};
     if (searchAgeFrom !== 'Any') filters.minAge = parseInt(searchAgeFrom);
     if (searchAgeTo !== 'Any') filters.maxAge = searchAgeTo === '65+' ? 100 : parseInt(searchAgeTo);
