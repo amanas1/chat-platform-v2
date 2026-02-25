@@ -215,75 +215,91 @@ export const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSelect, onClose,
     reader.readAsDataURL(file);
   };
 
-  // UI Components
-  const TabButton = ({ id, icon, label }: { id: typeof activeTab, icon: React.ReactNode, label: string }) => (
-    <button 
-      onClick={() => setActiveTab(id)}
-      className={`flex-1 py-3 flex flex-col items-center gap-1 transition-all border-b-2 ${activeTab === id ? 'border-primary text-white' : 'border-transparent text-slate-500 hover:text-white'}`}
-    >
-      {icon}
-      <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
-    </button>
-  );
+// UI Components moved outside to prevent re-creation on every render
+const TabButton = React.memo(({ id, icon, label, activeTab, onClick }: { 
+  id: string, 
+  icon: React.ReactNode, 
+  label: string, 
+  activeTab: string, 
+  onClick: (id: any) => void 
+}) => (
+  <button 
+    onClick={() => onClick(id)}
+    className={`flex-1 py-3 flex flex-col items-center gap-1 transition-all border-b-2 ${activeTab === id ? 'border-primary text-white' : 'border-transparent text-slate-500 hover:text-white'}`}
+  >
+    {icon}
+    <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
+  </button>
+));
 
-  const ParamSelector = ({ title, options, current, onChange }: { title: string, options: string[], current: string, onChange: (val: string) => void }) => (
-    <div className="mb-4">
-      <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">{title}</h4>
-      <div className="grid grid-cols-4 gap-2">
-        {options.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => onChange(opt)}
-            className={`h-10 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-[10px] truncate px-1 transition-all ${current === opt ? 'bg-primary text-white border-primary' : 'hover:bg-white/10 text-slate-400'}`}
-            title={getAvatarTerm(opt, lang)}
-          >
-             {/* Visual preview if possible, otherwise text */}
-             {getAvatarTerm(opt, lang)}
-          </button>
-        ))}
-      </div>
+const ParamSelector = React.memo(({ title, options, current, onChange, lang }: { 
+  title: string, 
+  options: string[], 
+  current: string, 
+  onChange: (val: string) => void,
+  lang: string
+}) => (
+  <div className="mb-4">
+    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">{title}</h4>
+    <div className="grid grid-cols-4 gap-2">
+      {options.map((opt) => (
+        <button
+          key={opt}
+          onClick={() => onChange(opt)}
+          className={`h-10 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center text-[10px] truncate px-1 cursor-pointer transition-colors ${current === opt ? 'bg-primary text-white border-primary shadow-[0_0_10px_rgba(188,111,241,0.3)]' : 'hover:bg-white/10 text-slate-400'}`}
+          title={getAvatarTerm(opt, lang)}
+        >
+           {getAvatarTerm(opt, lang)}
+        </button>
+      ))}
     </div>
-  );
+  </div>
+));
 
-  const ColorSelector = ({ title, options, current, onChange }: { title: string, options: string[], current: string, onChange: (val: string) => void }) => (
-     <div className="mb-4">
-      <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">{title}</h4>
-      <div className="flex flex-wrap gap-2">
-        {options.map((opt) => {
-            let colorCode = '#ccc';
-            // Simple mapping for UI preview
-            switch(opt) {
-                case 'Auburn': colorCode = '#A55728'; break;
-                case 'Black': colorCode = '#2C1B18'; break;
-                case 'Blonde': colorCode = '#B58143'; break;
-                case 'BlondeGolden': colorCode = '#D6B370'; break;
-                case 'Brown': colorCode = '#724133'; break;
-                case 'BrownDark': colorCode = '#4A312C'; break;
-                case 'PastelPink': colorCode = '#F59797'; break;
-                case 'Blue': colorCode = '#000fcc'; break;
-                case 'Platinum': colorCode = '#ECDCBF'; break;
-                case 'Red': colorCode = '#C93305'; break;
-                case 'SilverGray': colorCode = '#E8E1E1'; break;
-                case 'Tanned': colorCode = '#FD9841'; break;
-                case 'Yellow': colorCode = '#F8D25C'; break;
-                case 'Pale': colorCode = '#FFDBB4'; break;
-                case 'Light': colorCode = '#EDB98A'; break;
-                case 'DarkBrown': colorCode = '#AE5D29'; break;
-            }
-            
-            return (
-              <button
-                key={opt}
-                onClick={() => onChange(opt)}
-                className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${current === opt ? 'border-white scale-110 shadow-lg' : 'border-transparent'}`}
-                style={{ backgroundColor: colorCode }}
-                title={getAvatarTerm(opt, lang)}
-              />
-            );
-        })}
-      </div>
+const ColorSelector = React.memo(({ title, options, current, onChange, lang }: { 
+  title: string, 
+  options: string[], 
+  current: string, 
+  onChange: (val: string) => void,
+  lang: string
+}) => (
+   <div className="mb-4">
+    <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">{title}</h4>
+    <div className="flex flex-wrap gap-2">
+      {options.map((opt) => {
+          let colorCode = '#ccc';
+          switch(opt) {
+              case 'Auburn': colorCode = '#A55728'; break;
+              case 'Black': colorCode = '#2C1B18'; break;
+              case 'Blonde': colorCode = '#B58143'; break;
+              case 'BlondeGolden': colorCode = '#D6B370'; break;
+              case 'Brown': colorCode = '#724133'; break;
+              case 'BrownDark': colorCode = '#4A312C'; break;
+              case 'PastelPink': colorCode = '#F59797'; break;
+              case 'Blue': colorCode = '#000fcc'; break;
+              case 'Platinum': colorCode = '#ECDCBF'; break;
+              case 'Red': colorCode = '#C93305'; break;
+              case 'SilverGray': colorCode = '#E8E1E1'; break;
+              case 'Tanned': colorCode = '#FD9841'; break;
+              case 'Yellow': colorCode = '#F8D25C'; break;
+              case 'Pale': colorCode = '#FFDBB4'; break;
+              case 'Light': colorCode = '#EDB98A'; break;
+              case 'DarkBrown': colorCode = '#AE5D29'; break;
+          }
+          
+          return (
+            <button
+              key={opt}
+              onClick={() => onChange(opt)}
+              className={`w-8 h-8 rounded-full border-2 transition-all cursor-pointer hover:scale-110 active:scale-95 ${current === opt ? 'border-white scale-110 shadow-lg ring-2 ring-primary/20' : 'border-transparent'}`}
+              style={{ backgroundColor: colorCode }}
+              title={getAvatarTerm(opt, lang)}
+            />
+          );
+      })}
     </div>
-  );
+  </div>
+));
 
 
   // --- MAN RENDER ---
@@ -408,16 +424,10 @@ export const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSelect, onClose,
                     {/* Gender Toggle removed as per user request */}
                     
                     <div className="flex border-b border-white/10 bg-black/20 shrink-0 mx-6 rounded-t-xl overflow-hidden mt-6">
-                        <TabButton id="head" icon={<UserIcon className="w-4 h-4" />} label={t.head} />
-                        <TabButton id="face" icon={<div className="text-lg leading-none">👀</div>} label={t.face} />
-                        <TabButton id="style" icon={<div className="text-lg leading-none">👕</div>} label={t.style} />
-                        <button 
-                          onClick={() => setActiveTab('presets')}
-                          className={`flex-1 py-3 flex flex-col items-center gap-1 transition-all border-b-2 ${activeTab === 'presets' ? 'border-primary text-white' : 'border-transparent text-slate-500 hover:text-white'}`}
-                        >
-                          <StarIcon className="w-4 h-4" />
-                          <span className="text-[10px] font-bold uppercase tracking-wider">{t.presets || 'PRESETS'}</span>
-                        </button>
+                        <TabButton id="head" icon={<UserIcon className="w-4 h-4" />} label={t.head} activeTab={activeTab} onClick={setActiveTab} />
+                        <TabButton id="face" icon={<div className="text-lg leading-none">👀</div>} label={t.face} activeTab={activeTab} onClick={setActiveTab} />
+                        <TabButton id="style" icon={<div className="text-lg leading-none">👕</div>} label={t.style} activeTab={activeTab} onClick={setActiveTab} />
+                        <TabButton id="presets" icon={<StarIcon className="w-4 h-4" />} label={t.presets || 'PRESETS'} activeTab={activeTab} onClick={setActiveTab} />
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 min-h-0 custom-scrollbar">
@@ -447,47 +457,53 @@ export const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSelect, onClose,
                         )}
 
                         {activeTab === 'head' && (
-                            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div className="animate-in fade-in duration-300">
                                 <ColorSelector 
                                     title={t.skinTone} 
                                     options={AVATAR_OPTIONS.skinColor} 
                                     current={params.skinColor} 
                                     onChange={(v) => setParams(p => ({...p, skinColor: v}))} 
+                                    lang={lang}
                                 />
                                 <ParamSelector 
                                     title={t.hairStyle} 
                                     options={gender === 'male' ? AVATAR_OPTIONS.topType.filter(t => !FEMALE_SPECIFIC_TOPS.includes(t)) : AVATAR_OPTIONS.topType} 
                                     current={params.topType} 
                                     onChange={(v) => setParams(p => ({...p, topType: v}))} 
+                                    lang={lang}
                                 />
                                 <ColorSelector 
                                     title={t.hairColor} 
                                     options={AVATAR_OPTIONS.hairColor} 
                                     current={params.hairColor} 
                                     onChange={(v) => setParams(p => ({...p, hairColor: v}))} 
+                                    lang={lang}
                                 />
                             </div>
                         )}
 
                         {activeTab === 'face' && (
-                            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div className="animate-in fade-in duration-300">
                                 <ParamSelector 
                                     title={t.eyes} 
                                     options={AVATAR_OPTIONS.eyeType} 
                                     current={params.eyeType} 
                                     onChange={(v) => setParams(p => ({...p, eyeType: v}))} 
+                                    lang={lang}
                                 />
                                 <ParamSelector 
                                     title={t.eyebrows} 
                                     options={AVATAR_OPTIONS.eyebrowType} 
                                     current={params.eyebrowType} 
                                     onChange={(v) => setParams(p => ({...p, eyebrowType: v}))} 
+                                    lang={lang}
                                 />
                                 <ParamSelector 
                                     title={t.mouth} 
                                     options={AVATAR_OPTIONS.mouthType} 
                                     current={params.mouthType} 
                                     onChange={(v) => setParams(p => ({...p, mouthType: v}))} 
+                                    lang={lang}
                                 />
                                 {gender === 'male' && (
                                     <ParamSelector 
@@ -495,24 +511,27 @@ export const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSelect, onClose,
                                         options={AVATAR_OPTIONS.facialHairType} 
                                         current={params.facialHairType} 
                                         onChange={(v) => setParams(p => ({...p, facialHairType: v}))} 
+                                        lang={lang}
                                     />
                                 )}
                             </div>
                         )}
 
                         {activeTab === 'style' && (
-                            <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                            <div className="animate-in fade-in duration-300">
                                 <ParamSelector 
                                     title={t.clothing} 
                                     options={AVATAR_OPTIONS.clotheType} 
                                     current={params.clotheType} 
                                     onChange={(v) => setParams(p => ({...p, clotheType: v}))} 
+                                    lang={lang}
                                 />
                                 <ParamSelector 
                                     title={t.accessories} 
                                     options={AVATAR_OPTIONS.accessoriesType} 
                                     current={params.accessoriesType} 
                                     onChange={(v) => setParams(p => ({...p, accessoriesType: v}))} 
+                                    lang={lang}
                                 />
                             </div>
                         )}
