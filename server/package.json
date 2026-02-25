@@ -1,12 +1,14 @@
 {
-  "name": "streamflow-backend",
+  "name": "au-radiochat-server",
+  "private": true,
   "version": "1.0.0",
-  "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
     "express": "^4.21.2",
     "socket.io": "^4.8.3"
   }
