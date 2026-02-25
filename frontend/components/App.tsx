@@ -19,7 +19,7 @@ import {
 } from './Icons';
 
 const ToolsPanel = React.lazy(() => import('./ToolsPanel'));
-const ChatPanel = React.lazy(() => import('./ChatPanelEnhanced'));
+const ChatPanel = React.lazy(() => import('./chat/ChatPlatformV2'));
 const ManualModal = React.lazy(() => import('./ManualModal'));
 const FeedbackModal = React.lazy(() => import('./FeedbackModal'));
 const ShareModal = React.lazy(() => import('./ShareModal'));
@@ -1952,36 +1952,10 @@ export default function App(): React.JSX.Element {
       <Suspense fallback={null}>
         <ChatPanel 
             isOpen={chatOpen} 
-            onClose={() => {
-                setChatOpen(false);
-                setIsGlobalLightsOn(false);
-            }} 
-            language={language} 
-            onLanguageChange={setLanguage} 
-            currentUser={currentUser} 
-            onUpdateCurrentUser={setCurrentUser} 
-            isPlaying={isPlaying} 
-            onTogglePlay={togglePlay} 
-            onNextStation={handleNextStation} 
-            onPrevStation={handlePreviousStation} 
-            currentStation={currentStation} 
-            analyserNode={audioEngine.getAnalyser()} 
-            volume={volume} 
-            onVolumeChange={setVolume} 
-            visualMode={visualMode} 
-            favorites={favorites} 
-            onToggleFavorite={toggleFavorite}
-            randomMode={isRandomMode}
-            onToggleRandomMode={() => setIsRandomMode(!isRandomMode)}
-            onShare={() => setShareOpen(true)}
-            onPendingKnocksChange={setPendingKnocksCount}
-            detectedLocation={detectedLocation}
-            // Debug prop
-            onRequireLogin={() => {
-                console.log('[App] Passing location to ChatPanel:', detectedLocation);
-                setShowLoginModal(true);
-            }}
-            onLightsToggle={setIsGlobalLightsOn}
+            onClose={() => setChatOpen(false)} 
+            language={language}
+            currentUser={currentUser}
+            onUpdateCurrentUser={setCurrentUser}
         />
       </Suspense>
 

@@ -148,3 +148,5 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
     </div>
   );
 };
+
+export default ChatPlatformV2;
