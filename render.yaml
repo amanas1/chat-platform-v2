@@ -2,6 +2,7 @@ services:
   - type: web
     name: chat-platform-v2-backend
     env: node
+    plan: free
     buildCommand: npm install
     startCommand: node server/server.js
     envVars:
