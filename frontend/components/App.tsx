@@ -1950,13 +1950,23 @@ export default function App(): React.JSX.Element {
 
       </main>
       <Suspense fallback={null}>
-        <ChatPanel 
-            isOpen={chatOpen} 
-            onClose={() => setChatOpen(false)} 
-            language={language}
-            currentUser={currentUser}
-            onUpdateCurrentUser={setCurrentUser}
-        />
+        {chatOpen && (
+            <div className={`fixed inset-y-0 right-0 w-full md:w-[450px] bg-black/80 backdrop-blur-3xl border-l border-white/10 z-[100] transition-transform duration-500 flex flex-col shadow-2xl ${chatOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+                {/* Header */}
+                <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 shrink-0">
+                    <h2 className="text-lg font-black tracking-tighter uppercase text-white">Communications</h2>
+                    <button onClick={() => setChatOpen(false)} className="p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10"><XMarkIcon className="w-5 h-5" /></button>
+                </div>
+                
+                {/* Platform Content Wrapper */}
+                <div className="flex-1 overflow-hidden relative">
+                    <ChatPanel 
+                        currentUserOverride={currentUser}
+                        onExit={() => setChatOpen(false)}
+                    />
+                </div>
+            </div>
+        )}
       </Suspense>
 
       <Suspense fallback={null}>
