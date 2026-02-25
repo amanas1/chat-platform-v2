@@ -1,43 +1,40 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 import { Routes, Route, Link, useLocation, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from './types';
-import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, GLOBAL_PRESETS } from './constants';
-import { fetchStationsByTag, fetchStationsByUuids } from './services/radioService';
-import { curateStationList, isAiAvailable } from './services/geminiService';
-import { socketService } from './services/socketService';
-import { audioEngine } from './services/AudioEngine';
-import AudioVisualizer from './components/AudioVisualizer';
-import DancingAvatar from './components/DancingAvatar';
-import RainEffect from './components/RainEffect';
-import NewsCarousel from './components/NewsCarousel';
-import FireEffect from './components/FireEffect';
-import { geolocationService, LocationData } from './services/geolocationService';
+import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from '../types';
+import { GENRES, ERAS, MOODS, EFFECTS, DEFAULT_VOLUME, TRANSLATIONS, ACHIEVEMENTS_LIST, GLOBAL_PRESETS } from '../types/constants';
+import { fetchStationsByTag, fetchStationsByUuids } from '../services/radioService';
+import { socketService } from '../services/socketService';
+import { audioEngine } from '../services/AudioEngine';
+import AudioVisualizer from './AudioVisualizer';
+import DancingAvatar from './DancingAvatar';
+import RainEffect from './RainEffect';
+import FireEffect from './FireEffect';
+import { geolocationService, LocationData } from '../services/geolocationService';
 import { 
   PauseIcon, VolumeIcon, LoadingIcon, MusicNoteIcon, HeartIcon, MenuIcon, AdjustmentsIcon,
   PlayIcon, ChatBubbleIcon, NextIcon, PreviousIcon, XMarkIcon, DownloadIcon,
   SwatchIcon, EnvelopeIcon, LifeBuoyIcon, ShuffleIcon, PlusIcon, ShareIcon, // Using PlusIcon as placeholder for EQ if needed, or AdjustmentsIcon
   QuestionMarkCircleIcon, RocketIcon
-} from './components/Icons';
+} from './Icons';
 
-const ToolsPanel = React.lazy(() => import('./components/ToolsPanel'));
-const ChatPanel = React.lazy(() => import('./components/ChatPanelEnhanced'));
-const ManualModal = React.lazy(() => import('./components/ManualModal'));
-const TutorialOverlay = React.lazy(() => import('./components/TutorialOverlay'));
-const DownloadAppModal = React.lazy(() => import('./components/DownloadAppModal'));
-const FeedbackModal = React.lazy(() => import('./components/FeedbackModal'));
-const ShareModal = React.lazy(() => import('./components/ShareModal'));
-const LoginModal = React.lazy(() => import('./components/LoginModal'));
-import ErrorBoundary from './components/ErrorBoundary';
-import { useAuth } from './AuthProvider';
+const ToolsPanel = React.lazy(() => import('./ToolsPanel'));
+const ChatPanel = React.lazy(() => import('./ChatPanelEnhanced'));
+const ManualModal = React.lazy(() => import('./ManualModal'));
+const TutorialOverlay = React.lazy(() => import('./TutorialOverlay'));
+const FeedbackModal = React.lazy(() => import('./FeedbackModal'));
+const ShareModal = React.lazy(() => import('./ShareModal'));
+const LoginModal = React.lazy(() => import('./LoginModal'));
+import ErrorBoundary from './ErrorBoundary';
+import { useAuth } from '../auth';
 
 // SEO Components
-import { SEOHead } from './components/seo/SEOHead';
-import SEOContent from './components/seo/SEOContent';
-import { AboutPage, PrivacyPage, ContactPage, GenresPage } from './components/seo/StaticPages';
-import { JazzRadioPage, RockRadioPage, ElectronicRadioPage, HipHopRadioPage } from './components/seo/GenrePages';
-import DynamicRadioHub from './components/seo/DynamicRadioHub';
-import { DirectoryPage } from './components/seo/DirectoryPage';
+import { SEOHead } from './seo/SEOHead';
+import SEOContent from './seo/SEOContent';
+import { AboutPage, PrivacyPage, ContactPage, GenresPage } from './seo/StaticPages';
+import { JazzRadioPage, RockRadioPage, ElectronicRadioPage, HipHopRadioPage } from './seo/GenrePages';
+import DynamicRadioHub from './seo/DynamicRadioHub';
+import { DirectoryPage } from './seo/DirectoryPage';
 
 const THEME_COLORS: Record<ThemeName, { primary: string; secondary: string }> = {
   default: { primary: '#bc6ff1', secondary: '#f038ff' },
@@ -350,7 +347,6 @@ export default function App(): React.JSX.Element {
   const [chatOpen, setChatOpen] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
@@ -1362,28 +1358,6 @@ export default function App(): React.JSX.Element {
 
 
 
-  const handleAiCuration = async () => {
-      if (!selectedCategory || isAiCurating || stations.length === 0) return;
-      
-      setIsAiCurating(true);
-      const msg = language === 'ru' 
-        ? "Подождите, идет оптимизация станций по вашему вкусу..." 
-        : "Please wait, AI is optimizing the station list for you...";
-      setAiNotification(msg);
-
-      try {
-          const keptIds = await curateStationList(stations, selectedCategory.name, selectedCategory.description || '');
-          const filteredStations = stations.filter(s => keptIds.includes(s.stationuuid));
-          setStations(filteredStations);
-          setVisibleCount(Math.min(INITIAL_CHUNK, filteredStations.length));
-      } catch (e) {
-          console.error("AI Curation failed");
-      } finally {
-          setIsAiCurating(false);
-          setTimeout(() => setAiNotification(null), 3000);
-      }
-  };
-
   const handleShowFeature = (featureId: string) => {
       setManualOpen(false);
       setHighlightFeature(featureId);
@@ -1531,10 +1505,10 @@ export default function App(): React.JSX.Element {
         </div>
         {/* Sidebar Footer - Restore PWA/Download for Desktop only */}
         <div className="p-4 pt-2 border-t border-[var(--panel-border)] hidden md:block">
-             <button onClick={() => setDownloadModalOpen(true)} className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-primary/20 to-secondary/20 border border-white/5 hover:border-white/20 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-3 group">
-                <DownloadIcon className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
-                <div className="text-left"><p className="text-[10px] uppercase font-bold text-slate-400 group-hover:text-white transition-colors">{t.mobileApp || 'Mobile App'}</p><p className="text-xs font-black text-white">{t.downloadText || 'Download'}</p></div>
-             </button>
+             <div className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-primary/10 to-transparent border border-white/5 flex items-center justify-center gap-3">
+                <MusicNoteIcon className="w-5 h-5 text-slate-500" />
+                <div className="text-left"><p className="text-[10px] uppercase font-bold text-slate-500">{t.platform || 'Streaming'}</p><p className="text-xs font-black text-slate-400">AU RadioChat</p></div>
+             </div>
         </div>
       </aside>
 
@@ -1579,17 +1553,7 @@ export default function App(): React.JSX.Element {
 
             {/* Action icons - Tighter gap for mobile */}
             <div className="flex items-center gap-1 sm:gap-4">
-              {isAiAvailable() && viewMode !== 'favorites' && !isLoading && (
-                  <button 
-                    onClick={handleAiCuration} 
-                    disabled={isAiCurating}
-                    className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-2 ${isAiCurating ? 'bg-primary/20 text-primary cursor-wait' : 'bg-gradient-to-r from-primary to-secondary text-white hover:shadow-lg hover:scaling-105 active:scaling-95'}`}
-                  >
-                      {isAiCurating ? <LoadingIcon className="w-3 h-3 animate-spin" /> : <span className="text-sm">✨</span>}
-                      <span className="hidden xs:inline">{isAiCurating ? 'Optimizing...' : 'AI Optimize'}</span>
-                      {!isAiCurating && <span className="xs:hidden font-bold">AI</span>}
-                  </button>
-              )}
+              {/* AI Curation Button Removed */}
               {/* Online Counter - Smart Ticker Mode Removed/Consolidated */}
             </div>
           </div>
@@ -1983,7 +1947,6 @@ export default function App(): React.JSX.Element {
             />
         </Suspense>
         <Suspense fallback={null}><ManualModal isOpen={manualOpen} onClose={() => setManualOpen(false)} language={language} onShowFeature={handleShowFeature} /><TutorialOverlay isOpen={tutorialOpen || !!highlightFeature} onClose={() => { setTutorialOpen(false); setHighlightFeature(null); }} language={language} highlightFeature={highlightFeature} /></Suspense>
-        <Suspense fallback={null}><DownloadAppModal isOpen={downloadModalOpen} onClose={() => setDownloadModalOpen(false)} language={language} installPrompt={installPrompt} /></Suspense>
         <Suspense fallback={null}><FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} language={language} currentUserId={currentUser.id} /></Suspense>
         <Suspense fallback={null}><LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} language={language} /></Suspense>
 

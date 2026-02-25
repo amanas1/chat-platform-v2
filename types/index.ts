@@ -231,3 +231,15 @@ export interface AlarmConfig {
   time: string; 
   days: number[]; 
 }
+
+export type KnockState = 'idle' | 'sending' | 'received' | 'accepted' | 'rejected' | 'expired';
+
+export interface LocationData {
+  country: string;
+  city: string;
+  countryCode: string;
+  region?: string;
+  lat?: number;
+  lon?: number;
+  ip?: string;
+}

@@ -7,7 +7,7 @@ import {
     setPersistence,
     browserLocalPersistence
 } from 'firebase/auth';
-import { auth } from './firebase';
+import { auth } from '../firebase';
 
 /**
  * WHITELISTED EMAILS
@@ -94,3 +94,5 @@ export const signOutUser = async () => {
         throw error;
     }
 };
+
+export * from './AuthProvider';

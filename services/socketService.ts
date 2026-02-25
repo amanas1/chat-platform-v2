@@ -392,7 +392,7 @@ class SocketManager {
   public sendMessage = (sessionId: string, content: string, type: string = 'text', metadata?: any) => {
     this.socket?.emit('message:send', { 
       sessionId, 
-      encryptedPayload: content, 
+      text: content, 
       messageType: type, 
       metadata: metadata || {} 
     });

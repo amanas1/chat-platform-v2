@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo, Suspense } from 'react';
 import { 
     XMarkIcon, PaperAirplaneIcon, UsersIcon, 
@@ -6,18 +5,20 @@ import {
     PlayIcon, PauseIcon, SearchIcon, ClockIcon,
     NextIcon, PreviousIcon, VolumeIcon, ChevronDownIcon, ChevronUpIcon,
     HeartIcon, ArrowLeftIcon, UserIcon, ChatBubbleIcon,
-    BellIcon, NoSymbolIcon, LifeBuoyIcon, SpeakIcon, GlobeIcon, ArrowRightOnRectangleIcon, AdjustmentsIcon, ShuffleIcon, ShareIcon
+    BellIcon, NoSymbolIcon, LifeBuoyIcon, SpeakIcon, GlobeIcon, 
+    ArrowRightOnRectangleIcon, AdjustmentsIcon, ShuffleIcon, ShareIcon,
+    TrashIcon, HandRaisedIcon, LinkIcon, 
+    SpeakerWaveIcon, MusicNoteIcon
 } from './Icons';
-import { ChatMessage, UserProfile, Language, RadioStation, ChatSession, VisualMode } from '../types';
+import { UserProfile, ChatMessage, KnockState, Language, LocationData, RadioStation, VisualMode, ChatSession } from '../types';
 import AudioVisualizer from './AudioVisualizer';
 import DancingAvatar from './DancingAvatar';
 const ChatDemoAnimation = React.lazy(() => import('./ChatDemoAnimation'));
 const RegistrationDemoAnimation = React.lazy(() => import('./RegistrationDemoAnimation'));
 const InteractionDemoAnimation = React.lazy(() => import('./InteractionDemoAnimation'));
 import { socketService } from '../services/socketService';
-import { encryptionService } from '../services/encryptionService';
-import { geolocationService, LocationData } from '../services/geolocationService';
-import { TRANSLATIONS, COUNTRIES_DATA, PRESET_AVATARS } from '../constants';
+import { geolocationService } from '../services/geolocationService';
+import { TRANSLATIONS, COUNTRIES_DATA, PRESET_AVATARS } from '../types/constants';
 import StickerPicker from './StickerPicker';
 const AvatarCreator = React.lazy(() => import('./AvatarCreator').then(module => ({ default: module.AvatarCreator })));
 
@@ -1162,11 +1163,9 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             const decrypted = msgs.map(msg => ({
               ...msg,
               text: msg.messageType === 'text' && msg.encryptedPayload 
-                ? encryptionService.decrypt(msg.encryptedPayload, data.sessionId)
-                : undefined,
-              audioBase64: msg.messageType === 'audio' && msg.encryptedPayload
-                ? encryptionService.decryptBinary(msg.encryptedPayload, data.sessionId)
-                : undefined,
+                ? msg.text : null,
+            audioBase64: msg.messageType === 'audio' 
+                ? msg.audioBase64 : null,
               flagged: msg.metadata?.flagged || false
             }));
             setMessages(decrypted);
@@ -1244,12 +1243,14 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       // Decrypt message SAFELY
       let text, audioBase64;
       try {
-          if (message.messageType === 'text' && message.encryptedPayload) {
-              text = encryptionService.decrypt(message.encryptedPayload, message.sessionId);
-          } else if (message.messageType === 'audio' && message.encryptedPayload) {
-              audioBase64 = encryptionService.decryptBinary(message.encryptedPayload, message.sessionId);
-          } else if (message.messageType === 'sticker' && message.encryptedPayload) {
-              text = encryptionService.decrypt(message.encryptedPayload, message.sessionId); // Sticker URL is text
+          if (message.messageType === 'text') {
+              text = message.text || null;
+          } else if (message.messageType === 'audio') {
+              audioBase64 = message.audioBase64 || null;
+          } else if (message.messageType === 'sticker') {
+              text = message.text || null; // Sticker URL is text
+          } else {
+              text = message.text || null;
           }
       } catch (e) {
           console.error(`[CRYPTO] Decryption failed for msg ${message.id}`, e);
@@ -1926,15 +1927,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     const textContent = inputText.trim();
     
     // Encrypt
-    const encrypted = encryptionService.encrypt(textContent, activeSession.sessionId);
-    
+    socketService.sendMessage(activeSession.sessionId, textContent, 'text');
     // OPTIMISTIC UI: Add message locally first so it appears instantly
     const tempId = `temp_${Date.now()}`;
     const optimisticMsg: any = {
         id: tempId,
         sessionId: activeSession.sessionId,
         senderId: currentUser.id,
-        encryptedPayload: encrypted,
         messageType: 'text',
         metadata: { text: textContent, optimistic: true },
         timestamp: Date.now(),
@@ -1949,12 +1948,6 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     console.log(`[CLIENT] Partner ID: ${activeSession.partnerId}`);
     console.log(`[CLIENT] Message type: text, length: ${textContent.length} chars`);
     
-    socketService.sendMessage(
-        activeSession.sessionId,
-        encrypted,
-        'text',
-        { text: textContent }
-    );
     
     setInputText('');
   };
@@ -1963,15 +1956,13 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     if (!activeSession) return;
     
     // Encrypt the URL itself
-    const encrypted = encryptionService.encrypt(stickerUrl, activeSession.sessionId);
-    
+    socketService.sendMessage(activeSession.sessionId, stickerUrl, 'sticker');
     // OPTIMISTIC UI
     const tempId = `temp_${Date.now()}`;
     const optimisticMsg: any = {
         id: tempId,
         sessionId: activeSession.sessionId,
         senderId: currentUser.id,
-        encryptedPayload: encrypted,
         messageType: 'sticker',
         metadata: { text: stickerUrl, optimistic: true },
         timestamp: Date.now(),
@@ -1981,12 +1972,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
     setMessages(prev => [...prev, optimisticMsg]);
     scrollToBottom();
     
-    socketService.sendMessage(
-        activeSession.sessionId,
-        encrypted,
-        'sticker',
-        { text: stickerUrl }
-    );
+    
   };
 
   const startRecording = async (e: React.PointerEvent) => {
@@ -2010,8 +1996,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
           const reader = new FileReader();
           reader.readAsDataURL(audioBlob);
           reader.onloadend = () => {
-            const encrypted = encryptionService.encryptBinary(reader.result as string, activeSession.sessionId);
-            socketService.sendMessage(activeSession.sessionId, encrypted, 'audio');
+            socketService.sendMessage(activeSession.sessionId, reader.result as string, 'audio');
           };
         }
         // Restore volume
@@ -2632,7 +2617,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                             className={`px-3 py-2.5 rounded-xl text-[11px] font-bold transition-all border ${
                                                 isActive 
                                                     ? 'bg-primary/20 border-primary/50 text-white shadow-[0_0_10px_rgba(188,111,241,0.2)]' 
-                                                    : 'bg-black/20 border-white/5 text-slate-400 hover:text-white hover:border-white/10'
+                                                    : 'bg-black/20 border-white/20 text-slate-400 hover:text-white hover:border-white/10'
                                             }`}
                                         >
                                             {label}
@@ -3244,11 +3229,11 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                             const decrypted = msgs.map(msg => ({
                                                 ...msg,
                                                 text: msg.messageType === 'text' && msg.encryptedPayload 
-                                                    ? encryptionService.decrypt(msg.encryptedPayload, session.sessionId)
-                                                    : undefined,
-                                                audioBase64: msg.messageType === 'audio' && msg.encryptedPayload
-                                                    ? encryptionService.decryptBinary(msg.encryptedPayload, session.sessionId)
-                                                    : undefined,
+                                                    ? msg.text
+                                                    : null,
+                                                audioBase64: msg.messageType === 'audio' 
+                                                    ? msg.audioBase64
+                                                    : null,
                                                 flagged: msg.metadata?.flagged || false
                                             }));
                                             setMessages(decrypted);

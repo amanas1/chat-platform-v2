@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-import { AuthProvider } from './AuthProvider';
+import { AuthProvider } from '../auth';
 
 import { HelmetProvider } from 'react-helmet-async';
 import { BrowserRouter, useLocation } from 'react-router-dom';
