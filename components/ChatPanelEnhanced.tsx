@@ -13,9 +13,7 @@ import {
 import { UserProfile, ChatMessage, KnockState, Language, LocationData, RadioStation, VisualMode, ChatSession } from '../types';
 import AudioVisualizer from './AudioVisualizer';
 import DancingAvatar from './DancingAvatar';
-const ChatDemoAnimation = React.lazy(() => import('./ChatDemoAnimation'));
-const RegistrationDemoAnimation = React.lazy(() => import('./RegistrationDemoAnimation'));
-const InteractionDemoAnimation = React.lazy(() => import('./InteractionDemoAnimation'));
+
 import { socketService } from '../services/socketService';
 import { geolocationService } from '../services/geolocationService';
 import { TRANSLATIONS, COUNTRIES_DATA, PRESET_AVATARS } from '../types/constants';
@@ -307,10 +305,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   };
 
 
-  const [isDemoOpen, setIsDemoOpen] = useState(false);
-  const [isRegDemoOpen, setIsRegDemoOpen] = useState(false);
-  const [showDemoMenu, setShowDemoMenu] = useState(false);
-  const [isInteractDemoOpen, setIsInteractDemoOpen] = useState(false);
+
   const deleteHintTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Update current time every second for live countdowns
@@ -494,23 +489,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
   }, [passedLocation]);
 
   
-  const [voiceModeEnabled, setVoiceModeEnabled] = useState(false);
-  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
-  const [voiceSettings, setVoiceSettings] = useState({
-      gender: 'auto' as 'auto' | 'male' | 'female',
-      pitch: 1.0,
-      rate: 1.0
-  });
-  const voiceModeRef = useRef(false);
-  const voiceSettingsRef = useRef(voiceSettings);
 
-  useEffect(() => {
-    voiceModeRef.current = voiceModeEnabled;
-  }, [voiceModeEnabled]);
-  
-  useEffect(() => {
-    voiceSettingsRef.current = voiceSettings;
-  }, [voiceSettings]);
 
   // Auto-scrolling carousel logic
   const currentSpeedRef = useRef(0);
@@ -575,134 +554,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       };
   }, [searchResults, onlineUsers, view]); // Re-bind when list re-renders/view changes
 
-    // AI Voice Mode Helper (Component Scope)
-    const speakMessage = (text: string, senderGender: string = 'other') => {
-        if (!voiceModeRef.current && !text.includes('test')) return; 
-        if (!('speechSynthesis' in window)) return;
-        
-        // Settings from ref (latest)
-        const { gender: preferredGender, pitch, rate } = voiceSettingsRef.current;
 
-        // Determine target gender: if 'auto', use sender's gender, otherwise use preference
-        let targetGender = preferredGender;
-        if (targetGender === 'auto') {
-            // Map 'other' to random or default (let's default to female for 'other' or randomize? User said "if woman, she speaks")
-            // If sender is explicit male, usage male.
-            targetGender = (senderGender === 'male') ? 'male' : 'female';
-        }
-
-        // Automatic Language Detection (Enhanced)
-        const isRussian = /[а-яёА-ЯЁ]/.test(text);
-        const langCode = isRussian ? 'ru-RU' : 'en-US';
-        
-        console.log(`[VOICE] 🎙 Speaking: "${text.substring(0, 30)}..."`);
-        console.log(`[VOICE] Lang: ${langCode} | Preferred Gender: ${preferredGender} | Target Gender: ${targetGender} | Sender Gender: ${senderGender}`);
-        
-        window.speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = langCode;
-        
-        // Find Voices
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length === 0) {
-            console.warn('[VOICE] ⚠️ No voices available');
-            return;
-        }
-
-        console.log(`[VOICE] Total voices available: ${voices.length}`);
-
-        // Filter by Language
-        const langVoices = voices.filter(v => v.lang.startsWith(isRussian ? 'ru' : 'en'));
-        console.log(`[VOICE] Voices for ${langCode}: ${langVoices.length}`);
-        
-        const voicePool = langVoices.length > 0 ? langVoices : voices;
-
-        // Expanded Gender Keywords for better detection on Mac/Windows/Android
-        // IMPORTANT: Avoid generic keywords like "male"/"female" as they cause false matches
-        // (e.g., "male" matches "female", "female" is subset of itself)
-        const genderKeywords = {
-            female: [
-                'woman', 'girl', 'lady', // Generic (safe)
-                'elena', 'irina', 'milena', 'anna', 'tatyana', 'victoria', // RU Latin
-                'елена', 'ирина', 'милена', 'анна', 'татьяна', 'виктория', // RU Cyrillic
-                'samantha', 'karen', 'moira', 'tessa', 'veena', 'zira', 'susan', 'catherine' // EN
-            ],
-            male: [
-                'man', 'boy', 'guy', // Generic (safe)
-                'pavel', 'alexander', 'yuri', 'maxim', 'ivan', 'dmitry', // RU Latin
-                'павел', 'александр', 'юрий', 'максим', 'иван', 'дмитрий', // RU Cyrillic
-                'daniel', 'fred', 'rishi', 'alex', 'mark', 'david', 'james', 'george', 'microsoft david' // EN
-            ]
-        };
-
-        // Debug: log all available voice names for the target language
-        console.log(`[VOICE] Available ${langCode} voices:`, voicePool.map(v => v.name).join(', '));
-
-        // Find matching voices (plural - we want to pick the best one)
-        const matchingVoices = voicePool.filter(v => {
-            const name = v.name.toLowerCase();
-            // @ts-ignore
-            const keywords = genderKeywords[targetGender] || [];
-            return keywords.some(k => name.includes(k));
-        });
-
-        // Prioritize Enhanced/улучшенный voices
-        let selectedVoice: SpeechSynthesisVoice | undefined;
-        if (matchingVoices.length > 0) {
-            // Try to find Enhanced version first
-            selectedVoice = matchingVoices.find(v => 
-                v.name.toLowerCase().includes('enhanced') || 
-                v.name.toLowerCase().includes('улучшенный')
-            );
-            
-            // Fallback to any matching voice
-            if (!selectedVoice) {
-                selectedVoice = matchingVoices[0];
-            }
-            
-            console.log(`[VOICE] 🎯 Found ${matchingVoices.length} matching voice(s), selected: "${selectedVoice.name}"`);
-        }
-
-        console.log(`[VOICE] Gender-matched voice: ${selectedVoice ? selectedVoice.name : 'NONE'}`);
-
-        // Smart Fallback: 
-        // If no matching gender voice found, try to pick one based on heuristics
-        if (!selectedVoice) {
-            console.warn(`[VOICE] ⚠️ No ${targetGender} voice found for ${langCode}. Trying fallback...`);
-            
-            // Fallback strategy for male voice (most common issue)
-            if (targetGender === 'male') {
-                // Try to find ANY voice that doesn't match female keywords
-                selectedVoice = voicePool.find(v => {
-                    const name = v.name.toLowerCase();
-                    const isFemale = genderKeywords.female.some(k => name.includes(k));
-                    return !isFemale; // Pick first non-female voice
-                });
-                
-                if (selectedVoice) {
-                    console.log(`[VOICE] 🔄 Fallback: Using non-female voice "${selectedVoice.name}"`);
-                }
-            }
-            
-            // Ultimate fallback: use first voice from language
-            if (!selectedVoice) {
-                selectedVoice = voicePool[0];
-                console.log(`[VOICE] 🔄 Ultimate fallback: Using default voice "${selectedVoice.name}"`);
-            }
-        }
-
-        utterance.voice = selectedVoice || voices[0];
-        utterance.rate = rate; 
-        utterance.pitch = pitch;
-        utterance.volume = 1.0;
-        
-        console.log(`[VOICE] ✅ Selected voice: "${utterance.voice?.name}" | Pitch: ${pitch} | Rate: ${rate}`);
-        
-        setTimeout(() => {
-            window.speechSynthesis.speak(utterance);
-        }, 50);
-    };
 
   const [regNotificationsEnabled, setRegNotificationsEnabled] = useState(currentUser.chatSettings?.notificationsEnabled ?? true);
   const [regNotificationVolume, setRegNotificationVolume] = useState(currentUser.chatSettings?.notificationVolume ?? 0.8);
@@ -728,55 +580,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
       }
   };
 
-  // Helper: Voice Notification
-  const playVoiceNotification = () => {
-      const text = t.newMsgNotification;
-      
-      speakMessage(text, 'other'); // Uses the existing speakMessage helper but forces our text
-  };
 
-  // Override speakMessage to use our specific notification settings if called for notification context
-  // Actually, let's just make a specialized one or reuse speakMessage with a ref hack?
-  // Easier to make a standalone simplified one for reliability or adapt speakMessage.
-  // We will adapt the socket listener to call speakMessage with the specific text if Voice Notification is ON.
-  // BUT we need to ensure speakMessage uses the correct VOICE (Male/Female) selected in settings.
-  // The existing speakMessage uses `voiceSettingsRef` (which is for the Voice Mode).
-  // We should create a dedicated simple speaker for notifications to not conflict with Voice Mode settings.
-  
-  const speakNotification = () => {
-      if (!('speechSynthesis' in window)) return;
-      window.speechSynthesis.cancel();
-      
-      const text = t.newMsgNotification;
-
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.volume = regNotificationVolume;
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0; 
-      const langMap: Record<string, string> = { ru: 'ru-RU', en: 'en-US', es: 'es-ES', fr: 'fr-FR', zh: 'zh-CN', de: 'de-DE' };
-      utterance.lang = langMap[language] || 'en-US';
-
-      // Find voice
-      const voices = window.speechSynthesis.getVoices();
-      const targetGender = regNotifVoice; // 'female' or 'male'
-      
-      // Re-use logic or simplified logic
-      const genderKeywords = {
-          female: ['woman', 'girl', 'female', 'elena', 'milena', 'anna', 'samantha', 'zira', 'google русский'], // "Google Русский" is often female
-          male: ['man', 'boy', 'male', 'pavel', 'alexander', 'david', 'google us english'] 
-      };
-
-      let selectedVoice = voices.find(v => {
-          const name = v.name.toLowerCase();
-          return genderKeywords[targetGender].some(k => name.includes(k));
-      });
-
-      if (!selectedVoice) selectedVoice = voices.find(v => v.lang.startsWith(language === 'ru' ? 'ru' : 'en'));
-      
-      if (selectedVoice) utterance.voice = selectedVoice;
-      
-      window.speechSynthesis.speak(utterance);
-  };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -1160,12 +964,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
           // Load messages for this session
           socketService.getMessages(data.sessionId, ({ messages: msgs }) => {
-            const decrypted = msgs.map(msg => ({
+            const decrypted = msgs.map((msg: any) => ({
               ...msg,
-              text: msg.messageType === 'text' && msg.encryptedPayload 
-                ? msg.text : null,
-            audioBase64: msg.messageType === 'audio' 
-                ? msg.audioBase64 : null,
+              text: msg.messageType === 'text' ? msg.text : null,
+              audioBase64: msg.messageType === 'audio' ? msg.audioBase64 : null,
               flagged: msg.metadata?.flagged || false
             }));
             setMessages(decrypted);
@@ -1318,16 +1120,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
              toastTimeoutRef.current = setTimeout(() => setNotificationToast(null), 2000);
           }
 
-          // Voice Mode (Reading chat text aloud) - works independently of voice notification setting
-          if (decrypted.text && voiceModeRef.current) {
-              // Get partner gender
-              let partnerGender = 'other';
-              if (currentActiveSession) {
-                  const partner = currentActiveSession.partnerProfile;
-                  partnerGender = partner?.gender || 'other';
-              }
-              speakMessage(decrypted.text, partnerGender);
-          }
+
       }
       
       scrollToBottom();
@@ -2052,32 +1845,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                     <div className="flex items-center gap-1">
                         <button onClick={() => handleReportUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-orange-500 transition-colors hover:bg-white/5 rounded-full" title={t.report}><LifeBuoyIcon className="w-5 h-5" /></button>
                         <button onClick={() => handleBlockUser(partnerDetails.id)} className="p-2.5 text-slate-400 hover:text-red-500 transition-colors hover:bg-white/5 rounded-full" title={t.block}><NoSymbolIcon className="w-5 h-5" /></button>
-                        <div className="flex bg-white/5 rounded-full p-0.5 border border-white/5">
-                            <button 
-                                onClick={() => {
-                                    const newState = !voiceModeEnabled;
-                                    setVoiceModeEnabled(newState);
-                                    if (!newState) setShowVoiceSettings(false); // Auto-close settings
-                                    if (newState && 'speechSynthesis' in window) {
-                                        const u = new SpeechSynthesisUtterance("");
-                                        window.speechSynthesis.speak(u);
-                                    }
-                                }} 
-                                className={`p-2.5 transition-all rounded-full ${voiceModeEnabled ? 'text-primary bg-primary/10 shadow-[0_0_20px_rgba(188,111,241,0.3)]' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
-                                title={voiceModeEnabled ? t.voiceModeDisable : t.voiceModeEnable}
-                            >
-                                <SpeakIcon className={`w-5 h-5 ${voiceModeEnabled ? 'animate-pulse' : ''}`} />
-                            </button>
-                            {voiceModeEnabled && (
-                                <button 
-                                    onClick={() => setShowVoiceSettings(!showVoiceSettings)}
-                                    className={`p-2.5 transition-all rounded-full ${showVoiceSettings ? 'text-white bg-white/10' : 'text-slate-400 hover:text-white'}`}
-                                    title={t.voiceSettings}
-                                >
-                                    <VolumeIcon className="w-4 h-4" />
-                                </button>
-                            )}
-                        </div>
+
                         <button onClick={onClose} className="p-2 text-slate-400 hover:text-white transition-colors ml-1"><XMarkIcon className="w-6 h-6" /></button>
                     </div>
                 </>
@@ -2145,77 +1913,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                         </div>
                     </div>
                         <div className="flex items-center gap-2 relative">
-                             {/* Help/Demo Menu Button */}
-                            <button 
-                                onClick={() => setShowDemoMenu(!showDemoMenu)}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${showDemoMenu ? 'bg-primary text-black' : 'bg-primary/10 hover:bg-primary/20 text-primary'}`}
-                                title={t.helpAndDemos}
-                            >
-                                <span className="text-lg font-bold">?</span>
-                            </button>
 
-                            {/* Dropdown Menu */}
-                            {showDemoMenu && (
-                                <div className="absolute top-10 right-0 w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in slide-in-from-top-2 fade-in duration-200">
-                                    <div className="p-2 space-y-1">
-                                        <button 
-                                            onClick={() => {
-                                                setIsDemoOpen(true);
-                                                setShowDemoMenu(false);
-                                            }}
-                                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 text-left transition-colors group"
-                                        >
-                                            <div className="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                                                <span className="text-sm">🎬</span>
-                                            </div>
-                                            <div>
-                                                <div className="text-xs font-bold text-white leading-tight">{t.chatScenario}</div>
-                                                <div className="text-[9px] text-slate-400">Romantic Story</div>
-                                            </div>
-                                        </button>
-
-                                        <button 
-                                            onClick={() => {
-                                                setIsRegDemoOpen(true);
-                                                setShowDemoMenu(false);
-                                            }}
-                                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 text-left transition-colors group"
-                                        >
-                                            <div className="w-8 h-8 rounded-full bg-green-500/20 text-green-400 flex items-center justify-center group-hover:bg-green-500 group-hover:text-white transition-colors">
-                                                <span className="text-sm">📝</span>
-                                            </div>
-                                            <div>
-                                                <div className="text-xs font-bold text-white leading-tight">{t.registration}</div>
-                                                <div className="text-[9px] text-slate-400">Step-by-step</div>
-                                            </div>
-                                        </button>
-
-                                        <button 
-                                            onClick={() => {
-                                                setIsInteractDemoOpen(true);
-                                                setShowDemoMenu(false);
-                                            }}
-                                            className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/5 text-left transition-colors group"
-                                        >
-                                            <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-white transition-colors">
-                                                <span className="text-sm">🤝</span>
-                                            </div>
-                                            <div>
-                                                <div className="text-xs font-bold text-white leading-tight">{t.interaction}</div>
-                                                <div className="text-[9px] text-slate-400">Social Loop</div>
-                                            </div>
-                                        </button>
-                                    </div>
-                                    <div className="bg-white/5 p-2 text-center">
-                                        <p className="text-[9px] text-slate-500">v1.2 Demo Mode</p>
-                                    </div>
-                                </div>
-                            )}
-
-                             {/* Backdrop to close menu */}
-                            {showDemoMenu && (
-                                <div className="fixed inset-0 z-[90]" onClick={() => setShowDemoMenu(false)} />
-                            )}
 
                             <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-white">
                                 <XMarkIcon className="w-6 h-6" />
@@ -2225,99 +1923,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
             )}
         </header>
 
-        {/* VOICE SETTINGS PANEL */}
-        {showVoiceSettings && voiceModeEnabled && (
-            <div className="bg-slate-900/90 backdrop-blur-xl border-b border-white/10 p-4 animate-in slide-in-from-top-2 relative z-50 shadow-2xl">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                        <SpeakIcon className="w-4 h-4" /> {t.voiceSettings}
-                    </h3>
-                    <button onClick={() => setShowVoiceSettings(false)} className="text-slate-400 hover:text-white"><XMarkIcon className="w-4 h-4" /></button>
-                </div>
-                
-                <div className="space-y-4">
-                    {/* Gender Selection */}
-                    <div>
-                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-2">{t.voiceTone}</label>
-                        <div className="flex bg-white/5 rounded-lg p-1 border border-white/5">
-                            <button 
-                                onClick={() => setVoiceSettings(p => ({ ...p, gender: 'auto' }))}
-                                className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${voiceSettings.gender === 'auto' ? 'bg-slate-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                            >
-                                🤖 {t.auto}
-                            </button>
-                            <button 
-                                onClick={() => setVoiceSettings(p => ({ ...p, gender: 'male' }))}
-                                className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${voiceSettings.gender === 'male' ? 'bg-blue-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                            >
-                                👨 {t.male}
-                            </button>
-                            <button 
-                                onClick={() => setVoiceSettings(p => ({ ...p, gender: 'female' }))}
-                                className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${voiceSettings.gender === 'female' ? 'bg-pink-500 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
-                            >
-                                👩 {t.female}
-                            </button>
-                        </div>
-                    </div>
 
-                    {/* Privacy Settings */}
-                    <div className="bg-white/5 rounded-lg p-3 border border-white/5">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{t.privacy}</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[9px] text-slate-400">{t.hideFromSearch}</span>
-                                <button 
-                                    onClick={() => onUpdateCurrentUser({ ...currentUser, hideFromSearch: !currentUser.hideFromSearch })}
-                                    className={`w-8 h-4 rounded-full relative transition-colors ${currentUser.hideFromSearch ? 'bg-primary' : 'bg-slate-700'}`}
-                                >
-                                    <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${currentUser.hideFromSearch ? 'right-0.5' : 'left-0.5'}`} />
-                                </button>
-                            </div>
-                        </div>
-                        <p className="text-[9px] text-slate-500 leading-tight">
-                            {t.hideFromSearchDesc}
-                        </p>
-                    </div>
-
-                    {/* Sliders Grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                             <div className="flex justify-between mb-1">
-                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{t.speed}</label>
-                                <span className="text-[9px] font-mono text-primary">x{voiceSettings.rate.toFixed(1)}</span>
-                             </div>
-                             <input 
-                                type="range" min="0.5" max="2" step="0.1" 
-                                value={voiceSettings.rate} 
-                                onChange={e => setVoiceSettings(p => ({ ...p, rate: parseFloat(e.target.value) }))}
-                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" 
-                             />
-                        </div>
-                        <div>
-                             <div className="flex justify-between mb-1">
-                                <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">{t.voiceTone}</label>
-                                <span className="text-[9px] font-mono text-primary">{voiceSettings.pitch.toFixed(1)}</span>
-                             </div>
-                             <input 
-                                type="range" min="0.5" max="2" step="0.1" 
-                                value={voiceSettings.pitch} 
-                                onChange={e => setVoiceSettings(p => ({ ...p, pitch: parseFloat(e.target.value) }))}
-                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary" 
-                             />
-                        </div>
-                    </div>
-                    
-                    {/* Test Button */}
-                    <button 
-                        onClick={() => speakMessage(t.voiceEngineTest, 'any')}
-                        className="w-full py-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg text-xs font-bold text-slate-300 transition-colors"
-                    >
-                        {t.previewVoice}
-                    </button>
-                </div>
-            </div>
-        )}
 
         <div className="flex-1 overflow-hidden relative flex flex-col bg-transparent">
             {/* Notification Banner for Pending Knocks */}
@@ -2394,7 +2000,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                 <div 
                     onClick={() => {
                         // Switch to chat
-                        const session = Array.from(activeSessions.values()).find(s => s.partnerId === notificationToast.senderId);
+                        const session = Array.from(activeSessions.values()).find((s: any) => s.partnerId === notificationToast.senderId);
                         if (session) {
                              setActiveSession(session);
                              setView('chat');
@@ -3215,7 +2821,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                 </p>
                             </div>
                         )}
-                        {Array.from(activeSessions.values()).filter(s => !hiddenSessions.has(s.sessionId)).map(session => {
+                        {Array.from(activeSessions.values()).filter((s: any) => !hiddenSessions.has(s.sessionId)).map((session: any) => {
                             const partner = getPartnerFromSession(session);
                             const isPartnerOnline = onlineUsers.some(u => u.id === session.partnerId);
                             return (
@@ -3226,14 +2832,10 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
                                         setView('chat');
                                         // Load messages for this session
                                         socketService.getMessages(session.sessionId, ({ messages: msgs }) => {
-                                            const decrypted = msgs.map(msg => ({
+                                            const decrypted = msgs.map((msg: any) => ({
                                                 ...msg,
-                                                text: msg.messageType === 'text' && msg.encryptedPayload 
-                                                    ? msg.text
-                                                    : null,
-                                                audioBase64: msg.messageType === 'audio' 
-                                                    ? msg.audioBase64
-                                                    : null,
+                                                text: msg.messageType === 'text' ? msg.text : null,
+                                                audioBase64: msg.messageType === 'audio' ? msg.audioBase64 : null,
                                                 flagged: msg.metadata?.flagged || false
                                             }));
                                             setMessages(decrypted);
@@ -3466,27 +3068,7 @@ const ChatPanelEnhanced: React.FC<ChatPanelProps> = ({
 
 
 
-        {isDemoOpen || isRegDemoOpen || isInteractDemoOpen ? (
-            <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
-                <React.Suspense fallback={<div className="text-white">Loading demo...</div>}>
-                    <div className="w-full max-w-sm">
-            {isRegDemoOpen && (
-                <RegistrationDemoAnimation onComplete={() => setIsRegDemoOpen(false)} />
-            )}
-            
-            {/* INTERACTION DEMO OVERLAY */}
-            {isInteractDemoOpen && (
-                <InteractionDemoAnimation onComplete={() => setIsInteractDemoOpen(false)} />
-            )}
 
-            {/* CHAT SCENARIO */}
-            {isDemoOpen && (
-                <ChatDemoAnimation onComplete={() => setIsDemoOpen(false)} />
-            )}
-        </div>
-                </React.Suspense>
-            </div>
-        ) : null}
 
         {/* Waiting for Partner Overlay */}
         {isWaitingForPartner && (
