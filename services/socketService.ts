@@ -133,6 +133,7 @@ class SocketManager {
       this.reconnectAttempt = 0;
       this.lastActivity = Date.now();
       this.transition('CONNECTED');
+      this.reattachListeners();
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -262,6 +263,15 @@ class SocketManager {
     };
   }
 
+  private reattachListeners(): void {
+    if (!this.socket) return;
+    this.log('debug', 'Re-attaching all listeners to new socket instance...');
+    this.eventBus.forEach((_, event) => {
+      this.socket?.off(event); // Avoid doubles
+      this.socket?.on(event, (data) => this.dispatch(event, data));
+    });
+  }
+
   private updateListenerMetrics(): void {
       let count = 0;
       this.eventBus.forEach(set => count += set.size);
@@ -330,19 +340,15 @@ class SocketManager {
   };
   
   public registerUser = (user: UserProfile, callback?: Function) => {
-    this.emit('user:register', user);
-    if (callback) {
-      const unsub = this.on('user:registered', (data) => {
-        callback(data);
-        unsub();
-      });
-    }
+    this.socket?.emit('user:register', user, (data: any) => {
+      if (callback) callback(data);
+    });
   };
 
   public getMessages = (sessionId: string, callback?: Function) => {
-    this.emit('chat:get_messages', { sessionId });
+    this.emit('messages:get', { sessionId });
     if (callback) {
-      const unsub = this.on('chat:history', (data) => {
+      const unsub = this.on('messages:list', (data) => {
         if (data.sessionId === sessionId) {
           callback(data);
           unsub();
@@ -351,7 +357,7 @@ class SocketManager {
     }
   };
 
-  public joinSession = (sessionId: string) => this.emit('chat:join_session', { sessionId });
+  public joinSession = (sessionId: string) => this.emit('session:join', { sessionId });
   public deleteAccount = (callback?: Function) => {
     this.emit('user:delete');
     if (callback) {
@@ -362,12 +368,12 @@ class SocketManager {
   public searchUsers = (filters: any, callback?: Function) => {
     this.emit('users:search', filters);
     if (callback) {
-      const unsub = this.on('users:results', (data) => { callback(data); unsub(); });
+      const unsub = this.on('users:search:results', (data) => { callback(data); unsub(); });
     }
   };
 
   public sendKnock = (toUserId: string, callback?: Function) => {
-    this.emit('knock:send', { toUserId });
+    this.emit('knock:send', { targetUserId: toUserId });
     if (callback) {
       const unsub = this.on('knock:sent', (data) => { 
         if (data.toUserId === toUserId) { callback(data); unsub(); }
@@ -377,25 +383,30 @@ class SocketManager {
 
   public acceptKnock = (knockId: string, fromUserId: string) => this.emit('knock:accept', { knockId, fromUserId });
   public rejectKnock = (knockId: string, fromUserId: string) => this.emit('knock:reject', { knockId, fromUserId });
-  public blockUser = (userId: string) => this.emit('user:block', { userId });
+  public blockUser = (userId: string) => this.emit('user:block', { targetUserId: userId });
   
   public sendReport = (userId: string, reason: string, messageId?: string) => {
-    this.emit('user:report', { userId, reason, messageId });
+    this.emit('user:report', { targetUserId: userId, reason, messageId });
   };
 
   public sendMessage = (sessionId: string, content: string, type: string = 'text', metadata?: any) => {
-    this.emit('chat:message_send', { sessionId, content, type, ...metadata });
+    this.socket?.emit('message:send', { 
+      sessionId, 
+      encryptedPayload: content, 
+      messageType: type, 
+      metadata: metadata || {} 
+    });
   };
 
   // --- UI Compatibility Facade (Optimized Arrow Functions) ---
-  public onPresenceCount = (cb: Function) => this.on('users:online_count', cb);
-  public onPresenceList = (cb: Function) => this.on('users:presence_list', cb);
+  public onPresenceCount = (cb: Function) => this.on('presence:count', cb);
+  public onPresenceList = (cb: Function) => this.on('presence:list', cb);
   public onKnockReceived = (cb: Function) => this.on('knock:received', cb);
   public onKnockAccepted = (cb: Function) => this.on('knock:accepted', cb);
   public onKnockRejected = (cb: Function) => this.on('knock:rejected', cb);
-  public onMessageReceived = (cb: Function) => this.on('chat:message', cb);
-  public onSessionCreated = (cb: Function) => this.on('chat:history', cb);
-  public onAuthError = (cb: Function) => this.on('error', cb);
+  public onMessageReceived = (cb: Function) => this.on('message:received', cb);
+  public onSessionCreated = (cb: Function) => this.on('session:created', cb);
+  public onAuthError = (cb: Function) => this.on('user:error', cb);
   public onConnect = (cb: Function) => this.on('connect', cb);
   public onProfileExpiring = (cb: Function) => this.on('user:expiring', cb);
   public onProfileExpired = (cb: Function) => this.on('user:expired', cb);

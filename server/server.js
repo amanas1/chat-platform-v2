@@ -34,7 +34,7 @@ const blocks = new Map();
 
 // --- UTILS & BROADCASTS ---
 const broadcastPresenceCount = () => {
-  io.emit('users:online_count', { 
+  io.emit('presence:count', { 
     totalOnline: io.engine.clientsCount, 
     chatOnline: activeUsers.size 
   });
@@ -58,7 +58,7 @@ const broadcastPresenceList = () => {
   activeUsers.forEach((userData, userId) => {
     if (userData?.socketId) {
       const visible = getVisibleUsers(userId);
-      io.to(userData.socketId).emit('users:presence_list', visible);
+      io.to(userData.socketId).emit('presence:list', visible);
     }
   });
 };
@@ -89,7 +89,7 @@ setInterval(() => {
       expired.forEach(msg => {
         session.participants.forEach(pid => {
           const p = activeUsers.get(pid);
-          if (p?.socketId) io.to(p.socketId).emit('chat:message_expired', { messageId: msg.id, sessionId });
+          if (p?.socketId) io.to(p.socketId).emit('message:expired', { messageId: msg.id, sessionId });
         });
       });
     }
@@ -147,7 +147,7 @@ io.on('connection', (socket) => {
     }
     if (sf.gender && sf.gender !== 'any') list = list.filter(u => u.gender === sf.gender);
     if (sf.country && sf.country !== 'any') list = list.filter(u => u.country === sf.country);
-    socket.emit('users:results', list);
+    socket.emit('users:search:results', list);
   });
 
   socket.on('knock:send', (p) => {
@@ -178,27 +178,50 @@ io.on('connection', (socket) => {
 
     const sessionId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
     sessions.set(sessionId, { participants: [boundUserId, p.fromUserId] });
-    if (me.socketId) io.to(me.socketId).emit('chat:history', { sessionId, partnerId: p.fromUserId, partnerProfile: partner.profile });
+    if (me.socketId) io.to(me.socketId).emit('session:created', { sessionId, partnerId: p.fromUserId, partnerProfile: partner.profile });
     if (partner.socketId) io.to(partner.socketId).emit('knock:accepted', { sessionId, partnerId: boundUserId, partnerProfile: me.profile });
+  });
+
+  socket.on('knock:reject', (p) => {
+    if (!boundUserId || !p?.fromUserId) return;
+    const partner = activeUsers.get(p.fromUserId);
+    if (partner?.socketId) {
+      io.to(partner.socketId).emit('knock:rejected', { fromUserId: boundUserId });
+    }
+  });
+
+  socket.on('messages:get', (p) => {
+    if (!boundUserId || !p?.sessionId) return;
+    const session = sessions.get(p.sessionId);
+    if (session?.participants.includes(boundUserId)) {
+      socket.emit('messages:list', { 
+        sessionId: p.sessionId, 
+        messages: messages.get(p.sessionId) || [] 
+      });
+    }
   });
 
   socket.on('session:join', (p) => {
     if (!boundUserId || !p?.sessionId) return;
     const session = sessions.get(p.sessionId);
     if (session?.participants.includes(boundUserId)) {
-      socket.emit('chat:history', { sessionId: p.sessionId, participants: session.participants });
+      socket.emit('messages:list', { sessionId: p.sessionId, participants: session.participants });
     }
   });
 
   socket.on('message:send', (p, ack) => {
-    if (!boundUserId || !p?.sessionId || !p?.encryptedPayload) return;
+    if (!boundUserId || !p?.sessionId) return;
+    if (!p.encryptedPayload && !p.text && !p.audio && !p.sticker) return;
     const session = sessions.get(p.sessionId);
     if (!session?.participants.includes(boundUserId)) return;
     const msg = {
       id: `m_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       sessionId: p.sessionId,
       senderId: boundUserId,
-      encryptedPayload: p.encryptedPayload,
+      encryptedPayload: p.encryptedPayload || null,
+      text: p.text || null,
+      sticker: p.sticker || null,
+      audio: p.audio || null,
       messageType: p.messageType || 'text',
       metadata: p.metadata || {},
       timestamp: Date.now(),
@@ -210,18 +233,23 @@ io.on('connection', (socket) => {
     if (sm.length > MAX_MESSAGES) sm.shift();
     session.participants.forEach(pid => {
       const usr = activeUsers.get(pid);
-      if (usr?.socketId) io.to(usr.socketId).emit('chat:message', msg);
+      if (usr?.socketId) io.to(usr.socketId).emit('message:received', msg);
     });
     if (typeof ack === 'function') ack({ success: true, messageId: msg.id });
   });
 
-  socket.on('messages:get', (p) => {
-    if (!boundUserId || !p?.sessionId) return;
-    const session = sessions.get(p.sessionId);
-    if (session?.participants.includes(boundUserId)) {
-      const now = Date.now();
-      socket.emit('messages:list', { sessionId: p.sessionId, messages: (messages.get(p.sessionId) || []).filter(m => m.expiresAt > now) });
-    }
+  socket.on('user:delete', () => {
+    if (!boundUserId) return;
+    sessions.forEach((s, sId) => { 
+      if (s.participants.includes(boundUserId)) closeSession(sId); 
+    });
+    activeUsers.delete(boundUserId);
+    blocks.delete(boundUserId);
+    blocks.forEach(set => set.delete(boundUserId));
+    reports.delete(boundUserId);
+    broadcastPresenceList();
+    broadcastPresenceCount();
+    boundUserId = null;
   });
 
   socket.on('user:report', (p) => {
