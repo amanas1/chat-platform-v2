@@ -118,15 +118,9 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
         )}
       </AnimatePresence>
 
-      {/* Layer 1: Private Base */}
+      {/* Layer 1: Private Base (Anchored right, z-20) */}
       <motion.div 
-        className="absolute right-0 top-0 bottom-0 w-full md:w-[450px] h-full bg-gradient-to-br from-[#0B0F1C] via-[#0E1324] to-[#111827] backdrop-blur-[12px] border-l border-white/5 flex flex-col pointer-events-auto shadow-[0_0_40px_rgba(168,85,247,0.15),0_20px_60px_rgba(0,0,0,0.6)] origin-right overflow-hidden"
-        animate={{ 
-          x: isPublicLayerOpen ? (typeof window !== 'undefined' && window.innerWidth < 768 ? 0 : -150) : 0,  
-          scale: isPublicLayerOpen ? 0.95 : 1, 
-          filter: isPublicLayerOpen ? 'brightness(0.6)' : 'brightness(1)' 
-        }}
-        transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
+        className="absolute right-0 top-0 bottom-0 w-full md:w-[450px] h-full bg-gradient-to-br from-[#0B0F1C] via-[#0E1324] to-[#111827] backdrop-blur-[12px] border-l border-white/5 flex flex-col pointer-events-auto shadow-[[-20px_0_40px_rgba(0,0,0,0.5)]] origin-right overflow-hidden z-20"
       >
         {/* Header with Close - Only visible if we are not covered by Public Layer on Mobile */}
         <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 shrink-0 shadow-sm relative z-10">
@@ -153,15 +147,15 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
         </div>
       </motion.div>
 
-      {/* Layer 2: Public Layer */}
+      {/* Layer 2: Public Layer (Slides out to the left, beneath Layer 1, z-10) */}
       <AnimatePresence>
         {isPublicLayerOpen && (
           <motion.div 
-            className="absolute right-0 top-0 bottom-0 w-full md:w-[450px] h-full bg-gradient-to-br from-[#0B0F1C] via-[#0D1120] to-[#0A0E1A] backdrop-blur-[16px] border-l border-white/10 flex flex-col pointer-events-auto shadow-[-20px_0_40px_rgba(0,0,0,0.5)] overflow-hidden"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
+            className="absolute right-0 top-0 bottom-0 w-full md:w-[450px] h-full bg-gradient-to-br from-[#0B0F1C] via-[#0D1120] to-[#0A0E1A] backdrop-blur-[16px] border-l border-white/10 flex flex-col pointer-events-auto overflow-hidden z-10"
+            initial={{ x: 0, opacity: 0 }}
+            animate={{ x: '-100%', opacity: 1 }}
+            exit={{ x: 0, opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
             onAnimationStart={() => playSlideSound()}
           >
             {/* Header for Public Layer */}
