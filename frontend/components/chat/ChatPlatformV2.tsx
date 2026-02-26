@@ -163,12 +163,25 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
           className="flex h-full w-[840px]"
           initial={false}
           animate={{ x: isPublicLayerOpen ? 0 : -420 }} // When open, shift to show left panel (x=0). When closed, shift to show right panel (x=-420).
-          transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
-          onAnimationStart={() => isPublicLayerOpen && playSlideSound()}
+          transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
+          onAnimationStart={() => {
+            if (isPublicLayerOpen) {
+              setTimeout(() => playSlideSound(), 50);
+            }
+          }}
         >
 
           {/* PUBLIC PANEL (Left side of flex, Width: 420px) */}
-          <div className={`w-[420px] flex flex-col pointer-events-auto shrink-0 z-10 ${DEEP_GRADIENT} ${GLASS_BASE} rounded-none border-0`}>
+          <motion.div 
+            className={`relative w-[420px] flex flex-col pointer-events-auto shrink-0 z-20 ${DEEP_GRADIENT} ${GLASS_BASE} rounded-none border-0 border-r border-[rgba(249,115,22,0.25)]`}
+            initial={false}
+            animate={{
+              boxShadow: isPublicLayerOpen
+                ? '0 25px 60px rgba(0,0,0,0.6), 0 0 40px rgba(0,0,0,0.4), 2px 0 20px rgba(249,115,22,0.15)'
+                : '0 25px 60px rgba(0,0,0,0), 0 0 40px rgba(0,0,0,0), 2px 0 0px rgba(249,115,22,0)'
+            }}
+            transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
+          >
             {/* Public Panel Header */}
             <div className="p-5 border-b border-[rgba(255,255,255,0.08)] flex items-center justify-between shadow-sm relative z-10 shrink-0">
                <button onClick={() => handleTabClick('search')} className="text-slate-400 hover:text-white transition-all text-xs font-black uppercase tracking-widest flex items-center gap-2">
@@ -199,10 +212,27 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                 />
               )}
             </div>
-          </div>
+          </motion.div>
 
           {/* MAIN CHAT PANEL (Right side of flex, Width: 420px) */}
-          <div className={`w-[420px] flex flex-col pointer-events-auto shrink-0 z-20 overflow-hidden ${DEEP_GRADIENT} ${GLASS_BASE} rounded-none border-0 border-l border-[rgba(255,255,255,0.05)]`}>
+          <motion.div 
+            className={`relative w-[420px] flex flex-col pointer-events-auto shrink-0 z-10 overflow-hidden ${DEEP_GRADIENT} ${GLASS_BASE} rounded-none border-0`}
+            initial={false}
+            animate={{ 
+              scale: isPublicLayerOpen ? 0.97 : 1,
+              opacity: isPublicLayerOpen ? 0.92 : 1,
+              filter: isPublicLayerOpen ? 'brightness(0.85) blur(1px)' : 'brightness(1) blur(0px)',
+              x: isPublicLayerOpen ? 10 : 0
+            }}
+            transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
+          >
+            {/* DIM LAYER OVERLAY */}
+            <motion.div 
+              className="absolute inset-0 bg-black pointer-events-none z-50 rounded-none mix-blend-multiply"
+              initial={false}
+              animate={{ opacity: isPublicLayerOpen ? 0.25 : 0 }}
+              transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
+            />
             
             {/* Main Panel Content Area */}
             <div className="flex-1 relative overflow-y-auto no-scrollbar flex flex-col">
@@ -271,7 +301,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                {onExit && <button onClick={onExit} className="ml-auto p-2 text-slate-500 hover:text-white transition-colors">✕</button>}
             </div>
 
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </div>
