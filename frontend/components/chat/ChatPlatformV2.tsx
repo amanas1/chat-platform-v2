@@ -236,41 +236,71 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
             className={`relative w-[420px] flex flex-col pointer-events-auto shrink-0 z-10 overflow-hidden ${DEEP_GRADIENT} ${GLASS_BASE} rounded-none border-0`}
             initial={false}
             animate={{ 
-              scale: isPublicLayerOpen ? 0.97 : 1,
+              scale: isPublicLayerOpen ? 0.965 : 1,
               opacity: isPublicLayerOpen ? 0.92 : 1,
-              filter: isPublicLayerOpen ? 'brightness(0.85) blur(1px)' : 'brightness(1) blur(0px)',
+              filter: isPublicLayerOpen ? 'brightness(0.85) blur(1.2px)' : 'brightness(1) blur(0px)',
               x: isPublicLayerOpen ? 10 : 0
             }}
             transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
           >
-            {/* DIM LAYER OVERLAY */}
+            {/* DIM LAYER OVERLAY with Subtle Vignette */}
             <motion.div 
-              className="absolute inset-0 bg-black pointer-events-none z-50 rounded-none mix-blend-multiply"
+              className="absolute inset-0 bg-black pointer-events-none z-50 rounded-none mix-blend-multiply shadow-[inset_0_0_100px_rgba(0,0,0,0.5)]"
               initial={false}
-              animate={{ opacity: isPublicLayerOpen ? 0.25 : 0 }}
+              animate={{ opacity: isPublicLayerOpen ? 0.22 : 0 }}
               transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
             />
             
             {/* Main Panel Content Area */}
             <div className="flex-1 relative overflow-y-auto no-scrollbar flex flex-col">
                {activeTab === 'registration' && (
-                 <div className="p-8 flex flex-col h-full bg-transparent">
-                    <h2 className="text-2xl font-black text-white mb-2">Регистрация</h2>
-                    <p className="text-sm text-slate-400 mb-8">Создайте свой профиль для сети.</p>
+                 <motion.div 
+                   initial={{ opacity: 0, y: 10 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   transition={{ duration: 0.4 }}
+                   className="p-8 flex flex-col h-full bg-transparent"
+                 >
+                    <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Создание профиля</h2>
+                    <p className="text-sm text-slate-400 mb-8 leading-relaxed">Профиль позволяет участвовать в приватных и публичных диалогах.</p>
                     
-                    <div className="space-y-4 flex-1">
-                       <input type="text" placeholder="Введите имя..." className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl px-5 py-4 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/50 transition-colors" />
-                       <select className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl px-5 py-4 text-slate-300 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none">
-                         <option value="" disabled selected>Выберите возраст</option>
-                         <option value="18">18+</option>
-                         <option value="under18">&lt; 18</option>
-                       </select>
+                    <div className="space-y-5 flex-1 overflow-y-auto no-scrollbar pb-4">
+                       <div className="relative">
+                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block pl-2">Имя</label>
+                         <input type="text" placeholder="Введите имя..." className="input-premium w-full px-5 py-4" />
+                       </div>
+                       
+                       <div className="relative">
+                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block pl-2">Возраст</label>
+                         <select className="input-premium w-full px-5 py-4 appearance-none cursor-pointer">
+                           <option value="" disabled selected>Выберите возраст</option>
+                           <option value="18-24">18–24</option>
+                           <option value="25-34">25–34</option>
+                           <option value="35-44">35–44</option>
+                           <option value="45-54">45–54</option>
+                           <option value="55-65">55–65</option>
+                           <option value="65+">65+</option>
+                         </select>
+                       </div>
+
+                       <div className="relative">
+                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block pl-2">Пол</label>
+                         <select className="input-premium w-full px-5 py-4 appearance-none cursor-pointer">
+                           <option value="" disabled selected>Выберите пол</option>
+                           <option value="male">Мужской</option>
+                           <option value="female">Женский</option>
+                         </select>
+                       </div>
+
+                       <div className="relative">
+                         <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 block pl-2">О себе</label>
+                         <textarea placeholder="Коротко расскажите о себе..." rows={3} className="input-premium w-full px-5 py-4 resize-none" />
+                       </div>
                     </div>
 
-                    <button className="w-full py-4 rounded-full mt-4 bg-gradient-to-r from-orange-500 to-yellow-500 text-black font-black uppercase tracking-wider shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_30px_rgba(249,115,22,0.6)] hover:scale-[1.02] active:scale-95 transition-all duration-300">
-                      Сохранить
+                    <button className="btn-premium w-full mt-6 py-4 rounded-full bg-gradient-to-r from-orange-500 to-amber-400 text-black font-black uppercase tracking-widest shadow-[0_0_20px_rgba(249,115,22,0.3)] hover:shadow-[0_0_30px_rgba(249,115,22,0.5)]">
+                      Продолжить
                     </button>
-                 </div>
+                 </motion.div>
                )}
 
                {activeTab === 'search' && (
@@ -283,25 +313,31 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                )}
 
                {activeTab === 'conversations' && (
-                 <div className="flex-1 flex flex-col h-full">
+                 <div className="flex-1 flex flex-col h-full bg-transparent p-6 pb-20">
+                   <div className="mb-6">
+                     <h2 className="text-2xl font-black text-white tracking-tight">Мои диалоги</h2>
+                   </div>
+
                    {state.activeSession ? (
-                      <PrivateChatView 
-                        session={state.activeSession}
-                        messages={state.privateMessages}
-                        currentUser={state.currentUser}
-                        onSendMessage={handleMessageSend}
-                        onLeaveSession={() => closeSession(state.activeSession!.sessionId)}
-                        language={language}
-                      />
+                      <div className="flex-1 glass-panel rounded-[24px] overflow-hidden">
+                        <PrivateChatView 
+                          session={state.activeSession}
+                          messages={state.privateMessages}
+                          currentUser={state.currentUser}
+                          onSendMessage={handleMessageSend}
+                          onLeaveSession={() => closeSession(state.activeSession!.sessionId)}
+                          language={language}
+                        />
+                      </div>
                    ) : (
-                      <div className="p-8 flex flex-col h-full items-center justify-center text-center text-slate-400">
-                         <div className="w-16 h-16 rounded-full bg-[rgba(255,255,255,0.03)] flex items-center justify-center mb-4 border border-[rgba(255,255,255,0.05)]">
-                           <span className="text-2xl opacity-50">💬</span>
+                      <div className="flex-1 flex flex-col items-center justify-center text-center px-8">
+                         <div className="w-16 h-16 rounded-[16px] bg-gradient-to-br from-white/5 to-transparent flex items-center justify-center mb-5 border border-white/10 shadow-[inset_0_2px_10px_rgba(255,255,255,0.05)]">
+                           <span className="text-2xl opacity-60 drop-shadow-md">💬</span>
                          </div>
-                         <h3 className="font-bold text-white mb-2">Нет активных диалогов</h3>
-                         <p className="text-xs">Воспользуйтесь поиском, чтобы начать общение.</p>
-                         <button onClick={() => handleTabClick('search')} className="mt-6 px-6 py-3 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] transition-all text-xs font-bold uppercase tracking-wider">
-                           Начать поиск
+                         <h3 className="text-[16px] font-black text-white mb-2 tracking-wide">Нет активных диалогов</h3>
+                         <p className="text-[13px] text-slate-400 font-medium mb-8 leading-relaxed">Начните общение через поиск.</p>
+                         <button onClick={() => handleTabClick('search')} className="btn-premium px-8 py-3.5 rounded-full bg-gradient-to-r from-purple-600/20 to-cyan-600/20 text-white border border-white/10 hover:border-cyan-500/30 hover:shadow-[0_0_25px_rgba(34,211,238,0.2)] text-[11px] font-black uppercase tracking-[0.2em] transition-all">
+                           Перейти к поиску
                          </button>
                       </div>
                    )}

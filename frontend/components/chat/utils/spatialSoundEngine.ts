@@ -223,3 +223,142 @@ export const playKnockNotification = () => {
   osc.stop(ctx.currentTime + 0.5);
   osc2.stop(ctx.currentTime + 0.5);
 };
+
+/**
+ * Card Open
+ * Feel: Soft click-air sound
+ */
+export const playCardOpenSound = () => {
+  const engine = initEngine();
+  if (!engine) return;
+  const { ctx, masterGain } = engine;
+
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(600, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.1);
+
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.01);
+  env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+
+  osc.connect(env);
+  env.connect(masterGain as GainNode);
+
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.1);
+};
+
+/**
+ * Modal Open
+ * Feel: Low frequency subtle thump
+ */
+export const playModalOpenSound = () => {
+  const engine = initEngine();
+  if (!engine) return;
+  const { ctx, masterGain } = engine;
+
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(80, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.15);
+
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.02);
+  env.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+
+  osc.connect(env);
+  env.connect(masterGain as GainNode);
+
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.15);
+};
+
+/**
+ * Message Sent
+ * Feel: Soft digital tap
+ */
+export const playMessageSentSound = () => {
+  const engine = initEngine();
+  if (!engine) return;
+  const { ctx, masterGain } = engine;
+
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(800, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.08);
+
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.01);
+  env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+
+  osc.connect(env);
+  env.connect(masterGain as GainNode);
+
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.08);
+};
+
+/**
+ * Room Join
+ * Feel: Soft rising tone
+ */
+export const playRoomJoinSound = () => {
+  const engine = initEngine();
+  if (!engine) return;
+  const { ctx, masterGain } = engine;
+
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+  const panner = ctx.createStereoPanner();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(300, ctx.currentTime);
+  osc.frequency.linearRampToValueAtTime(600, ctx.currentTime + 0.15);
+
+  panner.pan.setValueAtTime(0, ctx.currentTime);
+
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.1, ctx.currentTime + 0.05);
+  env.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.15);
+
+  osc.connect(env);
+  env.connect(panner);
+  panner.connect(masterGain as GainNode);
+
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.15);
+};
+
+/**
+ * Panel Close
+ * Feel: Soft fade-down whoosh
+ */
+export const playPanelCloseSound = () => {
+  const engine = initEngine();
+  if (!engine) return;
+  const { ctx, masterGain } = engine;
+
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(200, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.12);
+
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 0.02);
+  env.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.12);
+
+  osc.connect(env);
+  env.connect(masterGain as GainNode);
+
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.12);
+};

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { playMessageSentSound } from '../utils/spatialSoundEngine';
 
 interface ChatInputProps {
   onSend: (text: string) => void;
@@ -14,6 +15,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, placeholder = "Typ
     e.preventDefault();
     const cleanStr = text.trim();
     if (!cleanStr || disabled || cleanStr.length > 300) return;
+    playMessageSentSound();
     onSend(cleanStr);
     setText('');
   };
@@ -30,8 +32,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, placeholder = "Typ
         placeholder={placeholder}
         disabled={disabled}
         className="flex-1 bg-white/[0.03] text-white placeholder-slate-500 px-5 py-3.5 rounded-2xl 
-                   border border-white/10 focus:border-cyan-500/50 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(34,211,238,0.15)]
-                   transition-all duration-300 shadow-inner"
+                   border border-white/10 focus:outline-none focus:border-cyan-500/70 focus:bg-white/[0.06] focus:shadow-[inset_0_1px_5px_rgba(0,0,0,0.3),0_0_25px_rgba(34,211,238,0.3)]
+                   transition-all duration-300 shadow-[inset_0_1px_5px_rgba(0,0,0,0.3)]"
         maxLength={300}
         autoComplete="off"
       />

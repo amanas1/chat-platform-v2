@@ -8,6 +8,48 @@ body {
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: #02040a; /* Deepest baseline */
+    color: #ffffff;
+    min-height: 100vh;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Subtle Animated Ambient Background */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: radial-gradient(circle at 50% 50%, rgba(20, 25, 60, 0.4) 0%, rgba(5, 7, 15, 0.8) 50%, #02040a 100%), 
+                radial-gradient(ellipse at 80% 20%, rgba(35, 10, 60, 0.3) 0%, transparent 60%);
+    background-size: 200% 200%;
+    animation: ambientShift 20s ease-in-out infinite alternate;
+    pointer-events: none;
+}
+
+@keyframes ambientShift {
+    0% { background-position: 0% 0%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 100%; }
+}
+
+@layer utilities {
+    .glass-panel {
+        @apply bg-[rgba(255,255,255,0.04)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)];
+    }
+    
+    .hover-lift {
+        @apply transition-all duration-300 ease-[cubic-bezier(0.25,0.8,0.25,1)] hover:-translate-y-[3px] hover:scale-[1.015] hover:shadow-[0_15px_30px_rgba(0,0,0,0.5),0_0_20px_rgba(249,115,22,0.1)];
+    }
+    
+    .btn-premium {
+        @apply transition-all duration-150 ease-out hover:scale-[1.02] active:scale-[0.97];
+    }
+    
+    .input-premium {
+        @apply bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-[16px] text-white transition-all duration-300 shadow-[inset_0_2px_10px_rgba(0,0,0,0.2)] focus:outline-none focus:border-orange-500/50 focus:bg-[rgba(255,255,255,0.06)] focus:shadow-[inset_0_2px_10px_rgba(0,0,0,0.2),0_0_15px_rgba(249,115,22,0.15)];
+    }
 }
 
 /* Vertical Marquee Animation */

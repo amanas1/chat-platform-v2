@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { ChatMessage, SessionData, UserProfile } from '../types';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInput } from '../components/ChatInput';
-import { TRANSLATIONS } from '../../../types/constants';
+import { playRoomJoinSound, playPanelCloseSound } from '../utils/spatialSoundEngine';
 
 interface PrivateChatViewProps {
   session: SessionData;
@@ -14,8 +14,11 @@ interface PrivateChatViewProps {
 }
 
 export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messages, currentUser, onSendMessage, onLeaveSession, language = 'en' }) => {
-  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
   const feedRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    playRoomJoinSound();
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -27,12 +30,12 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
   return (
     <div className="w-full h-full flex flex-col bg-transparent animate-[fadeIn_0.3s_ease-out]">
       {/* Header */}
-      <div className="flex items-center gap-4 p-4 border-b border-white/5 bg-black/20 shadow-sm backdrop-blur-md relative z-10">
+      <div className="flex items-center gap-4 p-5 py-4 border-b border-white/5 bg-transparent shadow-sm relative z-10 glass-panel border-l-0 border-r-0 border-t-0 rounded-none">
         <button 
-          onClick={onLeaveSession}
-          className="p-2 -ml-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          onClick={() => { playPanelCloseSound(); onLeaveSession(); }}
+          className="p-2 -ml-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all duration-300 cursor-pointer border border-transparent hover:border-white/10 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
         >
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -42,11 +45,11 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
              <div className="w-10 h-10 rounded-full overflow-hidden bg-[#0A0E1A] border-2 border-cyan-500/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]">
                <img src={session.partnerProfile?.avatar} alt="Partner" className="w-full h-full object-cover" />
              </div>
-             <div className="absolute bottom-0 right-[-2px] w-3 h-3 bg-green-500 rounded-full border border-[#0A0E1A] shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+             <div className="absolute bottom-0 right-[0px] w-3 h-3 bg-green-500 rounded-full border border-[#0A0E1A] shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-white">{session.partnerProfile?.name || (t.unknown || 'Anonymous')}</h2>
-            <p className="text-[10px] text-green-400 font-medium">{t.encryptedSession || 'Encrypted • Self-Destructing'}</p>
+            <h2 className="text-[13px] font-black text-white tracking-wide">{session.partnerProfile?.name || 'Аноним'}</h2>
+            <p className="text-[9px] text-green-400 font-bold uppercase tracking-widest mt-0.5">Зашифровано • Самоуничтожается</p>
           </div>
         </div>
       </div>
@@ -57,10 +60,10 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
         className="flex-1 overflow-y-auto p-4 space-y-2 scroll-smooth"
       >
         {messages.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-slate-500">
-            <span className="text-4xl mb-3 text-purple-400/50">🔒</span>
-            <p>{t.privateEndToEnd || 'Private end-to-end session.'}</p>
-            <p className="text-[10px] mt-1 text-slate-600">{t.messagesVanish30s || 'Messages vanish after 30s.'}</p>
+          <div className="h-full flex flex-col items-center justify-center text-slate-500/60 italic">
+            <span className="text-4xl mb-4 opacity-70">🔒</span>
+            <p className="text-xs font-medium tracking-wide">Приватная сессия.</p>
+            <p className="text-xs mt-1">Сообщения удаляются через 30с.</p>
           </div>
         ) : (
           messages.map(msg => (
@@ -75,7 +78,7 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
       </div>
 
       {/* Input */}
-      <ChatInput onSend={onSendMessage} placeholder={t.typeSecurely || 'Type securely...'} language={language} />
+      <ChatInput onSend={onSendMessage} placeholder="Введите сообщение..." language={language} />
     </div>
   );
 };
