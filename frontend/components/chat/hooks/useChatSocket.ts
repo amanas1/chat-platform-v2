@@ -2,6 +2,7 @@ import { useEffect, useCallback, useRef } from 'react';
 import { ChatAction } from '../state/chatReducer';
 import { ChatState, ChatMessage, KnockState, SessionData, UserProfile } from '../types';
 import socketService from '../../../services/socketService';
+import { playKnockNotification, playMessageNotification } from '../utils/spatialSoundEngine';
 
 export function useChatSocket(
   currentUser: UserProfile | null, 
@@ -50,6 +51,7 @@ export function useChatSocket(
 
     const unsubIncomingKnock = socketService.onEvent('knock:received', (knock: KnockState) => {
       dispatch({ type: 'USER_KNOCKED', payload: knock });
+      playKnockNotification();
     });
     
     const unsubKnockSent = socketService.onEvent('knock:sent', (targetUserId: string) => {
@@ -87,6 +89,9 @@ export function useChatSocket(
 
     const unsubRoomMessage = socketService.onEvent('room:message', (msg: ChatMessage) => {
       dispatch({ type: 'ROOM_MESSAGE_RECEIVED', payload: msg });
+      if (msg.senderId !== currentUser?.id) {
+        playMessageNotification(false);
+      }
     });
 
     const unsubRoomMessageExpired = socketService.onEvent('room:message:expired', (data: { messageId: string, roomId: string }) => {
@@ -101,6 +106,9 @@ export function useChatSocket(
         if (!receivedMessageIds.current.has(msg.id)) {
           receivedMessageIds.current.add(msg.id);
           dispatch({ type: 'PRIVATE_MESSAGE_RECEIVED', payload: msg }); 
+          if (msg.senderId !== currentUser?.id) {
+            playMessageNotification(true);
+          }
         }
       }
     });

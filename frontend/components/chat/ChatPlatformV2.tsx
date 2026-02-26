@@ -1,6 +1,6 @@
-import React, { useReducer } from 'react';
+import React, { useReducer, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { playSlideSound } from './utils/audioEffects';
+import { playSlideOpenSound, playSlideCloseSound, playTabSwitchSound, setSoundEnabled } from './utils/spatialSoundEngine';
 import { chatReducer, initialChatState } from './state/chatReducer';
 import { useChatSocket } from './hooks/useChatSocket';
 import { useDiscoveryEngine } from './hooks/useDiscoveryEngine';
@@ -26,6 +26,11 @@ interface ChatPlatformV2Props {
 export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverride, onExit, language = 'en' }) => {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
   const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
+  const isMounted = useRef(false);
+
+  useEffect(() => {
+    isMounted.current = true;
+  }, []);
   
   // If passed from props, update local state
   React.useEffect(() => {
@@ -33,6 +38,14 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
       dispatch({ type: 'SET_CURRENT_USER', payload: currentUserOverride });
     }
   }, [currentUserOverride]);
+
+  // Hook sound state to user preferences
+  React.useEffect(() => {
+    // Rely on ChatSettings notification toggle or fallback to filters toggle
+    const user = state.currentUser as any;
+    const enabled = user?.chatSettings?.notificationsEnabled ?? user?.filters?.soundEnabled ?? true;
+    setSoundEnabled(enabled);
+  }, [state.currentUser]);
 
   const { 
     sendKnock, acceptKnock, rejectKnock, 
@@ -94,6 +107,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
   // Handle Tab Switching
   const handleTabClick = (tabId: string) => {
+    playTabSwitchSound();
     if (tabId === 'public') {
       dispatch({ type: 'SET_MODE', payload: 'room' });
     } else if (tabId === 'search') {
@@ -165,8 +179,11 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
           animate={{ x: isPublicLayerOpen ? 0 : -420 }} // When open, shift to show left panel (x=0). When closed, shift to show right panel (x=-420).
           transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
           onAnimationStart={() => {
+            if (!isMounted.current) return;
             if (isPublicLayerOpen) {
-              setTimeout(() => playSlideSound(), 50);
+              setTimeout(() => playSlideOpenSound(), 50);
+            } else {
+              playSlideCloseSound();
             }
           }}
         >
