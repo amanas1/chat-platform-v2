@@ -1,15 +1,19 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { UserProfile } from '../../../types';
+import { TRANSLATIONS } from '../../../types/constants';
 import { Sparkles, Radio } from 'lucide-react';
 
 interface DiscoveryViewProps {
   users: UserProfile[];
   onKnockUser: (userId: string) => void;
   onGoToRooms: () => void;
+  language?: string;
 }
 
-export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser, onGoToRooms }) => {
+export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser, onGoToRooms, language = 'en' }) => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
+
   return (
     <div className="w-full h-full flex flex-col bg-transparent overflow-y-auto no-scrollbar relative">
       
@@ -19,14 +23,14 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
           <div className="flex items-center justify-between">
             <h1 className="text-sm font-black text-white tracking-[0.2em] uppercase flex items-center gap-3">
               <Sparkles className="w-4 h-4 text-purple-400" />
-              Global Radar
+              {t.globalRadar || 'Global Radar'}
             </h1>
             <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
                <span className="relative flex h-2 w-2">
                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                </span>
-               <span className="text-[10px] text-green-400 font-bold uppercase tracking-wider">{users.length} Online</span>
+               <span className="text-[10px] text-green-400 font-bold uppercase tracking-wider">{users.length} {t.online || 'Online'}</span>
             </div>
           </div>
           
@@ -37,7 +41,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
             <div className="absolute inset-0 bg-gradient-to-r from-orange-500/20 to-red-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             <Radio className="w-4 h-4 text-orange-400 group-hover:text-orange-300 transition-colors" />
             <span className="text-xs font-black tracking-[0.2em] uppercase text-orange-400 group-hover:text-orange-300 transition-colors relative z-10">
-              Access Public Rooms
+              {t.accessPublicRooms || 'Access Public Rooms'}
             </span>
           </button>
         </div>
@@ -48,7 +52,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
         {users.length === 0 ? (
           <div className="col-span-full py-20 flex flex-col items-center justify-center text-slate-500 gap-4">
              <div className="w-10 h-10 border-2 border-purple-500/30 border-t-purple-500 rounded-full animate-spin" />
-             <p className="font-bold tracking-[0.2em] uppercase text-[10px] text-purple-400/50">Scanning Signals...</p>
+             <p className="font-bold tracking-[0.2em] uppercase text-[10px] text-purple-400/50">{t.scanningSignals || 'Scanning Signals...'}</p>
           </div>
         ) : (
           users.map((user, i) => (
@@ -69,7 +73,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
                     <div className="text-center w-full">
                         <h3 className="text-white/90 font-black text-xs tracking-wider group-hover:text-cyan-300 transition-colors truncate">{user.name}</h3>
                         <p className="text-slate-500 font-bold tracking-widest text-[9px] mt-1.5 uppercase truncate">
-                          {user.age ? `${user.age}Y` : 'UNK'} • {user.gender ? user.gender.substring(0,1) : '?'}
+                          {user.age ? `${user.age}Y` : (t.unknown || 'UNK')} • {user.gender ? user.gender.substring(0,1) : '?'}
                         </p>
                     </div>
                 </div>

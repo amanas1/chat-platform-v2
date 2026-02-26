@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { ChatMessage, SessionData, UserProfile } from '../types';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInput } from '../components/ChatInput';
+import { TRANSLATIONS } from '../../../types/constants';
 
 interface PrivateChatViewProps {
   session: SessionData;
@@ -9,9 +10,11 @@ interface PrivateChatViewProps {
   currentUser: UserProfile | null;
   onSendMessage: (text: string) => void;
   onLeaveSession: () => void;
+  language?: string;
 }
 
-export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messages, currentUser, onSendMessage, onLeaveSession }) => {
+export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messages, currentUser, onSendMessage, onLeaveSession, language = 'en' }) => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
   const feedRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
@@ -42,8 +45,8 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
              <div className="absolute bottom-0 right-[-2px] w-3 h-3 bg-green-500 rounded-full border border-[#0A0E1A] shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-white">{session.partnerProfile?.name || 'Anonymous'}</h2>
-            <p className="text-[10px] text-green-400 font-medium">Encrypted • Self-Destructing</p>
+            <h2 className="text-sm font-bold text-white">{session.partnerProfile?.name || (t.unknown || 'Anonymous')}</h2>
+            <p className="text-[10px] text-green-400 font-medium">{t.encryptedSession || 'Encrypted • Self-Destructing'}</p>
           </div>
         </div>
       </div>
@@ -56,8 +59,8 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500">
             <span className="text-4xl mb-3 text-purple-400/50">🔒</span>
-            <p>Private end-to-end session.</p>
-            <p className="text-[10px] mt-1 text-slate-600">Messages vanish after 30s.</p>
+            <p>{t.privateEndToEnd || 'Private end-to-end session.'}</p>
+            <p className="text-[10px] mt-1 text-slate-600">{t.messagesVanish30s || 'Messages vanish after 30s.'}</p>
           </div>
         ) : (
           messages.map(msg => (
@@ -72,7 +75,7 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
       </div>
 
       {/* Input */}
-      <ChatInput onSend={onSendMessage} placeholder="Type securely..." />
+      <ChatInput onSend={onSendMessage} placeholder={t.typeSecurely || 'Type securely...'} language={language} />
     </div>
   );
 };

@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { ChatMessage, UserProfile } from '../types';
 import { MessageBubble } from '../components/MessageBubble';
 import { ChatInput } from '../components/ChatInput';
+import { TRANSLATIONS } from '../../../types/constants';
 
 interface RoomViewProps {
   roomId: string;
@@ -10,9 +11,11 @@ interface RoomViewProps {
   onlineUsers: UserProfile[];
   onSendMessage: (text: string) => void;
   onLeaveRoom: () => void;
+  language?: string;
 }
 
-export const RoomView: React.FC<RoomViewProps> = ({ roomId, messages, currentUser, onlineUsers, onSendMessage, onLeaveRoom }) => {
+export const RoomView: React.FC<RoomViewProps> = ({ roomId, messages, currentUser, onlineUsers, onSendMessage, onLeaveRoom, language = 'en' }) => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
   const feedRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
@@ -41,7 +44,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ roomId, messages, currentUse
                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-cyan-500"></span>
              </span>
-             <p className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest">{onlineUsers.length} active connections</p>
+             <p className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest">{onlineUsers.length} {t.activeConnections || 'active connections'}</p>
           </div>
         </div>
       </div>
@@ -54,8 +57,8 @@ export const RoomView: React.FC<RoomViewProps> = ({ roomId, messages, currentUse
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-500">
             <span className="text-4xl mb-3">🌪️</span>
-            <p>Welcome to the chaos.</p>
-            <p className="text-xs mt-1">Messages vanish quickly.</p>
+            <p>{t.welcomeToChaos || 'Welcome to the chaos.'}</p>
+            <p className="text-xs mt-1">{t.messagesVanishQuickly || 'Messages vanish quickly.'}</p>
           </div>
         ) : (
           messages.map(msg => {
@@ -67,7 +70,7 @@ export const RoomView: React.FC<RoomViewProps> = ({ roomId, messages, currentUse
       </div>
 
       {/* Input */}
-      <ChatInput onSend={onSendMessage} placeholder="Drop a thought..." />
+      <ChatInput onSend={onSendMessage} placeholder={t.dropAThought || 'Drop a thought...'} language={language} />
     </div>
   );
 };

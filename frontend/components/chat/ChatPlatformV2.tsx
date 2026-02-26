@@ -6,6 +6,7 @@ import { useChatSocket } from './hooks/useChatSocket';
 import { useDiscoveryEngine } from './hooks/useDiscoveryEngine';
 import socketService from '../../services/socketService';
 import { UserProfile } from '../../types';
+import { TRANSLATIONS } from '../../types/constants';
 
 import { RoomSelectorView } from './views/RoomSelectorView';
 import { RoomView } from './views/RoomView';
@@ -19,10 +20,12 @@ interface ChatPlatformV2Props {
   // If the app passes auth info down
   currentUserOverride?: any; 
   onExit?: () => void;
+  language?: string;
 }
 
-export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverride, onExit }) => {
+export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverride, onExit, language = 'en' }) => {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
   
   // If passed from props, update local state
   React.useEffect(() => {
@@ -108,12 +111,14 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
             fromUser={state.onlineUsers.find(u => u.id === state.incomingKnock?.fromUserId)}
             onAccept={() => acceptKnock(state.incomingKnock!)}
             onReject={() => rejectKnock(state.incomingKnock!)}
+            language={language}
           />
         )}
         {state.outgoingKnock && state.mode !== 'private' && (
           <WaitingOverlay 
             onCancel={() => dispatch({ type: 'KNOCK_REJECTED', payload: null })}
             targetName={state.onlineUsers.find(u => u.id === state.outgoingKnock?.targetUserId)?.name}
+            language={language}
           />
         )}
       </AnimatePresence>
@@ -124,7 +129,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
       >
         {/* Header with Close - Only visible if we are not covered by Public Layer on Mobile */}
         <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 shrink-0 shadow-sm relative z-10">
-            <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white/90">Communications</h2>
+            <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white/90">{t.communications || 'Communications'}</h2>
             <button onClick={onExit} className="p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10 active:scale-95">✕</button>
         </div>
 
@@ -136,12 +141,14 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
               currentUser={state.currentUser}
               onSendMessage={handleMessageSend}
               onLeaveSession={() => closeSession(state.activeSession!.sessionId)}
+              language={language}
             />
           ) : (
             <DiscoveryView 
               users={(discoveryFeed as unknown) as UserProfile[]} 
               onKnockUser={sendKnock}
               onGoToRooms={() => dispatch({ type: 'SET_MODE', payload: 'room' })}
+              language={language}
             />
           )}
         </div>
@@ -161,9 +168,9 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
             {/* Header for Public Layer */}
             <div className="flex items-center justify-between p-4 border-b border-white/5 bg-black/20 shrink-0 relative z-10 shadow-sm">
                <button onClick={() => dispatch({ type: 'SET_MODE', payload: 'discovery' })} className="text-slate-400 hover:text-white transition-all hover:-translate-x-1 text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                 ← Back
+                 ← {t.back || 'Back'}
                </button>
-               <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white/90">System Node</h2>
+               <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white/90">{t.systemNode || 'System Node'}</h2>
                <button onClick={onExit} className="p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10 active:scale-95">✕</button>
             </div>
 
@@ -179,11 +186,13 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                     leaveRoom(state.activeRoomId!);
                     dispatch({ type: 'SET_ROOM', payload: '' });
                   }} 
+                  language={language}
                 />
               ) : (
                 <RoomSelectorView 
                   onSelectRoom={handleSelectRoom}
                   onGoToDiscovery={() => dispatch({ type: 'SET_MODE', payload: 'discovery' })}
+                  language={language}
                 />
               )}
             </div>

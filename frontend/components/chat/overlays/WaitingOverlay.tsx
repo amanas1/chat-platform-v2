@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 
+import { TRANSLATIONS } from '../../../types/constants';
+
 interface WaitingOverlayProps {
   onCancel: () => void;
   targetName?: string;
+  language?: string;
 }
 
-export const WaitingOverlay: React.FC<WaitingOverlayProps> = ({ onCancel, targetName = 'User' }) => {
+export const WaitingOverlay: React.FC<WaitingOverlayProps> = ({ onCancel, targetName = 'User', language = 'en' }) => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
   const [dots, setDots] = useState('');
 
   // Animated dots
@@ -33,7 +37,7 @@ export const WaitingOverlay: React.FC<WaitingOverlayProps> = ({ onCancel, target
         </div>
 
         <h2 className="text-2xl font-bold font-['Plus_Jakarta_Sans'] text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2">
-          Waiting for {targetName}{dots}
+          {t.waitingForPartnerTitle || 'Waiting for'} {targetName}{dots}
         </h2>
         <p className="text-slate-400 text-sm mb-8 text-center max-w-[250px]">
           They are reviewing your knock. If they don't respond in 15s, it will automatically cancel.
@@ -43,7 +47,7 @@ export const WaitingOverlay: React.FC<WaitingOverlayProps> = ({ onCancel, target
           onClick={onCancel}
           className="px-8 py-3 rounded-full font-bold text-sm text-white bg-white/10 hover:bg-white/20 border border-white/20 transition-all duration-200"
         >
-          Cancel Knock
+          {t.cancel || 'Cancel Knock'}
         </button>
       </div>
     </div>

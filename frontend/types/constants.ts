@@ -806,6 +806,17 @@ export const TRANSLATIONS: Record<string, any> = {
         skinTone: 'Skin Tone', hairStyle: 'Hair Style', hairColor: 'Hair Color',
         eyes: 'Eyes', eyebrows: 'Eyebrows', mouth: 'Mouth', facialHair: 'Facial Hair',
         clothing: 'Clothing', accessories: 'Accessories',
+
+        // New Chat V2 UI
+        communications: 'Communications', systemNode: 'System Node',
+        globalRadar: 'Global Radar', accessPublicRooms: 'Access Public Rooms',
+        scanningSignals: 'Scanning Signals...', nodes: 'Nodes',
+        selectPublicFrequency: 'Select a public frequency',
+        publicLiveFlow: 'Public Live Flow', activeConnections: 'active connections',
+        welcomeToChaos: 'Welcome to the chaos.', messagesVanishQuickly: 'Messages vanish quickly.',
+        dropAThought: 'Drop a thought...', encryptedSession: 'Encrypted • Self-Destructing',
+        privateEndToEnd: 'Private end-to-end session.', messagesVanish30s: 'Messages vanish after 30s.',
+        typeSecurely: 'Type securely...',
     },
     ru: {
         genres: 'Жанры', eras: 'Эпохи', moods: 'Настроение', effects: 'Эффекты', favorites: 'Избранное',
@@ -977,6 +988,17 @@ export const TRANSLATIONS: Record<string, any> = {
         ageRestrictionNotice: 'К сожалению, функции поиска и общения доступны только для пользователей старше 18 лет. Вы можете продолжить слушать радио.',
         free: 'Свободен', noActiveChatsDesc: 'Здесь будут появляться ваши текущие разговоры. Начните прямо сейчас!',
         restrictedDueToReport: 'Ограничение из-за жалобы: {reason}', violation: 'Нарушение',
+
+        // New Chat V2 UI
+        communications: 'Коммуникации', systemNode: 'Системный Узел',
+        globalRadar: 'Глобальный Радар', accessPublicRooms: 'Публичные Комнаты',
+        scanningSignals: 'Сканирование сигналов...', nodes: 'Узлы',
+        selectPublicFrequency: 'Выберите публичную частоту',
+        publicLiveFlow: 'Публичный Поток', activeConnections: 'активных соединений',
+        welcomeToChaos: 'Добро пожаловать в хаос.', messagesVanishQuickly: 'Сообщения исчезают быстро.',
+        dropAThought: 'Напишите мысль...', encryptedSession: 'Зашифровано • Самоуничтожение',
+        privateEndToEnd: 'Приватная end-to-end сессия.', messagesVanish30s: 'Сообщения исчезнут через 30с.',
+        typeSecurely: 'Печатайте безопасно...',
     },
     es: {
         genres: 'Géneros', eras: 'Épocas', moods: 'Estados de ánimo', effects: 'Efectos', favorites: 'Favoritos',
@@ -1114,6 +1136,17 @@ export const TRANSLATIONS: Record<string, any> = {
         ageRestrictionNotice: 'Lo sentimos, las funciones de chat son para mayores de 18 años.',
         free: 'Libre', noActiveChatsDesc: 'Tus chats activos aparecerán aquí. ¡Empieza uno ahora!',
         restrictedDueToReport: 'Restringido por reporte: {reason}', violation: 'Violación',
+
+        // New Chat V2 UI
+        communications: 'Comunicaciones', systemNode: 'Nodo del Sistema',
+        globalRadar: 'Radar Global', accessPublicRooms: 'Salas Públicas',
+        scanningSignals: 'Escaneando Señales...', nodes: 'Nodos',
+        selectPublicFrequency: 'Seleccione una frecuencia',
+        publicLiveFlow: 'Flujo Público', activeConnections: 'conexiones activas',
+        welcomeToChaos: 'Bienvenido al caos.', messagesVanishQuickly: 'Los mensajes desaparecen.',
+        dropAThought: 'Escribe un pensamiento...', encryptedSession: 'Cifrado • Autodestrucción',
+        privateEndToEnd: 'Sesión privada end-to-end.', messagesVanish30s: 'Desaparecen en 30s.',
+        typeSecurely: 'Escribe de forma segura...',
     },
     fr: {
         genres: 'Genres', eras: 'Époques', moods: 'Humeurs', effects: 'Effets', favorites: 'Favoris',

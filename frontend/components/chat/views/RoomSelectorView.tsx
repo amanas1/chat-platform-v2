@@ -1,8 +1,11 @@
 import React from 'react';
 
+import { TRANSLATIONS } from '../../../types/constants';
+
 interface RoomSelectorViewProps {
   onSelectRoom: (roomId: string) => void;
   onGoToDiscovery: () => void;
+  language?: string;
 }
 
 const ROOMS = [
@@ -12,12 +15,14 @@ const ROOMS = [
   { id: 'random-chaos', name: 'Random Chaos', icon: '🌪️', description: 'Anything goes. Pure ephemeral flow.' }
 ];
 
-export const RoomSelectorView: React.FC<RoomSelectorViewProps> = ({ onSelectRoom, onGoToDiscovery }) => {
+export const RoomSelectorView: React.FC<RoomSelectorViewProps> = ({ onSelectRoom, onGoToDiscovery, language = 'en' }) => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
+
   return (
     <div className="w-full h-full flex flex-col p-6 bg-transparent overflow-y-auto no-scrollbar relative z-10">
       <div className="flex flex-col mb-6 gap-2">
-        <h1 className="text-xl font-black text-white tracking-[0.2em] uppercase">Nodes</h1>
-        <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">Select a public frequency</p>
+        <h1 className="text-xl font-black text-white tracking-[0.2em] uppercase">{t.nodes || 'Nodes'}</h1>
+        <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">{t.selectPublicFrequency || 'Select a public frequency'}</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4">

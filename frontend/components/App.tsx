@@ -1965,6 +1965,7 @@ export default function App(): React.JSX.Element {
                 <ChatPanel 
                     currentUserOverride={currentUser}
                     onExit={() => setChatOpen(false)}
+                    language={language}
                 />
             )}
         </AnimatePresence>

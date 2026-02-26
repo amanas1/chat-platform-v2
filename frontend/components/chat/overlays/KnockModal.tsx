@@ -1,15 +1,18 @@
 import React, { useEffect } from 'react';
 import { KnockState, UserProfile } from '../types';
 import { ProfileCard } from '../components/ProfileCard';
+import { TRANSLATIONS } from '../../../types/constants';
 
 interface KnockModalProps {
   knock: KnockState;
   fromUser?: UserProfile; 
   onAccept: () => void;
   onReject: () => void;
+  language?: string;
 }
 
-export const KnockModal: React.FC<KnockModalProps> = ({ knock, fromUser, onAccept, onReject }) => {
+export const KnockModal: React.FC<KnockModalProps> = ({ knock, fromUser, onAccept, onReject, language = 'en' }) => {
+  const t = TRANSLATIONS[language] || TRANSLATIONS['en'];
   
   // Auto-reject if ignored for 15 seconds
   useEffect(() => {
@@ -35,8 +38,8 @@ export const KnockModal: React.FC<KnockModalProps> = ({ knock, fromUser, onAccep
         <div className="absolute -top-12 left-1/2 -translate-x-1/2 w-24 h-24 bg-purple-600/20 blur-2xl rounded-full pointer-events-none" />
 
         <div className="text-center mb-6">
-          <h2 className="text-xl font-bold text-white mb-1">Incoming Knock</h2>
-          <p className="text-sm text-slate-400">Someone wants to chat privately</p>
+          <h2 className="text-xl font-bold text-white mb-1">{t.incomingKnock || 'Incoming Knock'}</h2>
+          <p className="text-sm text-slate-400">{t.someoneKnocking || 'Someone wants to chat privately'}</p>
         </div>
 
         <div className="mb-8">
@@ -48,13 +51,13 @@ export const KnockModal: React.FC<KnockModalProps> = ({ knock, fromUser, onAccep
             onClick={onReject}
             className="flex-1 py-3 px-4 rounded-xl font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-white transition-all duration-200"
           >
-            Ignore
+            {t.reject || 'Ignore'}
           </button>
           <button
             onClick={onAccept}
             className="flex-1 py-3 px-4 rounded-xl font-bold text-white bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_25px_rgba(168,85,247,0.6)] hover:scale-[1.02] active:scale-95 transition-all duration-200"
           >
-            Accept
+            {t.accept || 'Accept'}
           </button>
         </div>
 

@@ -4,9 +4,10 @@ interface ChatInputProps {
   onSend: (text: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  language?: string;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ onSend, placeholder = "Type a message...", disabled }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ onSend, placeholder = "Type a message...", disabled, language }) => {
   const [text, setText] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
