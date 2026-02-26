@@ -75,6 +75,36 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
     return () => unsubConnect();
   }, [joinRoom]);
 
+  // Internal Tab State for Main Panel modes
+  const [activeTab, setActiveTab] = React.useState<'registration' | 'search' | 'conversations'>('registration');
+
+  // Sync mode changes to tabs if they come from elsewhere
+  React.useEffect(() => {
+    if (state.mode === 'discovery' && activeTab !== 'search') setActiveTab('search');
+    if (state.mode === 'private' && activeTab !== 'conversations') setActiveTab('conversations');
+  }, [state.mode]);
+
+  // Handle Tab Switching
+  const handleTabClick = (tabId: string) => {
+    if (tabId === 'public') {
+      dispatch({ type: 'SET_MODE', payload: 'room' });
+    } else if (tabId === 'search') {
+      dispatch({ type: 'SET_MODE', payload: 'discovery' });
+      setActiveTab('search');
+    } else if (tabId === 'conversations') {
+      dispatch({ type: 'SET_MODE', payload: 'private' });
+      setActiveTab('conversations');
+    } else if (tabId === 'registration') {
+      setActiveTab('registration');
+      // If we go to registration, maybe clear room mode so panel slides back
+      if (state.mode === 'room') {
+        dispatch({ type: 'SET_MODE', payload: 'discovery' }); 
+      }
+    }
+  };
+
+  const isPublicLayerOpen = state.mode === 'room';
+
   // Interactions
   const handleSelectRoom = (roomId: string) => {
     if (state.activeRoomId === roomId) return;
@@ -91,19 +121,14 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
     }
   };
 
-  const isPublicLayerOpen = state.mode === 'room';
-  const isPrivateView = state.mode === 'private' || (state.mode === 'room' && state.activeSession);
+  // Base Style Constants
+  const GLASS_PANEL = "bg-[rgba(255,255,255,0.04)] backdrop-blur-xl border border-[rgba(255,255,255,0.08)] rounded-[24px]";
+  const DEEP_GRADIENT = "bg-gradient-to-b from-[#0b0f1a] via-[#0e1424] to-[#0a0d16]";
 
   return (
-    <motion.div 
-      className="fixed inset-y-0 right-0 w-full md:w-[900px] z-[100] flex justify-end pointer-events-none font-['Plus_Jakarta_Sans']"
-      initial={{ x: '100%' }}
-      animate={{ x: 0 }}
-      exit={{ x: '100%' }}
-      transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
-      onAnimationStart={() => playSlideSound()}
-    >
-      {/* Overlays (Global to ChatPlatform) */}
+    <div className="fixed inset-y-8 left-[max(5%,calc(50vw-420px))] z-[100] flex pointer-events-none font-['Plus_Jakarta_Sans']">
+      
+      {/* Overlays */}
       <AnimatePresence>
         {state.incomingKnock && (
           <KnockModal 
@@ -123,84 +148,163 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
         )}
       </AnimatePresence>
 
-      {/* Layer 1: Private Base (Anchored right, z-20) */}
-      <motion.div 
-        className="absolute right-0 top-0 bottom-0 w-full md:w-[450px] h-full bg-gradient-to-br from-[#0B0F1C] via-[#0E1324] to-[#111827] backdrop-blur-[12px] border-l border-white/5 flex flex-col pointer-events-auto shadow-[[-20px_0_40px_rgba(0,0,0,0.5)]] origin-right overflow-hidden z-20"
-      >
-        {/* Header with Close - Only visible if we are not covered by Public Layer on Mobile */}
-        <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 shrink-0 shadow-sm relative z-10">
-            <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white/90">{t.communications || 'Communications'}</h2>
-            <button onClick={onExit} className="p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10 active:scale-95">✕</button>
-        </div>
+      <div className="relative w-[420px] h-full flex items-center">
+        
+        {/* PUBLIC PANEL (Layer 2) - Slides in from left */}
+        <AnimatePresence>
+          {isPublicLayerOpen && (
+            <motion.div 
+              className={`absolute left-0 top-0 bottom-0 w-[420px] flex flex-col pointer-events-auto shadow-2xl overflow-hidden z-10 ${DEEP_GRADIENT} ${GLASS_PANEL}`}
+              initial={{ x: 210, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 210, opacity: 0 }}
+              transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+              onAnimationStart={() => playSlideSound()}
+            >
+              {/* Public Panel Header */}
+              <div className="p-5 border-b border-[rgba(255,255,255,0.08)] flex items-center justify-between shadow-sm relative z-10 shrink-0">
+                 <button onClick={() => handleTabClick('search')} className="text-slate-400 hover:text-white transition-all text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                   ← Назад
+                 </button>
+                 <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white/90">Публичные комнаты</h2>
+              </div>
 
-        <div className="flex-1 relative overflow-hidden flex flex-col">
-          {isPrivateView && state.activeSession ? (
-            <PrivateChatView 
-              session={state.activeSession}
-              messages={state.privateMessages}
-              currentUser={state.currentUser}
-              onSendMessage={handleMessageSend}
-              onLeaveSession={() => closeSession(state.activeSession!.sessionId)}
-              language={language}
-            />
-          ) : (
-            <DiscoveryView 
-              users={(discoveryFeed as unknown) as UserProfile[]} 
-              onKnockUser={sendKnock}
-              onGoToRooms={() => dispatch({ type: 'SET_MODE', payload: 'room' })}
-              language={language}
-            />
+              <div className="flex-1 relative overflow-y-auto no-scrollbar flex flex-col">
+                {state.activeRoomId ? (
+                  <RoomView 
+                    roomId={state.activeRoomId}
+                    messages={state.roomMessages}
+                    currentUser={state.currentUser}
+                    onlineUsers={state.onlineUsers}
+                    onSendMessage={handleMessageSend}
+                    onLeaveRoom={() => {
+                      leaveRoom(state.activeRoomId!);
+                      dispatch({ type: 'SET_ROOM', payload: '' });
+                    }} 
+                    language={language}
+                  />
+                ) : (
+                  <RoomSelectorView 
+                    onSelectRoom={handleSelectRoom}
+                    onGoToDiscovery={() => handleTabClick('search')}
+                    language={language}
+                  />
+                )}
+              </div>
+            </motion.div>
           )}
-        </div>
-      </motion.div>
+        </AnimatePresence>
 
-      {/* Layer 2: Public Layer (Slides out to the left, beneath Layer 1, z-10) */}
-      <AnimatePresence>
-        {isPublicLayerOpen && (
-          <motion.div 
-            className="absolute right-0 top-0 bottom-0 w-full md:w-[450px] h-full bg-gradient-to-br from-[#0B0F1C] via-[#0D1120] to-[#0A0E1A] backdrop-blur-[16px] border-l border-white/10 flex flex-col pointer-events-auto overflow-hidden z-10"
-            initial={{ x: 0, opacity: 0 }}
-            animate={{ x: '-100%', opacity: 1 }}
-            exit={{ x: 0, opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-            onAnimationStart={() => playSlideSound()}
-          >
-            {/* Header for Public Layer */}
-            <div className="flex items-center justify-between p-4 border-b border-white/5 bg-black/20 shrink-0 relative z-10 shadow-sm">
-               <button onClick={() => dispatch({ type: 'SET_MODE', payload: 'discovery' })} className="text-slate-400 hover:text-white transition-all hover:-translate-x-1 text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                 ← {t.back || 'Back'}
-               </button>
-               <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white/90">{t.systemNode || 'System Node'}</h2>
-               <button onClick={onExit} className="p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10 active:scale-95">✕</button>
-            </div>
+        {/* MAIN CHAT PANEL (Layer 1) */}
+        <motion.div 
+          className={`absolute top-0 bottom-0 w-[420px] flex flex-col pointer-events-auto shadow-2xl z-20 overflow-hidden ${DEEP_GRADIENT} ${GLASS_PANEL}`}
+          initial={false}
+          animate={{ x: isPublicLayerOpen ? 450 : 0 }} 
+          // Shifting right by 420px + 30px gap = 450px for cleaner look, or exactly 420px. 
+          // The prompt says "exactly 420px". So I will use 420px gapless side-by-side.
+          transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+        >
+          {/* Main Panel Content Area */}
+          <div className="flex-1 relative overflow-y-auto no-scrollbar flex flex-col">
+             {activeTab === 'registration' && (
+               <div className="p-8 flex flex-col h-full bg-transparent">
+                  <h2 className="text-2xl font-black text-white mb-2">Регистрация</h2>
+                  <p className="text-sm text-slate-400 mb-8">Создайте свой профиль для сети.</p>
+                  
+                  <div className="space-y-4 flex-1">
+                     <input type="text" placeholder="Введите имя..." className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl px-5 py-4 text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/50 transition-colors" />
+                     <select className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-xl px-5 py-4 text-slate-300 focus:outline-none focus:border-orange-500/50 transition-colors appearance-none">
+                       <option value="" disabled selected>Выберите возраст</option>
+                       <option value="18">18+</option>
+                       <option value="under18">&lt; 18</option>
+                     </select>
+                  </div>
 
-            <div className="flex-1 relative overflow-hidden flex flex-col">
-              {state.activeRoomId ? (
-                <RoomView 
-                  roomId={state.activeRoomId}
-                  messages={state.roomMessages}
-                  currentUser={state.currentUser}
-                  onlineUsers={state.onlineUsers}
-                  onSendMessage={handleMessageSend}
-                  onLeaveRoom={() => {
-                    leaveRoom(state.activeRoomId!);
-                    dispatch({ type: 'SET_ROOM', payload: '' });
-                  }} 
-                  language={language}
-                />
-              ) : (
-                <RoomSelectorView 
-                  onSelectRoom={handleSelectRoom}
-                  onGoToDiscovery={() => dispatch({ type: 'SET_MODE', payload: 'discovery' })}
-                  language={language}
-                />
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  <button className="w-full py-4 rounded-full mt-4 bg-gradient-to-r from-orange-500 to-yellow-500 text-black font-black uppercase tracking-wider shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_30px_rgba(249,115,22,0.6)] hover:scale-[1.02] active:scale-95 transition-all duration-300">
+                    Сохранить
+                  </button>
+               </div>
+             )}
 
-    </motion.div>
+             {activeTab === 'search' && (
+               <DiscoveryView 
+                 users={(discoveryFeed as unknown) as UserProfile[]} 
+                 onKnockUser={sendKnock}
+                 onGoToRooms={() => handleTabClick('public')}
+                 language={language}
+               />
+             )}
+
+             {activeTab === 'conversations' && (
+               <div className="flex-1 flex flex-col h-full">
+                 {state.activeSession ? (
+                    <PrivateChatView 
+                      session={state.activeSession}
+                      messages={state.privateMessages}
+                      currentUser={state.currentUser}
+                      onSendMessage={handleMessageSend}
+                      onLeaveSession={() => closeSession(state.activeSession!.sessionId)}
+                      language={language}
+                    />
+                 ) : (
+                    <div className="p-8 flex flex-col h-full items-center justify-center text-center text-slate-400">
+                       <div className="w-16 h-16 rounded-full bg-[rgba(255,255,255,0.03)] flex items-center justify-center mb-4 border border-[rgba(255,255,255,0.05)]">
+                         <span className="text-2xl opacity-50">💬</span>
+                       </div>
+                       <h3 className="font-bold text-white mb-2">Нет активных диалогов</h3>
+                       <p className="text-xs">Воспользуйтесь поиском, чтобы начать общение.</p>
+                       <button onClick={() => handleTabClick('search')} className="mt-6 px-6 py-3 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20 hover:shadow-[0_0_15px_rgba(168,85,247,0.3)] transition-all text-xs font-bold uppercase tracking-wider">
+                         Начать поиск
+                       </button>
+                    </div>
+                 )}
+               </div>
+             )}
+          </div>
+
+          {/* Navigation Tab Bar */}
+          <div className="shrink-0 p-4 border-t border-[rgba(255,255,255,0.08)] bg-black/20 flex flex-wrap gap-2 justify-center backdrop-blur-md z-30">
+             <NavButton active={activeTab === 'registration' && !isPublicLayerOpen} onClick={() => handleTabClick('registration')} label="Регистрация" />
+             <NavButton active={activeTab === 'search' && !isPublicLayerOpen} onClick={() => handleTabClick('search')} label="Поиск" />
+             <NavButton active={activeTab === 'conversations' && !isPublicLayerOpen} onClick={() => handleTabClick('conversations')} label="Мои диалоги" />
+             <NavButton active={isPublicLayerOpen} onClick={() => handleTabClick('public')} label="Публичные комнаты" isCTA />
+             {onExit && <button onClick={onExit} className="ml-auto p-2 text-slate-500 hover:text-white transition-colors">✕</button>}
+          </div>
+
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
+// Internal Navigation Tab Button Component
+const NavButton: React.FC<{ active: boolean, onClick: () => void, label: string, isCTA?: boolean }> = ({ active, onClick, label, isCTA }) => {
+  if (isCTA) {
+    return (
+      <button 
+        onClick={onClick}
+        className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${
+          active 
+            ? 'bg-gradient-to-r from-orange-500 to-yellow-500 text-black shadow-[0_0_15px_rgba(249,115,22,0.4)] scale-105' 
+            : 'bg-[rgba(255,255,255,0.03)] text-orange-400 border border-orange-500/30 hover:bg-orange-500/10 hover:shadow-[0_0_10px_rgba(249,115,22,0.2)]'
+        }`}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <button 
+      onClick={onClick}
+      className={`px-4 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-300 ${
+        active 
+          ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.3)]' 
+          : 'bg-transparent text-slate-400 hover:bg-[rgba(255,255,255,0.05)] hover:text-white border border-transparent'
+      }`}
+    >
+      {label}
+    </button>
   );
 };
 
