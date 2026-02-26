@@ -14,29 +14,30 @@ const ROOMS = [
 
 export const RoomSelectorView: React.FC<RoomSelectorViewProps> = ({ onSelectRoom, onGoToDiscovery }) => {
   return (
-    <div className="w-full h-full flex flex-col p-4 bg-slate-950/80 overflow-y-auto animate-[fadeIn_0.3s_ease-out]">
-      <div className="flex items-center justify-between mb-8 pb-4 border-b border-white/10">
-        <h1 className="text-2xl font-bold text-white tracking-tight">Interest Rooms</h1>
-        <button 
-          onClick={onGoToDiscovery}
-          className="text-sm px-4 py-2 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-full transition-colors"
-        >
-          Find Users
-        </button>
+    <div className="w-full h-full flex flex-col p-6 bg-transparent overflow-y-auto no-scrollbar relative z-10">
+      <div className="flex flex-col mb-6 gap-2">
+        <h1 className="text-xl font-black text-white tracking-[0.2em] uppercase">Nodes</h1>
+        <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">Select a public frequency</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {ROOMS.map(room => (
+      <div className="grid grid-cols-1 gap-4">
+        {ROOMS.map((room, i) => (
           <button
             key={room.id}
             onClick={() => onSelectRoom(room.id)}
-            className="group relative flex flex-col items-start p-6 rounded-3xl bg-slate-900 border border-slate-800 hover:border-purple-500/50 hover:bg-slate-800 transition-all duration-300 overflow-hidden"
+            style={{ animationDelay: `${i * 100}ms` }}
+            className="group relative flex items-center gap-5 p-5 rounded-[18px] bg-white/[0.02] border border-white/[0.06] hover:border-cyan-400/50 hover:bg-white/[0.05] hover:shadow-[0_0_20px_rgba(34,211,238,0.15)] transition-all duration-300 overflow-hidden animate-[fadeIn_0.5s_ease-out_both] text-left"
           >
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-transparent blur-2xl group-hover:from-purple-500/20 transition-all" />
+            {/* Shimmer Effect */}
+            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent group-hover:animate-[shimmer_1.5s_infinite]" />
             
-            <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">{room.icon}</span>
-            <h3 className="text-xl font-bold text-white mb-2">{room.name}</h3>
-            <p className="text-left text-sm text-slate-400">{room.description}</p>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-cyan-500/10 to-transparent blur-2xl group-hover:from-cyan-500/20 transition-all pointer-events-none" />
+            
+            <span className="text-3xl drop-shadow-md group-hover:scale-110 group-hover:-rotate-6 transition-transform duration-300 shrink-0">{room.icon}</span>
+            <div className="flex-1 min-w-0 z-10">
+                <h3 className="text-sm font-black text-white/90 mb-1 group-hover:text-cyan-300 transition-colors uppercase tracking-widest">{room.name}</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider truncate">{room.description}</p>
+            </div>
           </button>
         ))}
       </div>

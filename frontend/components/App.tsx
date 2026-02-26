@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Routes, Route, Link, useLocation, useParams } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { RadioStation, CategoryInfo, ViewMode, ThemeName, BaseTheme, Language, UserProfile, VisualizerVariant, VisualizerSettings, AmbienceState, PassportData, BottleMessage, AlarmConfig, FxSettings, AudioProcessSettings } from '../types';
@@ -1510,7 +1511,16 @@ export default function App(): React.JSX.Element {
         </div>
       </aside>
 
-      <main className={`flex-1 flex flex-col min-w-0 relative transition-all duration-500 ${sidebarOpen ? 'md:ml-72' : 'ml-0'}`}>
+      <motion.main 
+        className={`flex-1 flex flex-col min-w-0 relative ${sidebarOpen ? 'md:ml-72' : 'ml-0'} transition-[margin] duration-500`}
+        animate={{ 
+            scale: chatOpen ? 0.98 : 1, 
+            filter: chatOpen ? 'brightness(0.6) blur(2px)' : 'brightness(1) blur(0px)',
+            borderRadius: chatOpen ? '24px' : '0px'
+        }}
+        transition={{ duration: 0.28, ease: [0.25, 0.8, 0.25, 1] }}
+        style={{ transformOrigin: 'center center' }}
+      >
         <header className={`h-20 flex items-center px-4 md:px-10 justify-between shrink-0 transition-all duration-500 z-10 ${isIdleView ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}>
           <div className="flex items-center gap-2 md:gap-4 flex-1">
             <button 
@@ -1948,25 +1958,16 @@ export default function App(): React.JSX.Element {
         <Suspense fallback={null}><FeedbackModal isOpen={feedbackOpen} onClose={() => setFeedbackOpen(false)} language={language} currentUserId={currentUser.id} /></Suspense>
         <Suspense fallback={null}><LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} language={language} /></Suspense>
 
-      </main>
+      </motion.main>
       <Suspense fallback={null}>
-        {chatOpen && (
-            <div className={`fixed inset-y-0 right-0 w-full md:w-[450px] bg-black/80 backdrop-blur-3xl border-l border-white/10 z-[100] transition-transform duration-500 flex flex-col shadow-2xl ${chatOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-white/5 bg-white/5 shrink-0">
-                    <h2 className="text-lg font-black tracking-tighter uppercase text-white">Communications</h2>
-                    <button onClick={() => setChatOpen(false)} className="p-2 text-slate-400 hover:text-white transition-colors rounded-full hover:bg-white/10"><XMarkIcon className="w-5 h-5" /></button>
-                </div>
-                
-                {/* Platform Content Wrapper */}
-                <div className="flex-1 overflow-hidden relative">
-                    <ChatPanel 
-                        currentUserOverride={currentUser}
-                        onExit={() => setChatOpen(false)}
-                    />
-                </div>
-            </div>
-        )}
+        <AnimatePresence mode="wait">
+            {chatOpen && (
+                <ChatPanel 
+                    currentUserOverride={currentUser}
+                    onExit={() => setChatOpen(false)}
+                />
+            )}
+        </AnimatePresence>
       </Suspense>
 
       <Suspense fallback={null}>

@@ -50,23 +50,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isOwn, se
           </span>
         )}
 
-        {/* Bubble */}
         <div 
-          className={`relative px-4 py-2.5 rounded-2xl text-sm md:text-base leading-relaxed break-words
+          className={`relative px-5 py-3 text-sm md:text-[15px] leading-relaxed break-words backdrop-blur-md transition-all duration-300
             ${isOwn 
-              ? 'bg-purple-600/90 text-white rounded-br-sm shadow-[0_4px_15px_rgba(147,51,234,0.3)]' 
-              : 'bg-slate-800 text-slate-100 rounded-bl-sm border border-slate-700 shadow-md'
+              ? 'bg-gradient-to-br from-purple-600/90 to-purple-800/90 text-white rounded-[20px] rounded-br-[6px] shadow-[0_5px_20px_rgba(147,51,234,0.3)] border border-purple-400/30' 
+              : 'bg-white/[0.05] text-slate-100 rounded-[20px] rounded-bl-[6px] border border-white/10 shadow-[0_5px_20px_rgba(0,0,0,0.3)]'
             }
           `}
         >
           {message.text}
 
-          {/* Sparkle or TTL visual indicator */}
           <div 
-            className={`absolute bottom-0 left-0 h-[2px] rounded-full transition-all duration-100
-              ${isUrgent ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : isOwn ? 'bg-white/40' : 'bg-purple-500/50'}
+            className={`absolute bottom-0 left-4 right-4 h-[2px] rounded-t-lg transition-all duration-100
+              ${isUrgent ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,1)]' : isOwn ? 'bg-white/50' : 'bg-cyan-400/50 shadow-[0_0_8px_rgba(34,211,238,0.5)]'}
             `}
-            style={{ width: `${progress}%` }}
+            style={{ width: `${progress * 0.8}%` }}
           />
         </div>
       </div>

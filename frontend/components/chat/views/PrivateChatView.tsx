@@ -22,9 +22,9 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
   }, [messages]);
 
   return (
-    <div className="w-full h-full flex flex-col bg-slate-950/90 animate-[fadeIn_0.3s_ease-out]">
+    <div className="w-full h-full flex flex-col bg-transparent animate-[fadeIn_0.3s_ease-out]">
       {/* Header */}
-      <div className="flex items-center gap-4 p-4 border-b border-purple-500/20 bg-slate-900 shadow-md">
+      <div className="flex items-center gap-4 p-4 border-b border-white/5 bg-black/20 shadow-sm backdrop-blur-md relative z-10">
         <button 
           onClick={onLeaveSession}
           className="p-2 -ml-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
@@ -36,10 +36,10 @@ export const PrivateChatView: React.FC<PrivateChatViewProps> = ({ session, messa
         
         <div className="flex-1 flex items-center gap-3">
           <div className="relative">
-             <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-800 border-2 border-purple-500">
+             <div className="w-10 h-10 rounded-full overflow-hidden bg-[#0A0E1A] border-2 border-cyan-500/50 shadow-[0_0_10px_rgba(34,211,238,0.3)]">
                <img src={session.partnerProfile?.avatar} alt="Partner" className="w-full h-full object-cover" />
              </div>
-             <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border border-slate-900 shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+             <div className="absolute bottom-0 right-[-2px] w-3 h-3 bg-green-500 rounded-full border border-[#0A0E1A] shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
           </div>
           <div>
             <h2 className="text-sm font-bold text-white">{session.partnerProfile?.name || 'Anonymous'}</h2>
