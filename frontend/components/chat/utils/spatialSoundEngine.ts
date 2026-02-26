@@ -139,6 +139,65 @@ export const playTabSwitchSound = () => {
 };
 
 /**
+ * Category Flip Sound (Airport flip)
+ * Feel: Mechanical, fast double transient
+ */
+export const playFlipSound = () => {
+  const engine = initEngine();
+  if (!engine) return;
+  const { ctx, masterGain } = engine;
+
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+
+  // Mechanical squareish tone
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(120, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.08);
+
+  // Double attack envelope to simulate mechanical flip flap
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.01);
+  env.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.04);
+  env.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.05);
+  env.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.08);
+
+  osc.connect(env);
+  env.connect(masterGain as GainNode);
+
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.08);
+};
+
+/**
+ * Hover Sparkle
+ * Feel: Very light sparkle, high pitch, very quiet
+ */
+export const playHoverSparkleSound = () => {
+  const engine = initEngine();
+  if (!engine) return;
+  const { ctx, masterGain } = engine;
+
+  const osc = ctx.createOscillator();
+  const env = ctx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(1200, ctx.currentTime);
+  osc.frequency.linearRampToValueAtTime(2000, ctx.currentTime + 0.04);
+
+  // Very quiet
+  env.gain.setValueAtTime(0, ctx.currentTime);
+  env.gain.linearRampToValueAtTime(0.02, ctx.currentTime + 0.01);
+  env.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.04);
+
+  osc.connect(env);
+  env.connect(masterGain as GainNode);
+
+  osc.start(ctx.currentTime);
+  osc.stop(ctx.currentTime + 0.04);
+};
+
+/**
  * Message Notification
  * Feel: Clean short ping with soft attack
  */

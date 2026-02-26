@@ -18,9 +18,19 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
     <div className="w-full h-full flex flex-col bg-transparent overflow-y-auto no-scrollbar relative p-6 pb-20">
       
       {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Поиск собеседника</h2>
-        <p className="text-sm text-slate-400 leading-relaxed">Выберите формат общения или найдите пользователя онлайн.</p>
+      <div className="mb-6 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-black text-white tracking-tight display-font text-glow-subtle">Поиск собеседника</h2>
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full shadow-[inset_0_2px_5px_rgba(0,0,0,0.5)]">
+             <span className="relative flex h-2 w-2">
+               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+               <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.8)]"></span>
+             </span>
+             <span className="text-[10px] text-orange-400 font-bold uppercase tracking-wider">В эфире: {124 + users.length * 3}</span>
+          </div>
+        </div>
+        <p className="text-sm text-slate-400 leading-relaxed max-w-[280px]">Выберите формат общения или найдите пользователя онлайн.</p>
+        <div className="text-[10px] text-green-400 font-bold tracking-widest uppercase mt-1">Ищут диалог: {users.length}</div>
       </div>
 
       {/* Format Selection Cards (Two Premium Cards) */}
@@ -29,7 +39,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
         {/* Случайный диалог */}
         <motion.div 
           onClick={() => { playCardOpenSound(); console.log('Random Match Clicked'); }}
-          className="glass-panel hover-lift rounded-2xl p-4 flex items-center gap-5 cursor-pointer group relative overflow-hidden"
+          className="glass-surface hover-stage-lift rounded-2xl p-4 flex items-center gap-5 cursor-pointer group relative overflow-hidden"
         >
           {/* Subtle Hover Spotlight */}
           <div className="absolute inset-0 bg-gradient-to-r from-orange-500/0 via-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none transform -translate-x-full group-hover:translate-x-full" />
@@ -46,7 +56,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
         {/* Показать онлайн */}
         <motion.div 
           onClick={() => { playCardOpenSound(); setShowOnline(!showOnline); }}
-          className={`glass-panel hover-lift rounded-2xl p-4 flex items-center gap-5 cursor-pointer group relative overflow-hidden transition-all duration-300 ${showOnline ? 'border-purple-500/50 bg-white/[0.08] shadow-[0_0_30px_rgba(168,85,247,0.15)]' : ''}`}
+          className={`glass-surface hover-stage-lift rounded-2xl p-4 flex items-center gap-5 cursor-pointer group relative overflow-hidden transition-all duration-300 ${showOnline ? 'border-purple-500/50 bg-white/[0.06] shadow-[0_0_30px_rgba(168,85,247,0.15)]' : ''}`}
         >
            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/0 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none transform -translate-x-full group-hover:translate-x-full" />
           
@@ -83,7 +93,7 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
                      initial={{ opacity: 0, y: 20 }}
                      animate={{ opacity: 1, y: 0 }}
                      transition={{ duration: 0.4, delay: i * 0.06, ease: [0.25, 0.8, 0.25, 1] }}
-                     className="glass-panel hover-lift rounded-2xl flex flex-col items-center justify-center p-5 relative group cursor-default"
+                     className="glass-surface hover-stage-lift rounded-2xl flex flex-col items-center justify-center p-5 relative group cursor-default"
                    >
                      {/* Glow Ring Avatar */}
                      <div className="relative mb-4 mt-2">
@@ -117,13 +127,13 @@ export const DiscoveryView: React.FC<DiscoveryViewProps> = ({ users, onKnockUser
                      <div className="flex w-full gap-2 mt-auto">
                         <button 
                           onClick={(e) => { e.stopPropagation(); playCardOpenSound(); onKnockUser(user.id); }}
-                          className="btn-premium flex-1 py-2 rounded-xl bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300 hover:shadow-[0_0_15px_rgba(34,211,238,0.2)] border border-cyan-500/30 text-[10px] font-black uppercase tracking-widest transition-all"
+                          className="flex-1 py-2 rounded-xl bg-[rgba(255,255,255,0.05)] text-cyan-400 hover:bg-[rgba(34,211,238,0.1)] hover:text-cyan-300 border border-white/5 hover:border-cyan-500/30 text-[10px] font-black uppercase tracking-widest transition-all hover-stage-lift hover:shadow-[0_0_15px_rgba(34,211,238,0.2)]"
                         >
                           Начать
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); playCardOpenSound(); }}
-                          className="btn-premium px-3 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10 flex items-center justify-center transition-all"
+                          className="px-3 rounded-xl bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10 flex items-center justify-center transition-all hover-stage-lift"
                         >
                           <User className="w-3.5 h-3.5" />
                         </button>

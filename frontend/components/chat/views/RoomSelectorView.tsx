@@ -23,7 +23,7 @@ export const RoomSelectorView: React.FC<RoomSelectorViewProps> = ({ onSelectRoom
   return (
     <div className="w-full h-full flex flex-col p-6 bg-transparent overflow-y-auto no-scrollbar relative z-10 pb-20">
       <div className="flex flex-col mb-8 gap-2">
-        <h1 className="text-2xl font-black text-white tracking-tight">Публичные комнаты</h1>
+        <h1 className="text-2xl font-black text-white tracking-tight display-font text-glow-subtle">Публичные комнаты</h1>
         <p className="text-sm text-slate-400 font-medium leading-relaxed">Общение по интересам в открытом формате.</p>
       </div>
 
@@ -33,7 +33,7 @@ export const RoomSelectorView: React.FC<RoomSelectorViewProps> = ({ onSelectRoom
             key={room.id}
             onClick={() => { playCardOpenSound(); onSelectRoom(room.id); }}
             style={{ animationDelay: `${i * 100}ms` }}
-            className="group relative flex items-center gap-5 p-5 rounded-2xl glass-panel hover-lift text-left animate-[fadeIn_0.5s_ease-out_both] overflow-hidden"
+            className="group relative flex items-center gap-5 p-5 rounded-[18px] glass-surface hover-stage-lift text-left animate-[fadeIn_0.5s_ease-out_both] overflow-hidden"
           >
             {/* Soft Ambient Glow Underlay */}
             <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-cyan-500/0 via-cyan-500/5 to-transparent blur-2xl group-hover:from-cyan-500/20 transition-all pointer-events-none" />
