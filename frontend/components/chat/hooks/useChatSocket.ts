@@ -10,7 +10,6 @@ export function useChatSocket(
   activeSessionId: string | null,
   dispatch: React.Dispatch<ChatAction>
 ) {
-  const registeredRef = useRef(false);
   const activeSessionRef = useRef(activeSessionId);
   const receivedMessageIds = useRef<Set<string>>(new Set());
 
@@ -18,40 +17,28 @@ export function useChatSocket(
     activeSessionRef.current = activeSessionId;
   }, [activeSessionId]);
 
-  // Auto connect and register
+  // Lifecycle-driven Registration (Presence)
   useEffect(() => {
-    registeredRef.current = false;
-    socketService.connect();
-    
-    if (currentUser) {
-      const registerAndSetOnline = () => {
-        if (registeredRef.current) return;
-        
-        // Register handles formal session restoration etc.
-        socketService.registerUser(currentUser as any, (res: any) => {
-          console.log('[ChatV2] Registered:', res);
-          registeredRef.current = true;
-          // Explicitly set online after registration
-          socketService.setOnline(currentUser as any);
-        });
-      };
+    if (!currentUser) return;
 
-      if (socketService.isConnected) {
-        registerAndSetOnline();
-      }
-      
-      const unsubConnect = socketService.onConnect(() => {
-        // Force re-registration on every new connection (new socket.id)
-        registeredRef.current = false; 
-        registerAndSetOnline();
+    const performRegistration = () => {
+      console.log('[ChatV2] Triggering registration for:', currentUser.name);
+      socketService.registerUser(currentUser as any, (res: any) => {
+        console.log('[ChatV2] Registered successfully:', res);
       });
-      
-      return () => {
-        unsubConnect();
-        // Explicitly set offline on unmount if currentUser was active
-        socketService.setOffline();
-      };
+    };
+
+    // 1. If already connected, register immediately
+    if (socketService.isConnected) {
+      performRegistration();
     }
+
+    // 2. Register on every future connection/reconnection
+    const unsubConnect = socketService.onConnect(performRegistration);
+
+    return () => {
+      unsubConnect();
+    };
   }, [currentUser]);
 
   // Global Listeners

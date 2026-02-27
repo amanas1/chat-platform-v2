@@ -127,6 +127,9 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
   }, [state.mode, state.activeSession]);
 
   React.useEffect(() => {
+    // Single point of connection initialization
+    socketService.connect();
+
     const handler = () => {
       if (modeRef.current === 'private' && activeSessionRef.current) {
         socketService.joinSession(activeSessionRef.current.sessionId);

@@ -134,6 +134,8 @@ class SocketManager {
       this.lastActivity = Date.now();
       this.transition('CONNECTED');
       this.reattachListeners();
+      // Dispatch connect event to UI listeners
+      this.dispatch('connect', { socketId: this.socket?.id });
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -287,10 +289,12 @@ class SocketManager {
   }
 
   public emit(event: string, data?: any): void {
-    if (this.socket) {
+    const isAllowed = this.state === 'CONNECTED' || this.state === 'CONNECTING';
+    
+    if (this.socket && isAllowed) {
       this.socket.emit(event, data);
     } else {
-      this.log('error', `Dropped emit "${event}": Socket instance not initialized`);
+      this.log('warn', `Blocked emit "${event}": State is ${this.state}`);
     }
   }
 
@@ -345,13 +349,7 @@ class SocketManager {
     });
   };
 
-  public setOnline = (user: UserProfile) => {
-    this.emit('user:online', user);
-  };
 
-  public setOffline = () => {
-    this.emit('user:offline');
-  };
 
   public getMessages = (sessionId: string, callback?: Function) => {
     this.emit('messages:get', { sessionId });
