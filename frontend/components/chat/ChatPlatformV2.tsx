@@ -300,7 +300,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
       {/* ═══════════ CHAT PANEL ═══════════ */}
       <div 
-        className={`pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0f172a] transition-all duration-700 ${sceneActive ? 'border-[3px] border-yellow-500 shadow-[0_0_60px_rgba(255,180,0,0.35),inset_0_0_80px_rgba(255,200,100,0.04)]' : 'border-l border-white/[0.06]'}`}
+        className="pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0f172a] border-l border-white/[0.06]"
       >
         
         {/* ─── HEADER BAR ─── */}
