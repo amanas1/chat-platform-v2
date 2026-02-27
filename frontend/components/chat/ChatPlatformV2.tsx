@@ -595,9 +595,14 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                           </div>
                         </div>
                       </div>
-                      <p className={`text-[10px] uppercase tracking-widest font-semibold mt-3 transition-colors ${sceneActive ? 'text-orange-400' : 'text-slate-500 group-hover:text-slate-400'}`}>
-                        Сцена {sceneActive ? '✦' : ''}
-                      </p>
+                      <div className="flex items-center gap-2 mt-3">
+                        <span className={`text-[10px] uppercase tracking-widest font-semibold transition-colors ${sceneActive ? 'text-orange-400' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                          Торшер
+                        </span>
+                        <div className={`w-8 h-[18px] rounded-full relative transition-colors ${sceneActive ? 'bg-orange-500/30' : 'bg-white/5'}`}>
+                          <div className={`absolute top-[2px] w-[14px] h-[14px] rounded-full transition-all ${sceneActive ? 'right-[2px] bg-orange-400' : 'left-[2px] bg-slate-600'}`} />
+                        </div>
+                      </div>
                     </button>
 
                     {/* Online badge */}
