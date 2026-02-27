@@ -12,12 +12,35 @@ import { PrivateChatView } from './views/PrivateChatView';
 import { ConveyorCard } from './components/ConveyorCard';
 import { KnockModal } from './overlays/KnockModal';
 import { WaitingOverlay } from './overlays/WaitingOverlay';
-import { RegistrationPanel } from './RegistrationPanel';
+import { RegistrationPanel, ProfileData } from './RegistrationPanel';
 import { RadioPlayer } from './components/RadioPlayer';
 
 
 /* ─── localStorage KEY ─── */
 const LS_KEY = 'radio_chat_profile';
+const USER_ID_KEY = 'chat_user_id';
+
+/* ─── Convert RegistrationPanel ProfileData → chat UserProfile ─── */
+function profileDataToUserProfile(p: ProfileData): ChatUserProfile {
+  let id = localStorage.getItem(USER_ID_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(USER_ID_KEY, id);
+  }
+  return {
+    id,
+    avatar: p.avatar?.emoji || '👨',
+    name: p.nickname,
+    gender: (p.gender || 'male') as 'male' | 'female' | 'any',
+    age: p.age,
+    status: 'chat',
+    country: '',
+    nativeLanguage: '',
+    communicationLanguage: '',
+    interests: [],
+    lastActiveAt: Date.now(),
+  };
+}
 interface SavedProfile {
   nickname: string;
   gender: 'male' | 'female' | '';
@@ -69,6 +92,20 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
       dispatch({ type: 'SET_CURRENT_USER', payload: currentUserOverride });
     }
   }, [currentUserOverride]);
+
+  // Auto-restore currentUser from localStorage on mount
+  React.useEffect(() => {
+    if (!currentUserOverride) {
+      try {
+        const raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw) as ProfileData;
+          const userProfile = profileDataToUserProfile(saved);
+          dispatch({ type: 'SET_CURRENT_USER', payload: userProfile });
+        }
+      } catch {}
+    }
+  }, []);
 
   const { 
     sendKnock, acceptKnock, rejectKnock, 
@@ -263,7 +300,11 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
   // ─── If not registered, show RegistrationPanel ───
   if (!isRegistered) {
-    return <RegistrationPanel onComplete={() => setIsRegistered(true)} />;
+    return <RegistrationPanel onComplete={(profileData) => {
+      const userProfile = profileDataToUserProfile(profileData);
+      dispatch({ type: 'SET_CURRENT_USER', payload: userProfile });
+      setIsRegistered(true);
+    }} />;
   }
 
   return (
