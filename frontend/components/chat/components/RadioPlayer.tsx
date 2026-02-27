@@ -136,7 +136,7 @@ export const RadioPlayer: React.FC = () => {
 
           {/* Expand/Collapse */}
           <button onClick={() => setExpanded(!expanded)} className="p-1 text-slate-600 hover:text-slate-400 transition-colors">
-            <svg className={`w-4 h-4 transition-transform ${expanded ? '' : 'rotate-180'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
           </button>
         </div>
 
