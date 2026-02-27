@@ -1,5 +1,6 @@
 import React from 'react';
 import { AvatarBuilderModal, AvatarResult } from './components/AvatarBuilderModal';
+import { AvatarPreview, DEFAULT_AVATAR_CONFIG } from './components/AvatarPreview';
 
 /* ─── localStorage ─── */
 const LS_KEY = 'radio_chat_profile';
@@ -127,8 +128,11 @@ export const RegistrationPanel: React.FC<Props> = ({ onComplete }) => {
             {/* ── Avatar ── */}
             <div className="flex flex-col items-center mb-7">
               <button onClick={() => setShowAvatarBuilder(true)} className="relative group">
-                <div className="w-[110px] h-[110px] rounded-full bg-[#1a2235] border-2 border-white/[0.08] flex items-center justify-center transition-all group-hover:border-orange-400/30 group-hover:shadow-[0_0_20px_rgba(255,165,0,0.08)]">
-                  <span className="text-6xl">{avatar.emoji}</span>
+                <div className="w-[110px] h-[110px] rounded-full bg-[#1a2235] border-2 border-white/[0.08] flex items-center justify-center transition-all group-hover:border-orange-400/30 group-hover:shadow-[0_0_20px_rgba(255,165,0,0.08)] overflow-hidden">
+                  {avatar.avatarConfig 
+                    ? <AvatarPreview config={avatar.avatarConfig} size={100} />
+                    : <span className="text-6xl">{avatar.emoji}</span>
+                  }
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-[#1e293b] border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-orange-400 transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
