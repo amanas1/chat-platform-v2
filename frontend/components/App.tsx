@@ -1969,6 +1969,10 @@ export default function App(): React.JSX.Element {
                     radioPlaying={isPlaying}
                     radioStationName={currentStation?.name || ''}
                     onTogglePlay={togglePlay}
+                    onNextStation={handleNextStation}
+                    onPrevStation={handlePreviousStation}
+                    isRandomMode={isRandomMode}
+                    onToggleRandom={() => setIsRandomMode(!isRandomMode)}
                 />
             )}
         </AnimatePresence>

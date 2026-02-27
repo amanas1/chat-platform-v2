@@ -24,9 +24,13 @@ interface RadioPlayerProps {
   radioPlaying?: boolean;
   radioStationName?: string;
   onTogglePlay?: () => void;
+  onNextStation?: () => void;
+  onPrevStation?: () => void;
+  isRandomMode?: boolean;
+  onToggleRandom?: () => void;
 }
 
-export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, radioStationName = '', onTogglePlay }) => {
+export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, radioStationName = '', onTogglePlay, onNextStation, onPrevStation, isRandomMode = false, onToggleRandom }) => {
   const [isPlaying, setIsPlaying] = React.useState(radioPlaying);
   const [showVolume, setShowVolume] = React.useState(false);
   const [playerVolume, setPlayerVolume] = React.useState(75);
@@ -159,8 +163,8 @@ export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, 
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 18h2V6H7v12zm4 4h2V2h-2v20zm-8-8h2v-4H3v4zm12 4h2V6h-2v12zm4-8v4h2v-4h-2z"/></svg>
             </button>
 
-            {/* Rewind */}
-            <button className="p-1.5 text-slate-500 hover:text-slate-300 transition-colors">
+            {/* Rewind / Previous Station */}
+            <button onClick={() => onPrevStation?.()} className="p-1.5 text-slate-500 hover:text-slate-300 transition-colors active:scale-90">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>
             </button>
 
@@ -173,8 +177,8 @@ export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, 
               )}
             </button>
 
-            {/* Forward */}
-            <button className="p-1.5 text-slate-500 hover:text-slate-300 transition-colors">
+            {/* Forward / Next Station */}
+            <button onClick={() => onNextStation?.()} className="p-1.5 text-slate-500 hover:text-slate-300 transition-colors active:scale-90">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
             </button>
 
@@ -183,8 +187,8 @@ export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, 
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
             </button>
 
-            {/* Refresh */}
-            <button className="p-1.5 text-orange-500 hover:text-orange-400 transition-colors">
+            {/* Random Mode Toggle */}
+            <button onClick={() => onToggleRandom?.()} className={`p-1.5 transition-colors ${isRandomMode ? 'text-orange-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.4)]' : 'text-slate-600 hover:text-slate-400'}`}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
 
