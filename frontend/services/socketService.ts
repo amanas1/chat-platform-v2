@@ -345,6 +345,14 @@ class SocketManager {
     });
   };
 
+  public setOnline = (user: UserProfile) => {
+    this.emit('user:online', user);
+  };
+
+  public setOffline = () => {
+    this.emit('user:offline');
+  };
+
   public getMessages = (sessionId: string, callback?: Function) => {
     this.emit('messages:get', { sessionId });
     if (callback) {

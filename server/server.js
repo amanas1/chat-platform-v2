@@ -223,6 +223,25 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Alias for user:register for explicit presence management
+  socket.on('user:online', (profile) => {
+    if (!profile?.id) return;
+    boundUserId = profile.id;
+    activeUsers.set(boundUserId, { profile, socketId: socket.id });
+    broadcastPresenceList();
+    broadcastPresenceCount();
+    sysLog('user_online', { userId: boundUserId });
+  });
+
+  socket.on('user:offline', () => {
+    if (!boundUserId) return;
+    activeUsers.delete(boundUserId);
+    broadcastPresenceList();
+    broadcastPresenceCount();
+    sysLog('user_offline', { userId: boundUserId });
+    boundUserId = null;
+  });
+
   socket.on('users:search', (filters) => {
     if (!boundUserId) return;
     const sf = filters || {};

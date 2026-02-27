@@ -24,21 +24,31 @@ export function useChatSocket(
     socketService.connect();
     
     if (currentUser) {
-      const register = () => {
+      const registerAndSetOnline = () => {
         if (registeredRef.current) return;
-        registeredRef.current = true;
+        
+        // Register handles formal session restoration etc.
         socketService.registerUser(currentUser as any, (res: any) => {
           console.log('[ChatV2] Registered:', res);
+          registeredRef.current = true;
+          // Explicitly set online after registration
+          socketService.setOnline(currentUser as any);
         });
       };
 
       if (socketService.isConnected) {
-        register();
+        registerAndSetOnline();
       }
-      const unsubConnect = socketService.onConnect(register);
+      
+      const unsubConnect = socketService.onConnect(() => {
+        registeredRef.current = false; // Reset on reconnect to trigger re-registration
+        registerAndSetOnline();
+      });
       
       return () => {
         unsubConnect();
+        // Explicitly set offline on unmount if currentUser was active
+        socketService.setOffline();
       };
     }
   }, [currentUser]);
