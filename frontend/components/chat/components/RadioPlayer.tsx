@@ -20,14 +20,24 @@ const SOCIALS = [
   { id: 'linkedin', label: 'LINKEDIN', color: '#0077B5', letter: 'L', url: 'https://linkedin.com/sharing/share-offsite/?url=' },
 ];
 
-export const RadioPlayer: React.FC = () => {
-  const [isPlaying, setIsPlaying] = React.useState(false);
+interface RadioPlayerProps {
+  radioPlaying?: boolean;
+  radioStationName?: string;
+}
+
+export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, radioStationName = '' }) => {
+  const [isPlaying, setIsPlaying] = React.useState(radioPlaying);
   const [showVolume, setShowVolume] = React.useState(false);
   const [playerVolume, setPlayerVolume] = React.useState(75);
   const [showShare, setShowShare] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
   const [expanded, setExpanded] = React.useState(true);
   const volumeRef = React.useRef<HTMLDivElement>(null);
+
+  // Sync with dashboard radio state
+  React.useEffect(() => {
+    setIsPlaying(radioPlaying);
+  }, [radioPlaying]);
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://auradiochat.com';
 
@@ -128,7 +138,7 @@ export const RadioPlayer: React.FC = () => {
               </div>
             )}
             <p className="text-[11px] text-[#e5e7eb] font-medium truncate">
-              {isPlaying ? 'Alternatif radio jakarta' : 'Radio'}
+              {isPlaying ? (radioStationName || 'Radio') : 'Radio'}
             </p>
             {/* Live indicator */}
             {isPlaying && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse" />}

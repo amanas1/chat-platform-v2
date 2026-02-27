@@ -47,9 +47,11 @@ interface ChatPlatformV2Props {
   currentUserOverride?: any; 
   onExit?: () => void;
   language?: string;
+  radioPlaying?: boolean;
+  radioStationName?: string;
 }
 
-export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverride, onExit, language = 'en' }) => {
+export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverride, onExit, language = 'en', radioPlaying = false, radioStationName = '' }) => {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
   const isMounted = useRef(false);
 
@@ -726,7 +728,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
         </div>
 
         {/* ═══ RADIO PLAYER ═══ */}
-        <RadioPlayer />
+        <RadioPlayer radioPlaying={radioPlaying} radioStationName={radioStationName} />
       </div>
     </div>
     </>

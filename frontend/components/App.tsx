@@ -1966,6 +1966,8 @@ export default function App(): React.JSX.Element {
                     currentUserOverride={currentUser}
                     onExit={() => setChatOpen(false)}
                     language={language}
+                    radioPlaying={isPlaying}
+                    radioStationName={currentStation?.name || ''}
                 />
             )}
         </AnimatePresence>
