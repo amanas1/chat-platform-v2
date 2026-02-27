@@ -580,23 +580,36 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                           </svg>
                         </div>
 
-                        {/* Center Pendant Lamp (bigger) */}
+                        {/* Center — Articulated Floor Lamp (торшер) */}
                         <div className="flex flex-col items-center -mt-1">
-                          <svg className="w-20 h-24" viewBox="0 0 80 96" fill="none">
-                            {/* Cord */}
-                            <line x1="40" y1="0" x2="40" y2="18" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2" />
-                            {/* Dome */}
-                            <path d="M16 22 Q16 10 40 10 Q64 10 64 22 Z" fill={sceneActive ? '#92400e' : '#334155'} />
-                            <ellipse cx="40" cy="22" rx="24" ry="5" fill={sceneActive ? '#78350f' : '#1e293b'} />
-                            {/* Bulb glow */}
-                            <ellipse cx="40" cy="25" rx="6" ry="4" fill={sceneActive ? '#fbbf24' : '#475569'} />
-                            {sceneActive && <ellipse cx="40" cy="25" rx="10" ry="6" fill="#fbbf24" opacity="0.15" />}
-                            {/* Light cone */}
+                          <svg className="w-24 h-28" viewBox="0 0 96 112" fill="none">
+                            {/* Base */}
+                            <ellipse cx="30" cy="106" rx="16" ry="4" fill={sceneActive ? '#78350f' : '#334155'} />
+                            <rect x="28" y="104" width="4" height="4" fill={sceneActive ? '#92400e' : '#475569'} />
+                            {/* Vertical pole */}
+                            <line x1="30" y1="104" x2="30" y2="36" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="3" strokeLinecap="round" />
+                            {/* Joint */}
+                            <circle cx="30" cy="36" r="3" fill={sceneActive ? '#78350f' : '#334155'} />
+                            {/* Angled arm to center-right */}
+                            <line x1="30" y1="36" x2="62" y2="18" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2.5" strokeLinecap="round" />
+                            {/* Second joint */}
+                            <circle cx="62" cy="18" r="2.5" fill={sceneActive ? '#78350f' : '#334155'} />
+                            {/* Short drop to shade */}
+                            <line x1="62" y1="18" x2="62" y2="24" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2" />
+                            {/* Cone shade */}
+                            <path d="M50 24 L74 24 L70 34 L54 34 Z" fill={sceneActive ? '#334155' : '#1e293b'} />
+                            <ellipse cx="62" cy="34" rx="8" ry="2" fill={sceneActive ? '#475569' : '#1e293b'} />
+                            {/* Inner shade white */}
+                            <path d="M53 26 L71 26 L68 33 L56 33 Z" fill={sceneActive ? '#92400e' : '#334155'} opacity="0.4" />
+                            {/* Bulb */}
+                            <ellipse cx="62" cy="35" rx="4" ry="2.5" fill={sceneActive ? '#fbbf24' : '#475569'} />
+                            {sceneActive && <ellipse cx="62" cy="35" rx="7" ry="4" fill="#fbbf24" opacity="0.2" />}
+                            {/* Light cone down */}
                             {sceneActive && (
-                              <path d="M24 28 L8 88 L72 88 L56 28 Z" fill="url(#warmConeC)" opacity="0.2" />
+                              <path d="M54 37 L42 100 L82 100 L70 37 Z" fill="url(#floorLampCone)" opacity="0.22" />
                             )}
-                            <defs><linearGradient id="warmConeC" x1="40" y1="28" x2="40" y2="88" gradientUnits="userSpaceOnUse">
-                              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.7" />
+                            <defs><linearGradient id="floorLampCone" x1="62" y1="37" x2="62" y2="100" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.8" />
                               <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
                             </linearGradient></defs>
                           </svg>
