@@ -54,9 +54,11 @@ interface ChatPlatformV2Props {
   onPrevStation?: () => void;
   isRandomMode?: boolean;
   onToggleRandom?: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverride, onExit, language = 'en', radioPlaying = false, radioStationName = '', onTogglePlay, onNextStation, onPrevStation, isRandomMode = false, onToggleRandom }) => {
+export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverride, onExit, language = 'en', radioPlaying = false, radioStationName = '', onTogglePlay, onNextStation, onPrevStation, isRandomMode = false, onToggleRandom, isFavorite = false, onToggleFavorite }) => {
   const [state, dispatch] = useReducer(chatReducer, initialChatState);
   const isMounted = useRef(false);
 
@@ -733,7 +735,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
         </div>
 
         {/* ═══ RADIO PLAYER ═══ */}
-        <RadioPlayer radioPlaying={radioPlaying} radioStationName={radioStationName} onTogglePlay={onTogglePlay} onNextStation={onNextStation} onPrevStation={onPrevStation} isRandomMode={isRandomMode} onToggleRandom={onToggleRandom} />
+        <RadioPlayer radioPlaying={radioPlaying} radioStationName={radioStationName} onTogglePlay={onTogglePlay} onNextStation={onNextStation} onPrevStation={onPrevStation} isRandomMode={isRandomMode} onToggleRandom={onToggleRandom} isFavorite={isFavorite} onToggleFavorite={onToggleFavorite} />
       </div>
     </div>
     </>

@@ -28,9 +28,11 @@ interface RadioPlayerProps {
   onPrevStation?: () => void;
   isRandomMode?: boolean;
   onToggleRandom?: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, radioStationName = '', onTogglePlay, onNextStation, onPrevStation, isRandomMode = false, onToggleRandom }) => {
+export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, radioStationName = '', onTogglePlay, onNextStation, onPrevStation, isRandomMode = false, onToggleRandom, isFavorite = false, onToggleFavorite }) => {
   const [isPlaying, setIsPlaying] = React.useState(radioPlaying);
   const [showVolume, setShowVolume] = React.useState(false);
   const [playerVolume, setPlayerVolume] = React.useState(75);
@@ -183,8 +185,8 @@ export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, 
             </button>
 
             {/* Favorite */}
-            <button className="p-1.5 text-slate-600 hover:text-red-400 transition-colors">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+            <button onClick={() => onToggleFavorite?.()} className={`p-1.5 transition-all active:scale-90 ${isFavorite ? 'text-red-500 drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]' : 'text-slate-600 hover:text-red-400'}`}>
+              <svg className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} fill={isFavorite ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
             </button>
 
             {/* Random Mode Toggle */}

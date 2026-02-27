@@ -1973,6 +1973,8 @@ export default function App(): React.JSX.Element {
                     onPrevStation={handlePreviousStation}
                     isRandomMode={isRandomMode}
                     onToggleRandom={() => setIsRandomMode(!isRandomMode)}
+                    isFavorite={!!(currentStation && favorites.includes(currentStation.stationuuid))}
+                    onToggleFavorite={() => { if (currentStation) toggleFavorite(currentStation.stationuuid); }}
                 />
             )}
         </AnimatePresence>
