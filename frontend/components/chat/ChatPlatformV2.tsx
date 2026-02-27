@@ -543,59 +543,90 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                 
                 {discoveryView === 'main' ? (
                   <div className="p-5 flex flex-col items-center flex-1 relative">
-                    {/* Scene Spotlight Overlay — warm light bleeding through panel */}
+                    {/* Scene Spotlight Overlay — warm cones from pendant lamps */}
                     {sceneActive && (
                       <>
-                        <div className="absolute inset-0 pointer-events-none z-0" style={{
-                          background: 'radial-gradient(circle at 50% 12%, rgba(255,200,100,0.15) 0%, rgba(255,150,50,0.05) 40%, rgba(0,0,0,0) 70%)'
-                        }} />
-                        <div className="absolute inset-0 pointer-events-none z-0" style={{
-                          background: 'linear-gradient(180deg, rgba(255,180,0,0.06) 0%, transparent 50%)'
-                        }} />
+                        {/* Left cone */}
+                        <div className="absolute pointer-events-none z-0" style={{ top: 0, left: '10%', width: '30%', height: '70%', background: 'radial-gradient(ellipse 100% 120% at 50% 0%, rgba(255,190,100,0.12) 0%, rgba(255,160,60,0.04) 50%, transparent 80%)' }} />
+                        {/* Center cone */}
+                        <div className="absolute pointer-events-none z-0" style={{ top: 0, left: '25%', width: '50%', height: '80%', background: 'radial-gradient(ellipse 80% 100% at 50% 0%, rgba(255,200,120,0.18) 0%, rgba(255,170,80,0.06) 45%, transparent 75%)' }} />
+                        {/* Right cone */}
+                        <div className="absolute pointer-events-none z-0" style={{ top: 0, right: '10%', width: '30%', height: '70%', background: 'radial-gradient(ellipse 100% 120% at 50% 0%, rgba(255,190,100,0.12) 0%, rgba(255,160,60,0.04) 50%, transparent 80%)' }} />
                       </>
                     )}
 
-                    {/* Scene illustration — clickable lamp */}
-                    <button onClick={() => setSceneActive(!sceneActive)} className="relative w-full flex flex-col items-center my-4 cursor-pointer z-10 group">
-                      {/* Scene container with border glow */}
-                      <div className="p-5 rounded-2xl">
-                        <div className="flex items-end gap-4">
-                          {/* Left spotlight — tilted right */}
-                          <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15 opacity-90' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
-                            <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none" style={{ transform: 'rotate(25deg)' }}>
-                              <rect x="14" y="2" width="4" height="12" rx="2" fill={sceneActive ? '#f59e0b' : '#64748b'} />
-                              <path d="M8 18 L24 18 L20 28 L12 28 Z" fill={sceneActive ? '#fbbf24' : '#475569'} opacity="0.8" />
-                              <ellipse cx="16" cy="18" rx="8" ry="2" fill={sceneActive ? '#fbbf24' : '#475569'} />
-                              {sceneActive && <ellipse cx="16" cy="28" rx="5" ry="3" fill="#fbbf24" opacity="0.2" />}
-                            </svg>
-                          </div>
-                          {/* Center — wall sconce / торшер */}
-                          <div className={`w-20 h-20 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15' : 'bg-[#1a2235] border-white/10'}`}>
-                            <svg className="w-10 h-10" viewBox="0 0 40 40" fill="none">
-                              <rect x="18" y="16" width="4" height="18" rx="2" fill={sceneActive ? '#f59e0b' : '#64748b'} />
-                              <rect x="14" y="32" width="12" height="3" rx="1.5" fill={sceneActive ? '#d97706' : '#475569'} />
-                              <path d="M12 16 L28 16 L24 8 L16 8 Z" fill={sceneActive ? '#fbbf24' : '#475569'} opacity="0.9" />
-                              <ellipse cx="20" cy="8" rx="5" ry="2" fill={sceneActive ? '#fbbf24' : '#475569'} />
-                              {sceneActive && <>
-                                <ellipse cx="20" cy="6" rx="8" ry="4" fill="#fbbf24" opacity="0.1" />
-                                <line x1="20" y1="4" x2="20" y2="2" stroke="#fbbf24" strokeWidth="1" opacity="0.4" />
-                                <line x1="14" y1="5" x2="12" y2="3" stroke="#fbbf24" strokeWidth="1" opacity="0.3" />
-                                <line x1="26" y1="5" x2="28" y2="3" stroke="#fbbf24" strokeWidth="1" opacity="0.3" />
-                              </>}
-                            </svg>
-                          </div>
-                          {/* Right spotlight — tilted left */}
-                          <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15 opacity-90' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
-                            <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none" style={{ transform: 'rotate(-25deg)' }}>
-                              <rect x="14" y="2" width="4" height="12" rx="2" fill={sceneActive ? '#f59e0b' : '#64748b'} />
-                              <path d="M8 18 L24 18 L20 28 L12 28 Z" fill={sceneActive ? '#fbbf24' : '#475569'} opacity="0.8" />
-                              <ellipse cx="16" cy="18" rx="8" ry="2" fill={sceneActive ? '#fbbf24' : '#475569'} />
-                              {sceneActive && <ellipse cx="16" cy="28" rx="5" ry="3" fill="#fbbf24" opacity="0.2" />}
-                            </svg>
-                          </div>
+                    {/* Pendant Lamps — clickable */}
+                    <button onClick={() => setSceneActive(!sceneActive)} className="relative w-full flex flex-col items-center mt-2 mb-4 cursor-pointer z-10 group">
+                      <div className="flex items-start gap-6">
+
+                        {/* Left Pendant Lamp */}
+                        <div className="flex flex-col items-center">
+                          <svg className="w-14 h-20" viewBox="0 0 56 80" fill="none">
+                            {/* Cord */}
+                            <line x1="28" y1="0" x2="28" y2="20" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2" />
+                            {/* Dome */}
+                            <path d="M14 20 Q14 12 28 12 Q42 12 42 20 Z" fill={sceneActive ? '#92400e' : '#334155'} />
+                            <ellipse cx="28" cy="20" rx="14" ry="4" fill={sceneActive ? '#78350f' : '#1e293b'} />
+                            {/* Bulb glow */}
+                            <ellipse cx="28" cy="22" rx="4" ry="3" fill={sceneActive ? '#fbbf24' : '#475569'} />
+                            {/* Light cone */}
+                            {sceneActive && (
+                              <path d="M18 24 L8 70 L48 70 L38 24 Z" fill="url(#warmCone)" opacity="0.25" />
+                            )}
+                            <defs><linearGradient id="warmCone" x1="28" y1="24" x2="28" y2="70" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.6" />
+                              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+                            </linearGradient></defs>
+                          </svg>
                         </div>
+
+                        {/* Center Pendant Lamp (bigger) */}
+                        <div className="flex flex-col items-center -mt-1">
+                          <svg className="w-20 h-24" viewBox="0 0 80 96" fill="none">
+                            {/* Cord */}
+                            <line x1="40" y1="0" x2="40" y2="18" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2" />
+                            {/* Dome */}
+                            <path d="M16 22 Q16 10 40 10 Q64 10 64 22 Z" fill={sceneActive ? '#92400e' : '#334155'} />
+                            <ellipse cx="40" cy="22" rx="24" ry="5" fill={sceneActive ? '#78350f' : '#1e293b'} />
+                            {/* Bulb glow */}
+                            <ellipse cx="40" cy="25" rx="6" ry="4" fill={sceneActive ? '#fbbf24' : '#475569'} />
+                            {sceneActive && <ellipse cx="40" cy="25" rx="10" ry="6" fill="#fbbf24" opacity="0.15" />}
+                            {/* Light cone */}
+                            {sceneActive && (
+                              <path d="M24 28 L8 88 L72 88 L56 28 Z" fill="url(#warmConeC)" opacity="0.2" />
+                            )}
+                            <defs><linearGradient id="warmConeC" x1="40" y1="28" x2="40" y2="88" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.7" />
+                              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+                            </linearGradient></defs>
+                          </svg>
+                        </div>
+
+                        {/* Right Pendant Lamp */}
+                        <div className="flex flex-col items-center">
+                          <svg className="w-14 h-20" viewBox="0 0 56 80" fill="none">
+                            {/* Cord */}
+                            <line x1="28" y1="0" x2="28" y2="20" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2" />
+                            {/* Dome */}
+                            <path d="M14 20 Q14 12 28 12 Q42 12 42 20 Z" fill={sceneActive ? '#92400e' : '#334155'} />
+                            <ellipse cx="28" cy="20" rx="14" ry="4" fill={sceneActive ? '#78350f' : '#1e293b'} />
+                            {/* Bulb glow */}
+                            <ellipse cx="28" cy="22" rx="4" ry="3" fill={sceneActive ? '#fbbf24' : '#475569'} />
+                            {/* Light cone */}
+                            {sceneActive && (
+                              <path d="M18 24 L8 70 L48 70 L38 24 Z" fill="url(#warmConeR)" opacity="0.25" />
+                            )}
+                            <defs><linearGradient id="warmConeR" x1="28" y1="24" x2="28" y2="70" gradientUnits="userSpaceOnUse">
+                              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.6" />
+                              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+                            </linearGradient></defs>
+                          </svg>
+                        </div>
+
                       </div>
-                      <div className="flex items-center gap-2 mt-3">
+
+                      {/* Toggle label */}
+                      <div className="flex items-center gap-2 mt-2">
                         <span className={`text-[10px] uppercase tracking-widest font-semibold transition-colors ${sceneActive ? 'text-orange-400' : 'text-slate-500 group-hover:text-slate-400'}`}>
                           Торшер
                         </span>
