@@ -70,7 +70,10 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
   // Profile form state
   const [gender, setGender] = React.useState<'male' | 'female' | ''>('');
   const [age, setAge] = React.useState('25');
+  const [nickname, setNickname] = React.useState('Guest');
   const [selectedStatus, setSelectedStatus] = React.useState('');
+  const [showAvatarEditor, setShowAvatarEditor] = React.useState(false);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
   
   // Discovery sub-view
   const [discoveryView, setDiscoveryView] = React.useState<'main' | 'online'>('main');
@@ -138,7 +141,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
       </AnimatePresence>
 
       {/* ═══════════ CHAT PANEL ═══════════ */}
-      <div className="pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0d1117] border-l border-white/[0.06]">
+      <div className="pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0f1923] border-l border-white/[0.06]">
         
         {/* ─── HEADER BAR ─── */}
         <div className="shrink-0 flex items-center gap-1 px-3 py-2.5 border-b border-white/[0.06]">
@@ -210,8 +213,42 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
               /* ═══ PROFILE TAB ═══ */
               <motion.div key="profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="p-5">
                 
+                {/* Profile Title */}
+                <h2 className="text-[18px] font-black text-white uppercase tracking-wider text-center mb-2">Ваш профиль</h2>
+                <p className="text-[11px] text-slate-500 text-center mb-6 leading-relaxed">Эта информация помогает подобрать собеседников. Сообщения и данные удаляются автоматически.</p>
+
+                {/* Avatar */}
+                <div className="flex flex-col items-center mb-5">
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full bg-[#1a2235] border-2 border-white/10 flex items-center justify-center overflow-hidden">
+                      <span className="text-4xl">👤</span>
+                    </div>
+                    <button 
+                      onClick={() => setShowAvatarEditor(true)}
+                      className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white shadow-lg hover:bg-orange-400 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-3 flex items-center gap-1">
+                    <span className="text-red-400">📍</span> Авто-определение: <span className="font-bold text-white">Global</span>
+                  </p>
+                </div>
+
+                {/* Name */}
+                <div className="mb-5">
+                  <label className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-2 block">Ваше имя (псевдоним)</label>
+                  <input 
+                    type="text" value={nickname}
+                    onChange={(e) => setNickname(e.target.value)}
+                    className="w-full radio-input px-4 py-3 text-[14px] font-medium"
+                    placeholder="Введите имя..."
+                    maxLength={20}
+                  />
+                </div>
+
                 {/* Gender + Age Row */}
-                <div className="flex gap-4 mb-6">
+                <div className="flex gap-4 mb-5">
                   <div className="flex-1">
                     <label className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-2 block">Пол</label>
                     <div className="flex gap-2">
@@ -245,7 +282,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                 </div>
 
                 {/* Status */}
-                <div className="mb-6">
+                <div className="mb-5">
                   <label className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <span>✨</span> Статус
                   </label>
@@ -266,27 +303,55 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                 </div>
 
                 {/* Voice Section */}
-                <div className="mb-6 flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06]">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center shrink-0">
-                    <svg className="w-6 h-6 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                <div className="mb-5 flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] cursor-pointer hover:bg-white/[0.03] transition-colors">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/30 to-pink-500/20 flex items-center justify-center shrink-0">
+                    <svg className="w-6 h-6 text-pink-400" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
                       <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[13px] font-semibold text-[#e5e7eb]">Голос</p>
+                    <p className="text-[13px] font-semibold text-[#e5e7eb] lowercase">голос</p>
                     <p className="text-[10px] text-slate-500">Главный «крючок» для общения</p>
                   </div>
                 </div>
 
-                {/* Settings */}
-                <button className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] mb-6 hover:bg-white/[0.03] transition-colors">
-                  <span className="text-[12px] text-slate-400 font-semibold flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                    НАСТРОЙКИ
-                  </span>
-                  <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                </button>
+                {/* Settings Accordion */}
+                <div className="mb-5">
+                  <button 
+                    onClick={() => setSettingsOpen(!settingsOpen)}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:bg-white/[0.03] transition-colors"
+                  >
+                    <span className="text-[12px] text-slate-400 font-semibold flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.573-1.066z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      НАСТРОЙКИ
+                    </span>
+                    <svg className={`w-4 h-4 text-slate-500 transition-transform ${settingsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {settingsOpen && (
+                    <div className="mt-2 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] space-y-3 animate-[fadeIn_0.15s_ease-out]">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400">Звуки</span>
+                        <div className="w-9 h-5 rounded-full bg-emerald-500/30 relative cursor-pointer"><div className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-emerald-400 transition-all" /></div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400">Баннеры</span>
+                        <div className="w-9 h-5 rounded-full bg-emerald-500/30 relative cursor-pointer"><div className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-emerald-400 transition-all" /></div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-400">Голос</span>
+                        <div className="w-9 h-5 rounded-full bg-emerald-500/30 relative cursor-pointer"><div className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-emerald-400 transition-all" /></div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[11px] text-slate-400">Громкость</span>
+                          <span className="text-[10px] text-slate-500 font-bold">80%</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-white/5 rounded-full"><div className="h-full w-[80%] bg-emerald-500/50 rounded-full" /></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* Submit Button */}
                 <button 
@@ -299,6 +364,10 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                 <p className="text-[9px] text-slate-600 text-center mt-3">Данные хранятся только в этом браузере пока вы не удалите их.</p>
                 <button className="w-full text-[10px] text-red-500/60 font-semibold uppercase tracking-wider mt-4 hover:text-red-400 transition-colors">
                   УДАЛИТЬ АККАУНТ
+                </button>
+                <p className="text-[8px] text-slate-700 text-center mt-1">Аккаунт будет удалён через 30 дней</p>
+                <button className="w-full text-[9px] text-slate-600 font-medium mt-3 hover:text-slate-400 transition-colors uppercase tracking-wider">
+                  СБРОС ДАННЫХ
                 </button>
               </motion.div>
 
