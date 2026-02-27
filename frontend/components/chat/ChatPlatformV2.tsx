@@ -559,15 +559,39 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                     <button onClick={() => setSceneActive(!sceneActive)} className="relative w-full flex flex-col items-center my-4 cursor-pointer z-10 group">
                       {/* Scene container with border glow */}
                       <div className="p-5 rounded-2xl">
-                        <div className="flex items-end gap-3">
+                        <div className="flex items-end gap-4">
+                          {/* Left spotlight — tilted right */}
                           <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15 opacity-90' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
-                            <span className="text-xl">🎧</span>
+                            <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none" style={{ transform: 'rotate(25deg)' }}>
+                              <rect x="14" y="2" width="4" height="12" rx="2" fill={sceneActive ? '#f59e0b' : '#64748b'} />
+                              <path d="M8 18 L24 18 L20 28 L12 28 Z" fill={sceneActive ? '#fbbf24' : '#475569'} opacity="0.8" />
+                              <ellipse cx="16" cy="18" rx="8" ry="2" fill={sceneActive ? '#fbbf24' : '#475569'} />
+                              {sceneActive && <ellipse cx="16" cy="28" rx="5" ry="3" fill="#fbbf24" opacity="0.2" />}
+                            </svg>
                           </div>
+                          {/* Center — wall sconce / торшер */}
                           <div className={`w-20 h-20 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15' : 'bg-[#1a2235] border-white/10'}`}>
-                            <span className="text-3xl relative z-10">🎤</span>
+                            <svg className="w-10 h-10" viewBox="0 0 40 40" fill="none">
+                              <rect x="18" y="16" width="4" height="18" rx="2" fill={sceneActive ? '#f59e0b' : '#64748b'} />
+                              <rect x="14" y="32" width="12" height="3" rx="1.5" fill={sceneActive ? '#d97706' : '#475569'} />
+                              <path d="M12 16 L28 16 L24 8 L16 8 Z" fill={sceneActive ? '#fbbf24' : '#475569'} opacity="0.9" />
+                              <ellipse cx="20" cy="8" rx="5" ry="2" fill={sceneActive ? '#fbbf24' : '#475569'} />
+                              {sceneActive && <>
+                                <ellipse cx="20" cy="6" rx="8" ry="4" fill="#fbbf24" opacity="0.1" />
+                                <line x1="20" y1="4" x2="20" y2="2" stroke="#fbbf24" strokeWidth="1" opacity="0.4" />
+                                <line x1="14" y1="5" x2="12" y2="3" stroke="#fbbf24" strokeWidth="1" opacity="0.3" />
+                                <line x1="26" y1="5" x2="28" y2="3" stroke="#fbbf24" strokeWidth="1" opacity="0.3" />
+                              </>}
+                            </svg>
                           </div>
+                          {/* Right spotlight — tilted left */}
                           <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15 opacity-90' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
-                            <span className="text-xl">🎵</span>
+                            <svg className="w-7 h-7" viewBox="0 0 32 32" fill="none" style={{ transform: 'rotate(-25deg)' }}>
+                              <rect x="14" y="2" width="4" height="12" rx="2" fill={sceneActive ? '#f59e0b' : '#64748b'} />
+                              <path d="M8 18 L24 18 L20 28 L12 28 Z" fill={sceneActive ? '#fbbf24' : '#475569'} opacity="0.8" />
+                              <ellipse cx="16" cy="18" rx="8" ry="2" fill={sceneActive ? '#fbbf24' : '#475569'} />
+                              {sceneActive && <ellipse cx="16" cy="28" rx="5" ry="3" fill="#fbbf24" opacity="0.2" />}
+                            </svg>
                           </div>
                         </div>
                       </div>
