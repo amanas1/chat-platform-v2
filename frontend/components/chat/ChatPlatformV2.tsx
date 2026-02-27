@@ -543,20 +543,22 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                 
                 {discoveryView === 'main' ? (
                   <div className="p-5 flex flex-col items-center flex-1 relative">
-                    {/* Scene Spotlight Overlay — warm cones from pendant lamps */}
+                    {/* Scene Spotlight Overlay — deep warm lighting covering half the chat */}
                     {sceneActive && (
                       <>
-                        {/* Left cone */}
-                        <div className="absolute pointer-events-none z-0" style={{ top: 0, left: '10%', width: '30%', height: '70%', background: 'radial-gradient(ellipse 100% 120% at 50% 0%, rgba(255,190,100,0.12) 0%, rgba(255,160,60,0.04) 50%, transparent 80%)' }} />
-                        {/* Center cone */}
-                        <div className="absolute pointer-events-none z-0" style={{ top: 0, left: '25%', width: '50%', height: '80%', background: 'radial-gradient(ellipse 80% 100% at 50% 0%, rgba(255,200,120,0.18) 0%, rgba(255,170,80,0.06) 45%, transparent 75%)' }} />
-                        {/* Right cone */}
-                        <div className="absolute pointer-events-none z-0" style={{ top: 0, right: '10%', width: '30%', height: '70%', background: 'radial-gradient(ellipse 100% 120% at 50% 0%, rgba(255,190,100,0.12) 0%, rgba(255,160,60,0.04) 50%, transparent 80%)' }} />
+                        {/* Full panel warm wash */}
+                        <div className="absolute inset-0 pointer-events-none z-0" style={{ background: 'linear-gradient(180deg, rgba(255,180,80,0.12) 0%, rgba(255,150,60,0.06) 40%, transparent 70%)' }} />
+                        {/* Left cone — deep */}
+                        <div className="absolute pointer-events-none z-0" style={{ top: 0, left: '5%', width: '35%', height: '100%', background: 'radial-gradient(ellipse 100% 80% at 50% 5%, rgba(255,190,100,0.22) 0%, rgba(255,160,60,0.08) 40%, transparent 70%)' }} />
+                        {/* Center cone — brightest */}
+                        <div className="absolute pointer-events-none z-0" style={{ top: 0, left: '15%', width: '70%', height: '100%', background: 'radial-gradient(ellipse 70% 90% at 50% 8%, rgba(255,200,120,0.3) 0%, rgba(255,170,80,0.1) 35%, transparent 65%)' }} />
+                        {/* Right cone — deep */}
+                        <div className="absolute pointer-events-none z-0" style={{ top: 0, right: '5%', width: '35%', height: '100%', background: 'radial-gradient(ellipse 100% 80% at 50% 5%, rgba(255,190,100,0.22) 0%, rgba(255,160,60,0.08) 40%, transparent 70%)' }} />
                       </>
                     )}
 
                     {/* Pendant Lamps — clickable */}
-                    <button onClick={() => setSceneActive(!sceneActive)} className="relative w-full flex flex-col items-center mt-2 mb-4 cursor-pointer z-10 group">
+                    <button onClick={() => setSceneActive(!sceneActive)} className="relative w-full flex flex-col items-center mt-2 mb-4 cursor-pointer z-10 group outline-none focus:outline-none">
                       <div className="flex items-start gap-6">
 
                         {/* Left Pendant Lamp */}
@@ -580,38 +582,49 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                           </svg>
                         </div>
 
-                        {/* Center — Articulated Floor Lamp (торшер) */}
-                        <div className="flex flex-col items-center -mt-1">
-                          <svg className="w-24 h-28" viewBox="0 0 96 112" fill="none">
-                            {/* Base */}
-                            <ellipse cx="30" cy="106" rx="16" ry="4" fill={sceneActive ? '#78350f' : '#334155'} />
-                            <rect x="28" y="104" width="4" height="4" fill={sceneActive ? '#92400e' : '#475569'} />
-                            {/* Vertical pole */}
-                            <line x1="30" y1="104" x2="30" y2="36" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="3" strokeLinecap="round" />
-                            {/* Joint */}
-                            <circle cx="30" cy="36" r="3" fill={sceneActive ? '#78350f' : '#334155'} />
-                            {/* Angled arm to center-right */}
-                            <line x1="30" y1="36" x2="62" y2="18" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2.5" strokeLinecap="round" />
-                            {/* Second joint */}
-                            <circle cx="62" cy="18" r="2.5" fill={sceneActive ? '#78350f' : '#334155'} />
-                            {/* Short drop to shade */}
-                            <line x1="62" y1="18" x2="62" y2="24" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2" />
-                            {/* Cone shade */}
-                            <path d="M50 24 L74 24 L70 34 L54 34 Z" fill={sceneActive ? '#334155' : '#1e293b'} />
-                            <ellipse cx="62" cy="34" rx="8" ry="2" fill={sceneActive ? '#475569' : '#1e293b'} />
-                            {/* Inner shade white */}
-                            <path d="M53 26 L71 26 L68 33 L56 33 Z" fill={sceneActive ? '#92400e' : '#334155'} opacity="0.4" />
-                            {/* Bulb */}
-                            <ellipse cx="62" cy="35" rx="4" ry="2.5" fill={sceneActive ? '#fbbf24' : '#475569'} />
-                            {sceneActive && <ellipse cx="62" cy="35" rx="7" ry="4" fill="#fbbf24" opacity="0.2" />}
-                            {/* Light cone down */}
+                        {/* Center — Classic Floor Lamp (торшер) */}
+                        <div className="flex flex-col items-center">
+                          <svg className="w-20 h-28" viewBox="0 0 80 112" fill="none">
+                            {/* Round base */}
+                            <ellipse cx="40" cy="108" rx="14" ry="3" fill={sceneActive ? '#92400e' : '#334155'} />
+                            <ellipse cx="40" cy="107" rx="10" ry="2" fill={sceneActive ? '#78350f' : '#1e293b'} />
+                            {/* Pole */}
+                            <rect x="38" y="30" width="4" height="78" rx="2" fill={sceneActive ? '#92400e' : '#475569'} />
+                            {/* Decorative band bottom */}
+                            <rect x="36" y="90" width="8" height="3" rx="1.5" fill={sceneActive ? '#b45309' : '#64748b'} />
+                            {/* Decorative band middle */}
+                            <rect x="37" y="55" width="6" height="2" rx="1" fill={sceneActive ? '#b45309' : '#64748b'} />
+                            {/* Decorative band top */}
+                            <rect x="37" y="32" width="6" height="2" rx="1" fill={sceneActive ? '#b45309' : '#64748b'} />
+                            {/* Shade — trapezoid (wider top, narrower bottom) */}
+                            <path d="M18 8 L62 8 L56 30 L24 30 Z" fill={sceneActive ? '#d4a574' : '#334155'} />
+                            {/* Shade inner glow */}
+                            <path d="M22 10 L58 10 L54 28 L26 28 Z" fill={sceneActive ? '#e8c89e' : '#475569'} opacity="0.3" />
+                            {/* Top rim */}
+                            <line x1="18" y1="8" x2="62" y2="8" stroke={sceneActive ? '#b45309' : '#475569'} strokeWidth="1.5" />
+                            {/* Bottom rim */}
+                            <line x1="24" y1="30" x2="56" y2="30" stroke={sceneActive ? '#b45309' : '#475569'} strokeWidth="1" />
+                            {/* Bulb glow under shade */}
+                            <ellipse cx="40" cy="30" rx="8" ry="3" fill={sceneActive ? '#fbbf24' : '#475569'} opacity={sceneActive ? 0.7 : 0.3} />
+                            {sceneActive && <ellipse cx="40" cy="28" rx="14" ry="5" fill="#fbbf24" opacity="0.15" />}
+                            {/* Light cone downward */}
                             {sceneActive && (
-                              <path d="M54 37 L42 100 L82 100 L70 37 Z" fill="url(#floorLampCone)" opacity="0.22" />
+                              <path d="M26 32 L14 105 L66 105 L54 32 Z" fill="url(#classicLampCone)" opacity="0.18" />
                             )}
-                            <defs><linearGradient id="floorLampCone" x1="62" y1="37" x2="62" y2="100" gradientUnits="userSpaceOnUse">
-                              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.8" />
-                              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
-                            </linearGradient></defs>
+                            {/* Upward glow */}
+                            {sceneActive && (
+                              <path d="M22 8 L30 -10 L50 -10 L58 8 Z" fill="url(#classicLampUp)" opacity="0.12" />
+                            )}
+                            <defs>
+                              <linearGradient id="classicLampCone" x1="40" y1="32" x2="40" y2="105" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.9" />
+                                <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+                              </linearGradient>
+                              <linearGradient id="classicLampUp" x1="40" y1="8" x2="40" y2="-10" gradientUnits="userSpaceOnUse">
+                                <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.5" />
+                                <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+                              </linearGradient>
+                            </defs>
                           </svg>
                         </div>
 
