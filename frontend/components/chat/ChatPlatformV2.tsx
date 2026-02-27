@@ -13,6 +13,7 @@ import { ConveyorCard } from './components/ConveyorCard';
 import { KnockModal } from './overlays/KnockModal';
 import { WaitingOverlay } from './overlays/WaitingOverlay';
 import { RegistrationPanel } from './RegistrationPanel';
+import { RadioPlayer } from './components/RadioPlayer';
 
 
 /* ─── localStorage KEY ─── */
@@ -557,23 +558,20 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                     {/* Scene illustration — clickable lamp */}
                     <button onClick={() => setSceneActive(!sceneActive)} className="relative w-full flex flex-col items-center my-4 cursor-pointer z-10 group">
                       {/* Scene container with border glow */}
-                      <div className={`p-5 rounded-2xl transition-all duration-500 ${sceneActive ? 'bg-yellow-900/20 border-2 border-yellow-500 shadow-[0_0_30px_rgba(255,180,0,0.4),0_0_60px_rgba(255,180,0,0.15)]' : 'border-2 border-transparent'}`}>
+                      <div className="p-5 rounded-2xl">
                         <div className="flex items-end gap-3">
-                          <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-yellow-900/40 border-yellow-500/70 shadow-[0_0_20px_rgba(234,179,8,0.35)]' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
+                          <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15 opacity-90' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
                             <span className="text-xl">🎧</span>
                           </div>
-                          <div className={`w-20 h-20 rounded-full border-[4px] flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-yellow-900/50 border-yellow-500 shadow-[0_0_40px_rgba(255,180,0,0.5),0_0_80px_rgba(255,150,0,0.2)]' : 'bg-[#1a2235] border-white/10'}`}>
-                            {sceneActive && (
-                              <div className="absolute w-20 h-20 rounded-full animate-ping" style={{ background: 'radial-gradient(circle, rgba(255,200,0,0.15) 0%, transparent 70%)', animationDuration: '2s' }} />
-                            )}
+                          <div className={`w-20 h-20 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15' : 'bg-[#1a2235] border-white/10'}`}>
                             <span className="text-3xl relative z-10">🎤</span>
                           </div>
-                          <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-yellow-900/40 border-yellow-500/70 shadow-[0_0_20px_rgba(234,179,8,0.35)]' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
+                          <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-[#1a2235] border-white/15 opacity-90' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
                             <span className="text-xl">🎵</span>
                           </div>
                         </div>
                       </div>
-                      <p className={`text-[10px] uppercase tracking-widest font-semibold mt-3 transition-colors ${sceneActive ? 'text-yellow-400 drop-shadow-[0_0_6px_rgba(234,179,8,0.5)]' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                      <p className={`text-[10px] uppercase tracking-widest font-semibold mt-3 transition-colors ${sceneActive ? 'text-orange-400' : 'text-slate-500 group-hover:text-slate-400'}`}>
                         Сцена {sceneActive ? '✦' : ''}
                       </p>
                     </button>
@@ -674,22 +672,8 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
           </AnimatePresence>
         </div>
 
-        {/* ─── MINI RADIO PLAYER ─── */}
-        <div className="shrink-0 border-t border-white/[0.06]">
-          <div className="flex items-center gap-3 px-4 py-2.5">
-            <button className="p-1.5 text-slate-500 hover:text-slate-300 transition-colors">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
-            </button>
-            <div className="flex-1 min-w-0"><p className="text-[11px] text-[#e5e7eb] font-medium truncate">Radio</p></div>
-            <div className="flex items-center gap-1">
-              <button className="p-1 text-slate-600 hover:text-slate-400 transition-colors"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg></button>
-              <button className="w-8 h-8 rounded-full bg-white/[0.06] flex items-center justify-center text-white hover:bg-white/10 transition-colors"><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
-              <button className="p-1 text-slate-600 hover:text-slate-400 transition-colors"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg></button>
-            </div>
-            <button className="p-1 text-slate-600 hover:text-slate-400 transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg></button>
-            <button className="p-1 text-slate-600 hover:text-slate-400 transition-colors"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg></button>
-          </div>
-        </div>
+        {/* ═══ RADIO PLAYER ═══ */}
+        <RadioPlayer />
       </div>
     </div>
     </>
