@@ -141,7 +141,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
       </AnimatePresence>
 
       {/* ═══════════ CHAT PANEL ═══════════ */}
-      <div className="pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0f1923] border-l border-white/[0.06]">
+      <div className="pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0f172a] border-l border-white/[0.06]">
         
         {/* ─── HEADER BAR ─── */}
         <div className="shrink-0 flex items-center gap-1 px-3 py-2.5 border-b border-white/[0.06]">

@@ -13,7 +13,7 @@ body {
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: linear-gradient(180deg, #0d1520 0%, #131d2e 50%, #0f1923 100%);
+    background: #070b14;
     color: #e5e7eb;
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
