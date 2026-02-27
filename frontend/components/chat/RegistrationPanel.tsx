@@ -1,6 +1,6 @@
 import React from 'react';
 import { AvatarBuilderModal, AvatarResult } from './components/AvatarBuilderModal';
-import { AvatarPreview, DEFAULT_AVATAR_CONFIG } from './components/AvatarPreview';
+import { AvatarPreview } from './components/AvatarPreview';
 
 /* ─── localStorage ─── */
 const LS_KEY = 'radio_chat_profile';
