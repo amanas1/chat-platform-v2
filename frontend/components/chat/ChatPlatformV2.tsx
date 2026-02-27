@@ -559,10 +559,10 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
                     {/* Pendant Lamps — clickable */}
                     <button onClick={() => setSceneActive(!sceneActive)} className="relative w-full flex flex-col items-center mt-2 mb-4 cursor-pointer z-10 group outline-none focus:outline-none">
-                      <div className="flex items-start gap-6">
+                      <div className="flex items-start justify-between w-full px-2">
 
                         {/* Left Pendant Lamp */}
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center" style={{ transform: 'rotate(-15deg)' }}>
                           <svg className="w-14 h-20" viewBox="0 0 56 80" fill="none">
                             {/* Cord */}
                             <line x1="28" y1="0" x2="28" y2="20" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2" />
@@ -629,7 +629,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                         </div>
 
                         {/* Right Pendant Lamp */}
-                        <div className="flex flex-col items-center">
+                        <div className="flex flex-col items-center" style={{ transform: 'rotate(15deg)' }}>
                           <svg className="w-14 h-20" viewBox="0 0 56 80" fill="none">
                             {/* Cord */}
                             <line x1="28" y1="0" x2="28" y2="20" stroke={sceneActive ? '#92400e' : '#475569'} strokeWidth="2" />
