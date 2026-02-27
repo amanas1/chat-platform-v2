@@ -12,7 +12,7 @@ import { PrivateChatView } from './views/PrivateChatView';
 import { ConveyorCard } from './components/ConveyorCard';
 import { KnockModal } from './overlays/KnockModal';
 import { WaitingOverlay } from './overlays/WaitingOverlay';
-import { AvatarEditor, AvatarConfig, DEFAULT_AVATAR } from './components/AvatarEditor';
+
 
 /* ─── localStorage KEY ─── */
 const LS_KEY = 'radio_chat_profile';
@@ -21,7 +21,7 @@ interface SavedProfile {
   gender: 'male' | 'female' | '';
   age: string;
   status: string;
-  avatar: AvatarConfig;
+  avatarEmoji: string;
   soundEnabled: boolean;
   bannersEnabled: boolean;
   voiceEnabled: boolean;
@@ -94,8 +94,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
   const [gender, setGender] = React.useState<'male' | 'female' | ''>('');
   const [age, setAge] = React.useState('25');
   const [selectedStatus, setSelectedStatus] = React.useState('');
-  const [avatarConfig, setAvatarConfig] = React.useState<AvatarConfig>(DEFAULT_AVATAR);
-  const [showAvatarEditor, setShowAvatarEditor] = React.useState(false);
+  const [avatarEmoji, setAvatarEmoji] = React.useState('👨');
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [showAgePicker, setShowAgePicker] = React.useState(false);
 
@@ -132,7 +131,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
       setGender(saved.gender || '');
       setAge(saved.age || '25');
       setSelectedStatus(saved.status || '');
-      if (saved.avatar) setAvatarConfig(saved.avatar);
+      if (saved.avatarEmoji) setAvatarEmoji(saved.avatarEmoji);
       setSoundEnabled_s(saved.soundEnabled ?? true);
       setBannersEnabled(saved.bannersEnabled ?? true);
       setVoiceEnabled(saved.voiceEnabled ?? true);
@@ -142,8 +141,8 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
   // ─── SAVE to localStorage on change ───
   React.useEffect(() => {
-    saveProfile({ nickname, gender, age, status: selectedStatus, avatar: avatarConfig, soundEnabled: soundEnabled_s, bannersEnabled, voiceEnabled, volume });
-  }, [nickname, gender, age, selectedStatus, avatarConfig, soundEnabled_s, bannersEnabled, voiceEnabled, volume]);
+    saveProfile({ nickname, gender, age, status: selectedStatus, avatarEmoji, soundEnabled: soundEnabled_s, bannersEnabled, voiceEnabled, volume });
+  }, [nickname, gender, age, selectedStatus, avatarEmoji, soundEnabled_s, bannersEnabled, voiceEnabled, volume]);
 
   // ─── Sync sound engine ───
   React.useEffect(() => {
@@ -229,7 +228,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
     setGender('');
     setAge('25');
     setSelectedStatus('');
-    setAvatarConfig(DEFAULT_AVATAR);
+    setAvatarEmoji('👨');
     setSoundEnabled_s(true);
     setBannersEnabled(true);
     setVoiceEnabled(true);
@@ -249,13 +248,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
   return (
     <div className="fixed inset-y-0 right-0 z-[100] pointer-events-none font-['Inter']">
       
-      {/* Avatar Editor Modal */}
-      <AvatarEditor 
-        isOpen={showAvatarEditor} 
-        onClose={() => setShowAvatarEditor(false)} 
-        onSave={setAvatarConfig}
-        initialConfig={avatarConfig}
-      />
+
 
       {/* Knock Overlays */}
       <AnimatePresence>
@@ -279,7 +272,8 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
       {/* ═══════════ CHAT PANEL ═══════════ */}
       <div 
-        className={`pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0f172a] border-l transition-all duration-700 ${sceneActive ? 'border-blue-500/40 shadow-[0_0_30px_rgba(59,130,246,0.15)]' : 'border-white/[0.06]'}`}
+        className={`pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0f172a] transition-all duration-700 ${sceneActive ? 'border-[3px] border-yellow-500 shadow-[0_0_60px_rgba(255,180,0,0.35),inset_0_0_80px_rgba(255,200,100,0.04)]' : 'border-l border-white/[0.06]'}`}
+        style={sceneActive ? { backdropFilter: 'blur(24px)' } : {}}
       >
         
         {/* ─── HEADER BAR ─── */}
@@ -331,16 +325,10 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
                 {/* Avatar */}
                 <div className="flex flex-col items-center mb-5">
-                  <div className="relative cursor-pointer" onClick={() => setShowAvatarEditor(true)}>
-                    <div className="w-24 h-24 rounded-full bg-[#1a2235] border-2 border-white/10 flex items-center justify-center overflow-hidden hover:border-orange-400/40 transition-colors">
-                      <span className="text-5xl">{avatarConfig.emoji}</span>
+                  <div className="relative">
+                    <div className="w-24 h-24 rounded-full bg-[#1a2235] border-2 border-white/10 flex items-center justify-center overflow-hidden">
+                      <span className="text-5xl">{avatarEmoji}</span>
                     </div>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setShowAvatarEditor(true); }}
-                      className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white shadow-lg hover:bg-orange-400 transition-colors"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                    </button>
                   </div>
                   <p className="text-[10px] text-slate-500 mt-3 flex items-center gap-1">
                     <span className="text-red-400">📍</span> Авто-определение: <span className="font-bold text-white">Global</span>
@@ -527,27 +515,38 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                 
                 {discoveryView === 'main' ? (
                   <div className="p-5 flex flex-col items-center flex-1 relative">
-                    {/* Scene Spotlight Overlay */}
+                    {/* Scene Spotlight Overlay — warm light bleeding through panel */}
                     {sceneActive && (
-                      <div className="absolute inset-0 pointer-events-none z-0" style={{
-                        background: 'radial-gradient(ellipse 60% 40% at 50% 15%, rgba(255,165,0,0.08) 0%, transparent 100%)'
-                      }} />
+                      <>
+                        <div className="absolute inset-0 pointer-events-none z-0" style={{
+                          background: 'radial-gradient(circle at 50% 12%, rgba(255,200,100,0.15) 0%, rgba(255,150,50,0.05) 40%, rgba(0,0,0,0) 70%)'
+                        }} />
+                        <div className="absolute inset-0 pointer-events-none z-0" style={{
+                          background: 'linear-gradient(180deg, rgba(255,180,0,0.06) 0%, transparent 50%)'
+                        }} />
+                      </>
                     )}
 
-                    {/* Scene illustration */}
+                    {/* Scene illustration — clickable lamp */}
                     <button onClick={() => setSceneActive(!sceneActive)} className="relative w-full flex flex-col items-center my-4 cursor-pointer z-10 group">
-                      <div className="flex items-end gap-3">
-                        <div className={`w-14 h-14 rounded-full bg-[#1a2235] border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'border-yellow-500/50 opacity-90 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'border-white/8 opacity-60'}`}>
-                          <span className="text-xl">🎧</span>
-                        </div>
-                        <div className={`w-20 h-20 rounded-full bg-[#1a2235] border-2 flex items-center justify-center transition-all duration-500 ${sceneActive ? 'border-orange-400 shadow-[0_0_40px_rgba(255,165,0,0.4)]' : 'border-white/10'}`}>
-                          <span className="text-3xl">🎤</span>
-                        </div>
-                        <div className={`w-14 h-14 rounded-full bg-[#1a2235] border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'border-yellow-500/50 opacity-90 shadow-[0_0_15px_rgba(234,179,8,0.2)]' : 'border-white/8 opacity-60'}`}>
-                          <span className="text-xl">🎵</span>
+                      {/* Scene container with border glow */}
+                      <div className={`p-5 rounded-2xl transition-all duration-500 ${sceneActive ? 'bg-yellow-900/20 border-2 border-yellow-500 shadow-[0_0_30px_rgba(255,180,0,0.4),0_0_60px_rgba(255,180,0,0.15)]' : 'border-2 border-transparent'}`}>
+                        <div className="flex items-end gap-3">
+                          <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-yellow-900/40 border-yellow-500/70 shadow-[0_0_20px_rgba(234,179,8,0.35)]' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
+                            <span className="text-xl">🎧</span>
+                          </div>
+                          <div className={`w-20 h-20 rounded-full border-[4px] flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-yellow-900/50 border-yellow-500 shadow-[0_0_40px_rgba(255,180,0,0.5),0_0_80px_rgba(255,150,0,0.2)]' : 'bg-[#1a2235] border-white/10'}`}>
+                            {sceneActive && (
+                              <div className="absolute w-20 h-20 rounded-full animate-ping" style={{ background: 'radial-gradient(circle, rgba(255,200,0,0.15) 0%, transparent 70%)', animationDuration: '2s' }} />
+                            )}
+                            <span className="text-3xl relative z-10">🎤</span>
+                          </div>
+                          <div className={`w-14 h-14 rounded-full border flex items-center justify-center transition-all duration-500 ${sceneActive ? 'bg-yellow-900/40 border-yellow-500/70 shadow-[0_0_20px_rgba(234,179,8,0.35)]' : 'bg-[#1a2235] border-white/8 opacity-60'}`}>
+                            <span className="text-xl">🎵</span>
+                          </div>
                         </div>
                       </div>
-                      <p className={`text-[10px] uppercase tracking-widest font-semibold mt-3 transition-colors ${sceneActive ? 'text-orange-400' : 'text-slate-500 group-hover:text-slate-400'}`}>
+                      <p className={`text-[10px] uppercase tracking-widest font-semibold mt-3 transition-colors ${sceneActive ? 'text-yellow-400 drop-shadow-[0_0_6px_rgba(234,179,8,0.5)]' : 'text-slate-500 group-hover:text-slate-400'}`}>
                         Сцена {sceneActive ? '✦' : ''}
                       </p>
                     </button>
