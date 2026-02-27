@@ -23,7 +23,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, placeholder = "Typ
   return (
     <form 
       onSubmit={handleSubmit}
-      className="p-4 bg-transparent border-t border-white/5 flex items-center gap-3 backdrop-blur-xl relative z-20"
+      className="px-4 py-3 border-t border-white/[0.06] flex items-center gap-2 shrink-0"
     >
       <input
         type="text"
@@ -31,20 +31,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({ onSend, placeholder = "Typ
         onChange={(e) => setText(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="flex-1 bg-white/[0.03] text-white placeholder-slate-500 px-5 py-3.5 rounded-2xl 
-                   border border-white/10 focus:outline-none focus:border-cyan-500/70 focus:bg-white/[0.06] focus:shadow-[inset_0_1px_5px_rgba(0,0,0,0.3),0_0_25px_rgba(34,211,238,0.3)]
-                   transition-all duration-300 shadow-[inset_0_1px_5px_rgba(0,0,0,0.3)]"
+        className="flex-1 radio-input px-4 py-3 text-[13px] placeholder-slate-600"
         maxLength={300}
         autoComplete="off"
       />
       <button 
         type="submit"
         disabled={!text.trim() || disabled}
-        className="w-12 h-12 flex items-center justify-center rounded-2xl bg-gradient-to-tr from-cyan-600 to-purple-600 text-white
-                   shadow-[0_0_20px_rgba(168,85,247,0.3)] hover:shadow-[0_0_30px_rgba(34,211,238,0.6)] hover:scale-105 active:scale-95
-                   disabled:opacity-50 disabled:filter-none disabled:scale-100 disabled:cursor-not-allowed transition-all duration-300"
+        className="w-10 h-10 flex items-center justify-center rounded-xl bg-amber-900/40 text-amber-400/80
+                   hover:bg-amber-800/50 hover:text-amber-300 active:scale-95
+                   disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 -rotate-45 mb-1 ml-1 group-hover:animate-pulse">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 -rotate-45 mb-0.5 ml-0.5">
           <path d="M3.478 2.404a.75.75 0 00-.926.941l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.404z" />
         </svg>
       </button>

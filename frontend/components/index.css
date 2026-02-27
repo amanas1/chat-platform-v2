@@ -1,121 +1,120 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Base styles for AU RadioChat */
+/* ═══════════════════════════════════════════
+   RADIO PRIVATE MODE — Dark Atmosphere
+   ═══════════════════════════════════════════ */
+
 body {
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: #080b14; /* Deepest baseline */
-    color: #e2e8f0;
+    background: linear-gradient(180deg, #0b0f18 0%, #121826 50%, #0e1420 100%);
+    color: #e5e7eb;
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
 }
 
-h1, h2, h3, h4, .display-font {
-    font-family: 'Space Grotesk', sans-serif;
-}
-
-/* Subtle Animated Ambient Background - LIVE SOCIAL STAGE */
-body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -2;
-    background: radial-gradient(circle at 50% 40%, rgba(20, 25, 45, 0.6) 0%, rgba(15, 22, 38, 0.9) 50%, #080b14 100%),
-                radial-gradient(ellipse at 80% 20%, rgba(45, 20, 60, 0.15) 0%, transparent 60%);
-    background-size: 200% 200%;
-    animation: ambientShift 25s ease-in-out infinite alternate;
-    pointer-events: none;
-}
-
-/* Very Subtle Dark Vignette overlay */
+/* Subtle vignette on edges */
 body::after {
     content: '';
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    box-shadow: inset 0 0 150px rgba(0, 0, 0, 0.8);
-}
-
-@keyframes ambientShift {
-    0% { background-position: 0% 0%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 100%; }
+    box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.7);
 }
 
 @layer utilities {
-    .glass-surface {
-        background: rgba(255, 255, 255, 0.02);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.03);
+    /* Card surface — slightly lighter than bg */
+    .radio-card {
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 14px;
+        transition: all 0.2s ease;
     }
-    
-    .hover-stage-lift {
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    .radio-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        border-color: rgba(255, 255, 255, 0.1);
     }
-    .hover-stage-lift:hover {
-        transform: translateY(-4px) scale(1.02);
-        background: rgba(255, 255, 255, 0.04);
-        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.4), 0 0 25px rgba(249, 115, 22, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-    .hover-stage-lift:active {
-        transform: translateY(-1px) scale(0.97);
+    .radio-card:active {
+        transform: translateY(-1px);
     }
 
-    .cta-stage-glow {
-        background: linear-gradient(90deg, #f97316 0%, #f59e0b 100%);
-        color: #080b14;
-        animation: breathGlow 4s ease-in-out infinite alternate;
-        transition: all 0.18s ease-out;
+    /* Input fields */
+    .radio-input {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        color: #e5e7eb;
+        transition: all 0.2s ease;
     }
-    .cta-stage-glow:hover {
-        transform: scale(1.02);
+    .radio-input:focus {
+        outline: none;
+        border-color: rgba(217, 119, 6, 0.4);
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.15);
     }
-    .cta-stage-glow:active {
+
+    /* Primary action button */
+    .radio-btn-primary {
+        background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+        color: #fef3c7;
+        border: none;
+        border-radius: 12px;
+        font-weight: 700;
+        transition: all 0.15s ease;
+    }
+    .radio-btn-primary:hover {
+        filter: brightness(1.15);
+        box-shadow: 0 0 20px rgba(217, 119, 6, 0.25);
+    }
+    .radio-btn-primary:active {
         transform: scale(0.97);
     }
-
-    .text-glow {
-        text-shadow: 0 0 10px rgba(249, 115, 22, 0.3);
-    }
-    
-    .text-glow-subtle {
-        text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
+    .radio-btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        filter: none;
+        box-shadow: none;
     }
 
-    .input-stage {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 16px;
-        color: #f1f5f9;
-        transition: all 0.3s ease;
-        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+    /* Ghost / secondary button */
+    .radio-btn-ghost {
+        background: transparent;
+        color: #9ca3af;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.15s ease;
     }
-    .input-stage:focus {
-        outline: none;
-        border-color: rgba(249, 115, 22, 0.4);
-        background: rgba(255, 255, 255, 0.05);
-        box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3), inset 0 0 15px rgba(249, 115, 22, 0.1);
+    .radio-btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.04);
+        color: #e5e7eb;
+        border-color: rgba(255, 255, 255, 0.12);
     }
 }
 
-@keyframes breathGlow {
-    0% { transform: scale(1.00); box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); }
-    100% { transform: scale(1.02); box-shadow: 0 0 25px rgba(249, 115, 22, 0.5); }
+/* Smooth fade-in keyframe */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-/* Vertical Marquee Animation */
+/* Shrink bar for knock timer */
+@keyframes shrinkLinear {
+    from { width: 100%; }
+    to { width: 0%; }
+}
+
+/* Vertical Marquee Animation (radio player) */
 @keyframes marquee-vertical {
   0% { transform: translateY(0%); }
   100% { transform: translateY(-50%); }
@@ -124,12 +123,15 @@ body::after {
 .animate-vertical-marquee {
   animation: marquee-vertical 20s linear infinite;
   will-change: transform;
-  transform: translateZ(0); /* Force GPU acceleration */
+  transform: translateZ(0);
 }
 
-/* Pause on hover only on non-touch devices to avoid stuck states on mobile */
 @media (hover: hover) {
   .animate-vertical-marquee:hover {
     animation-play-state: paused;
   }
 }
+
+/* Hide scrollbar but keep scroll */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
