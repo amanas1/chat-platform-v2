@@ -543,18 +543,15 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                 
                 {discoveryView === 'main' ? (
                   <div className="p-5 flex flex-col items-center flex-1 relative">
-                    {/* Scene Spotlight Overlay — deep warm lighting covering half the chat */}
+                    {/* Scene warm ambient light — smooth, no visible edges, covers whole panel */}
                     {sceneActive && (
-                      <>
-                        {/* Full panel warm wash */}
-                        <div className="absolute inset-0 pointer-events-none z-0" style={{ background: 'linear-gradient(180deg, rgba(255,180,80,0.12) 0%, rgba(255,150,60,0.06) 40%, transparent 70%)' }} />
-                        {/* Left cone — deep */}
-                        <div className="absolute pointer-events-none z-0" style={{ top: 0, left: '5%', width: '35%', height: '100%', background: 'radial-gradient(ellipse 100% 80% at 50% 5%, rgba(255,190,100,0.22) 0%, rgba(255,160,60,0.08) 40%, transparent 70%)' }} />
-                        {/* Center cone — brightest */}
-                        <div className="absolute pointer-events-none z-0" style={{ top: 0, left: '15%', width: '70%', height: '100%', background: 'radial-gradient(ellipse 70% 90% at 50% 8%, rgba(255,200,120,0.3) 0%, rgba(255,170,80,0.1) 35%, transparent 65%)' }} />
-                        {/* Right cone — deep */}
-                        <div className="absolute pointer-events-none z-0" style={{ top: 0, right: '5%', width: '35%', height: '100%', background: 'radial-gradient(ellipse 100% 80% at 50% 5%, rgba(255,190,100,0.22) 0%, rgba(255,160,60,0.08) 40%, transparent 70%)' }} />
-                      </>
+                      <div className="absolute inset-0 pointer-events-none z-0" style={{
+                        background: `
+                          radial-gradient(ellipse 120% 60% at 50% 5%, rgba(255,200,120,0.28) 0%, rgba(255,180,80,0.12) 30%, transparent 60%),
+                          radial-gradient(ellipse 100% 80% at 50% 25%, rgba(255,170,80,0.14) 0%, rgba(255,140,50,0.05) 40%, transparent 70%),
+                          linear-gradient(180deg, rgba(255,180,80,0.1) 0%, rgba(255,150,60,0.06) 50%, rgba(255,130,40,0.02) 80%, transparent 100%)
+                        `
+                      }} />
                     )}
 
                     {/* Pendant Lamps — clickable */}
@@ -571,14 +568,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                             <ellipse cx="28" cy="20" rx="14" ry="4" fill={sceneActive ? '#78350f' : '#1e293b'} />
                             {/* Bulb glow */}
                             <ellipse cx="28" cy="22" rx="4" ry="3" fill={sceneActive ? '#fbbf24' : '#475569'} />
-                            {/* Light cone */}
-                            {sceneActive && (
-                              <path d="M18 24 L8 70 L48 70 L38 24 Z" fill="url(#warmCone)" opacity="0.25" />
-                            )}
-                            <defs><linearGradient id="warmCone" x1="28" y1="24" x2="28" y2="70" gradientUnits="userSpaceOnUse">
-                              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.6" />
-                              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
-                            </linearGradient></defs>
+                            {sceneActive && <ellipse cx="28" cy="24" rx="6" ry="4" fill="#fbbf24" opacity="0.15" />}
                           </svg>
                         </div>
 
@@ -607,24 +597,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                             {/* Bulb glow under shade */}
                             <ellipse cx="40" cy="30" rx="8" ry="3" fill={sceneActive ? '#fbbf24' : '#475569'} opacity={sceneActive ? 0.7 : 0.3} />
                             {sceneActive && <ellipse cx="40" cy="28" rx="14" ry="5" fill="#fbbf24" opacity="0.15" />}
-                            {/* Light cone downward */}
-                            {sceneActive && (
-                              <path d="M26 32 L14 105 L66 105 L54 32 Z" fill="url(#classicLampCone)" opacity="0.18" />
-                            )}
-                            {/* Upward glow */}
-                            {sceneActive && (
-                              <path d="M22 8 L30 -10 L50 -10 L58 8 Z" fill="url(#classicLampUp)" opacity="0.12" />
-                            )}
-                            <defs>
-                              <linearGradient id="classicLampCone" x1="40" y1="32" x2="40" y2="105" gradientUnits="userSpaceOnUse">
-                                <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.9" />
-                                <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
-                              </linearGradient>
-                              <linearGradient id="classicLampUp" x1="40" y1="8" x2="40" y2="-10" gradientUnits="userSpaceOnUse">
-                                <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.5" />
-                                <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
-                              </linearGradient>
-                            </defs>
+
                           </svg>
                         </div>
 
@@ -638,14 +611,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                             <ellipse cx="28" cy="20" rx="14" ry="4" fill={sceneActive ? '#78350f' : '#1e293b'} />
                             {/* Bulb glow */}
                             <ellipse cx="28" cy="22" rx="4" ry="3" fill={sceneActive ? '#fbbf24' : '#475569'} />
-                            {/* Light cone */}
-                            {sceneActive && (
-                              <path d="M18 24 L8 70 L48 70 L38 24 Z" fill="url(#warmConeR)" opacity="0.25" />
-                            )}
-                            <defs><linearGradient id="warmConeR" x1="28" y1="24" x2="28" y2="70" gradientUnits="userSpaceOnUse">
-                              <stop offset="0%" stopColor="#fbbf24" stopOpacity="0.6" />
-                              <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
-                            </linearGradient></defs>
+                            {sceneActive && <ellipse cx="28" cy="24" rx="6" ry="4" fill="#fbbf24" opacity="0.15" />}
                           </svg>
                         </div>
 
