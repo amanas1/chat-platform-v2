@@ -547,9 +547,9 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                     {sceneActive && (
                       <div className="absolute inset-0 pointer-events-none z-0" style={{
                         background: `
-                          radial-gradient(ellipse 120% 60% at 50% 5%, rgba(255,200,120,0.28) 0%, rgba(255,180,80,0.12) 30%, transparent 60%),
-                          radial-gradient(ellipse 100% 80% at 50% 25%, rgba(255,170,80,0.14) 0%, rgba(255,140,50,0.05) 40%, transparent 70%),
-                          linear-gradient(180deg, rgba(255,180,80,0.1) 0%, rgba(255,150,60,0.06) 50%, rgba(255,130,40,0.02) 80%, transparent 100%)
+                          radial-gradient(ellipse 120% 70% at 50% 15%, rgba(255,200,120,0.25) 0%, rgba(255,180,80,0.1) 35%, transparent 65%),
+                          radial-gradient(ellipse 100% 60% at 50% 45%, rgba(255,170,80,0.18) 0%, rgba(255,140,50,0.06) 40%, transparent 70%),
+                          linear-gradient(180deg, rgba(255,180,80,0.06) 0%, rgba(255,160,60,0.1) 40%, rgba(255,140,50,0.06) 70%, transparent 100%)
                         `
                       }} />
                     )}
