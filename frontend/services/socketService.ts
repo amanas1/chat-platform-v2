@@ -287,10 +287,10 @@ class SocketManager {
   }
 
   public emit(event: string, data?: any): void {
-    if (this.state === 'CONNECTED') {
-      this.socket?.emit(event, data);
+    if (this.socket) {
+      this.socket.emit(event, data);
     } else {
-      this.log('warn', `Dropped emit "${event}": State is ${this.state}`);
+      this.log('error', `Dropped emit "${event}": Socket instance not initialized`);
     }
   }
 

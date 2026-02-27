@@ -41,7 +41,8 @@ export function useChatSocket(
       }
       
       const unsubConnect = socketService.onConnect(() => {
-        registeredRef.current = false; // Reset on reconnect to trigger re-registration
+        // Force re-registration on every new connection (new socket.id)
+        registeredRef.current = false; 
         registerAndSetOnline();
       });
       
