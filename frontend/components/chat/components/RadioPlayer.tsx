@@ -23,9 +23,10 @@ const SOCIALS = [
 interface RadioPlayerProps {
   radioPlaying?: boolean;
   radioStationName?: string;
+  onTogglePlay?: () => void;
 }
 
-export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, radioStationName = '' }) => {
+export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, radioStationName = '', onTogglePlay }) => {
   const [isPlaying, setIsPlaying] = React.useState(radioPlaying);
   const [showVolume, setShowVolume] = React.useState(false);
   const [playerVolume, setPlayerVolume] = React.useState(75);
@@ -164,7 +165,7 @@ export const RadioPlayer: React.FC<RadioPlayerProps> = ({ radioPlaying = false, 
             </button>
 
             {/* Play/Pause */}
-            <button onClick={() => setIsPlaying(!isPlaying)} className="w-11 h-11 rounded-full bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-white hover:bg-white/[0.12] transition-all active:scale-95">
+            <button onClick={() => { if (onTogglePlay) onTogglePlay(); else setIsPlaying(!isPlaying); }} className="w-11 h-11 rounded-full bg-white/[0.08] border border-white/[0.08] flex items-center justify-center text-white hover:bg-white/[0.12] transition-all active:scale-95">
               {isPlaying ? (
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
               ) : (

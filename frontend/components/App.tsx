@@ -1968,6 +1968,7 @@ export default function App(): React.JSX.Element {
                     language={language}
                     radioPlaying={isPlaying}
                     radioStationName={currentStation?.name || ''}
+                    onTogglePlay={togglePlay}
                 />
             )}
         </AnimatePresence>
