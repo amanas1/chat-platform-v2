@@ -14,6 +14,8 @@ import { KnockModal } from './overlays/KnockModal';
 import { WaitingOverlay } from './overlays/WaitingOverlay';
 import { RegistrationPanel, ProfileData } from './RegistrationPanel';
 import { RadioPlayer } from './components/RadioPlayer';
+import { AvatarBuilderModal, AvatarResult } from './components/AvatarBuilderModal';
+import { AvatarPreview } from './components/AvatarPreview';
 
 
 /* ─── localStorage KEY ─── */
@@ -150,6 +152,8 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
   const [avatarEmoji, setAvatarEmoji] = React.useState('👨');
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [showAgePicker, setShowAgePicker] = React.useState(false);
+  const [showAvatarBuilder, setShowAvatarBuilder] = React.useState(false);
+  const [avatarConfigData, setAvatarConfigData] = React.useState<AvatarResult | null>(null);
 
   // Settings (functional)
   const [soundEnabled_s, setSoundEnabled_s] = React.useState(true);
@@ -309,6 +313,18 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
   return (
     <>
+      {/* ═══ AVATAR BUILDER MODAL ═══ */}
+      <AvatarBuilderModal
+        isOpen={showAvatarBuilder}
+        onClose={() => setShowAvatarBuilder(false)}
+        onSave={(result) => {
+          setAvatarConfigData(result);
+          setAvatarEmoji(result.emoji || '👨');
+          setShowAvatarBuilder(false);
+        }}
+        initial={avatarConfigData || undefined}
+      />
+
       {/* ═══ GLOBAL SCENE OVERLAY ═══ */}
       <div
         className={`fixed inset-0 z-[90] pointer-events-none transition-opacity duration-700 ${sceneActive ? 'opacity-100' : 'opacity-0'}`}
@@ -403,11 +419,17 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
                 {/* Avatar */}
                 <div className="flex flex-col items-center mb-5">
-                  <div className="relative">
-                    <div className="w-24 h-24 rounded-full bg-[#1a2235] border-2 border-white/10 flex items-center justify-center overflow-hidden">
-                      <span className="text-5xl">{avatarEmoji}</span>
+                  <button onClick={() => setShowAvatarBuilder(true)} className="relative group">
+                    <div className="w-24 h-24 rounded-full bg-[#1a2235] border-2 border-white/10 flex items-center justify-center overflow-hidden transition-all group-hover:border-orange-400/30 group-hover:shadow-[0_0_20px_rgba(255,165,0,0.08)]">
+                      {avatarConfigData?.avatarConfig
+                        ? <AvatarPreview config={avatarConfigData.avatarConfig} size={88} />
+                        : <span className="text-5xl">{avatarEmoji}</span>
+                      }
                     </div>
-                  </div>
+                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#1e293b] border border-white/10 flex items-center justify-center text-slate-400 group-hover:text-orange-400 transition-colors">
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                    </div>
+                  </button>
                   <p className="text-[10px] text-slate-500 mt-3 flex items-center gap-1">
                     <span className="text-red-400">📍</span> Авто-определение: <span className="font-bold text-white">Global</span>
                   </p>
