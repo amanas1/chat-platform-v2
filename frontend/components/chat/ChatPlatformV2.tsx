@@ -257,6 +257,18 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
   }
 
   return (
+    <>
+      {/* ═══ GLOBAL SCENE OVERLAY ═══ */}
+      <div
+        className={`fixed inset-0 z-[90] pointer-events-none transition-opacity duration-700 ${sceneActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        style={{
+          background: sceneActive
+            ? `radial-gradient(circle at calc(100% - 230px) 110px, rgba(255,210,120,0.25) 0%, rgba(0,0,0,0.88) 65%), linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.4) 100%)`
+            : 'transparent',
+          backdropFilter: sceneActive ? 'blur(2px)' : 'none',
+        }}
+      />
+
     <div className="fixed inset-y-0 right-0 z-[100] pointer-events-none font-['Inter']">
       
 
@@ -284,7 +296,6 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
       {/* ═══════════ CHAT PANEL ═══════════ */}
       <div 
         className={`pointer-events-auto h-full w-[420px] lg:w-[460px] flex flex-col bg-[#0f172a] transition-all duration-700 ${sceneActive ? 'border-[3px] border-yellow-500 shadow-[0_0_60px_rgba(255,180,0,0.35),inset_0_0_80px_rgba(255,200,100,0.04)]' : 'border-l border-white/[0.06]'}`}
-        style={sceneActive ? { backdropFilter: 'blur(24px)' } : {}}
       >
         
         {/* ─── HEADER BAR ─── */}
@@ -676,6 +687,7 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
         </div>
       </div>
     </div>
+    </>
   );
 };
 
