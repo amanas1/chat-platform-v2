@@ -549,7 +549,8 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                         background: `
                           radial-gradient(ellipse 120% 70% at 50% 15%, rgba(255,200,120,0.25) 0%, rgba(255,180,80,0.1) 35%, transparent 65%),
                           radial-gradient(ellipse 100% 60% at 50% 45%, rgba(255,170,80,0.18) 0%, rgba(255,140,50,0.06) 40%, transparent 70%),
-                          linear-gradient(180deg, rgba(255,180,80,0.06) 0%, rgba(255,160,60,0.1) 40%, rgba(255,140,50,0.06) 70%, transparent 100%)
+                          radial-gradient(ellipse 90% 50% at 50% 75%, rgba(255,160,70,0.14) 0%, rgba(255,130,40,0.04) 40%, transparent 65%),
+                          linear-gradient(180deg, rgba(255,180,80,0.04) 0%, rgba(255,160,60,0.1) 35%, rgba(255,150,50,0.08) 65%, rgba(255,130,40,0.03) 90%, transparent 100%)
                         `
                       }} />
                     )}
@@ -586,14 +587,14 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
                             <rect x="37" y="55" width="6" height="2" rx="1" fill={sceneActive ? '#b45309' : '#64748b'} />
                             {/* Decorative band top */}
                             <rect x="37" y="32" width="6" height="2" rx="1" fill={sceneActive ? '#b45309' : '#64748b'} />
-                            {/* Shade — trapezoid (wider top, narrower bottom) */}
-                            <path d="M18 8 L62 8 L56 30 L24 30 Z" fill={sceneActive ? '#d4a574' : '#334155'} />
+                            {/* Shade — trapezoid (narrower top, wider bottom = bowl) */}
+                            <path d="M26 8 L54 8 L62 30 L18 30 Z" fill={sceneActive ? '#d4a574' : '#334155'} />
                             {/* Shade inner glow */}
-                            <path d="M22 10 L58 10 L54 28 L26 28 Z" fill={sceneActive ? '#e8c89e' : '#475569'} opacity="0.3" />
+                            <path d="M28 10 L52 10 L58 28 L22 28 Z" fill={sceneActive ? '#e8c89e' : '#475569'} opacity="0.3" />
                             {/* Top rim */}
-                            <line x1="18" y1="8" x2="62" y2="8" stroke={sceneActive ? '#b45309' : '#475569'} strokeWidth="1.5" />
+                            <line x1="26" y1="8" x2="54" y2="8" stroke={sceneActive ? '#b45309' : '#475569'} strokeWidth="1.5" />
                             {/* Bottom rim */}
-                            <line x1="24" y1="30" x2="56" y2="30" stroke={sceneActive ? '#b45309' : '#475569'} strokeWidth="1" />
+                            <line x1="18" y1="30" x2="62" y2="30" stroke={sceneActive ? '#b45309' : '#475569'} strokeWidth="1" />
                             {/* Bulb glow under shade */}
                             <ellipse cx="40" cy="30" rx="8" ry="3" fill={sceneActive ? '#fbbf24' : '#475569'} opacity={sceneActive ? 0.7 : 0.3} />
                             {sceneActive && <ellipse cx="40" cy="28" rx="14" ry="5" fill="#fbbf24" opacity="0.15" />}
