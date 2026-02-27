@@ -12,6 +12,7 @@ import { PrivateChatView } from './views/PrivateChatView';
 import { ConveyorCard } from './components/ConveyorCard';
 import { KnockModal } from './overlays/KnockModal';
 import { WaitingOverlay } from './overlays/WaitingOverlay';
+import { RegistrationPanel } from './RegistrationPanel';
 
 
 /* ─── localStorage KEY ─── */
@@ -85,6 +86,11 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
     const unsubConnect = socketService.onConnect(handler);
     return () => unsubConnect();
   }, []);
+
+  // ─── REGISTRATION CHECK ───
+  const [isRegistered, setIsRegistered] = React.useState(() => {
+    try { return !!localStorage.getItem('radio_chat_profile'); } catch { return false; }
+  });
 
   // ─── UI STATE ───
   const [activeTab, setActiveTab] = React.useState<'profile' | 'dialogues' | 'discovery'>('discovery');
@@ -244,6 +250,11 @@ export const ChatPlatformV2: React.FC<ChatPlatformV2Props> = ({ currentUserOverr
 
   const statusOptions = ['Хочу поговорить', 'Свободен', 'Просто слушаю', 'Без флирта'];
   const ages = Array.from({ length: 48 }, (_, i) => i + 18);
+
+  // ─── If not registered, show RegistrationPanel ───
+  if (!isRegistered) {
+    return <RegistrationPanel onComplete={() => setIsRegistered(true)} />;
+  }
 
   return (
     <div className="fixed inset-y-0 right-0 z-[100] pointer-events-none font-['Inter']">
