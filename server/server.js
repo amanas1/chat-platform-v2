@@ -20,6 +20,7 @@ const allowedOrigins = [
   'https://auradiochat.com',
   'https://www.auradiochat.com',
   'https://stream-flow-main-2.vercel.app',
+  'https://chat-platform-v2.vercel.app',
   'http://localhost:3000',
   'http://localhost:5173'
 ];
@@ -166,7 +167,11 @@ app.get('/api/location', async (req, res) => {
 
 // --- SOCKET.IO ---
 const io = new Server(server, {
-  cors: { origin: allowedOrigins, credentials: true },
+  cors: { 
+    origin: allowedOrigins, 
+    methods: ['GET', 'POST'],
+    credentials: true 
+  },
   pingTimeout: 20000,
   pingInterval: 10000
 });
